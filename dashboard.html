@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم — المنصة الزراعية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --line: #CDBF9C; --paper: #FCFAF3;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; padding:24px;
+  }
+  header{
+    max-width:720px; margin:0 auto 24px; display:flex; justify-content:space-between; align-items:center;
+  }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  button.logout{
+    padding:9px 18px; border-radius:8px; border:1px solid var(--line);
+    background:var(--paper); font-family:'Tajawal'; font-weight:700; cursor:pointer; font-size:14px;
+  }
+  .card{
+    max-width:720px; margin:0 auto;
+    background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:32px;
+    text-align:center;
+  }
+  .card p{ margin-top:10px; color:#5b543f; font-size:15px; }
+  .card .email{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:17px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🌱 المنصة الزراعية</h1>
+    <button class="logout" id="logout">تسجيل الخروج</button>
+  </header>
+  <div class="card">
+    <p>مرحبًا بك، تم تسجيل الدخول بنجاح كـ</p>
+    <p class="email" id="user-email">...</p>
+    <p>هنا هيتم بناء باقي أقسام المنصة تباعًا.</p>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){
+      window.location.href = 'login.html';
+      return;
+    }
+    document.getElementById('user-email').textContent = session.user.email;
+  })();
+
+  document.getElementById('logout').addEventListener('click', async ()=>{
+    await db.auth.signOut();
+    window.location.href = 'login.html';
+  });
+</script>
+</body>
+</html>
