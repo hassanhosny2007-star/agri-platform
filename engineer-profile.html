@@ -28,6 +28,7 @@
   }
   input[type=file]{ display:none; }
   .full-name{ font-family:'Tajawal'; font-weight:900; font-size:19px; color:var(--leaf-deep); margin-top:6px; }
+  .upload-status{ font-size:12px; color:var(--rust); margin-top:4px; min-height:16px; }
   .spec-row{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:8px; }
   .spec-row input{
     max-width:260px; padding:8px 12px; border-radius:8px; border:1px solid var(--line);
@@ -56,7 +57,7 @@
     font-family:'Tajawal'; font-weight:700; font-size:13.5px; cursor:pointer;
   }
 
-  .item-card{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff; }
+  .item-card{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff; cursor:pointer; }
   .item-card .item-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .item-card .item-title{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:14.5px; }
   .item-card .item-sub{ font-size:12.5px; color:#5b543f; margin-top:3px; }
@@ -68,6 +69,7 @@
   .empty-hint{ color:#8a7f63; font-size:13px; text-align:center; padding:10px; }
   .treatment-row{ font-size:13px; padding:8px 0; border-bottom:1px solid var(--bg); }
   .treatment-row .t-date{ font-family:'Tajawal'; font-weight:700; color:var(--rust); font-size:12px; }
+  #farm-detail-meta{ margin-bottom:16px; }
 </style>
 </head>
 <body>
@@ -84,13 +86,14 @@
       <input type="file" id="avatar-input" accept="image/*">
     </div>
     <div class="full-name" id="full-name">...</div>
+    <div class="upload-status" id="upload-status"></div>
     <div class="spec-row">
       <input type="text" id="specialization" placeholder="التخصص (مثال: أمراض النبات)">
       <button id="save-spec">حفظ</button>
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="farms-section">
     <h2>🚜 المزارع اللي بتتابعها</h2>
     <button class="toggle-form-btn" id="toggle-farm-form">+ إضافة مزرعة جديدة</button>
     <form class="inline-form" id="farm-form">
@@ -109,6 +112,20 @@
       <button class="save" type="submit">حفظ المزرعة</button>
     </form>
     <div id="farms-list"><div class="empty-hint">جاري التحميل...</div></div>
+  </div>
+
+  <div class="section" id="farm-detail-section" style="display:none">
+    <button class="toggle-form-btn" id="back-to-farms">← رجوع لكل المزارع</button>
+    <h2 id="farm-detail-title"></h2>
+    <div class="item-sub" id="farm-detail-meta"></div>
+    <button class="toggle-form-btn" id="add-crop-btn">+ إضافة محصول</button>
+    <form class="inline-form" id="crop-form">
+      <div><label>نوع المحصول</label><input type="text" id="crop-type" required></div>
+      <div><label>الصنف</label><input type="text" id="crop-variety"></div>
+      <div><label>تاريخ الزراعة</label><input type="date" id="crop-date"></div>
+      <button class="save" type="submit">حفظ المحصول</button>
+    </form>
+    <div id="crops-list"><div class="empty-hint">جاري التحميل...</div></div>
   </div>
 </div>
 
@@ -131,6 +148,7 @@
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
   let currentUser = null;
+  let activeFarmId = null;
 
   async function init(){
     const { data: { session } } = await db.auth.getSession();
@@ -149,25 +167,36 @@
   }
 
   // رفع/تغيير الصورة الشخصية
+  const uploadStatus = document.getElementById('upload-status');
   document.getElementById('avatar-btn').addEventListener('click', () => document.getElementById('avatar-input').click());
   document.getElementById('avatar-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
+    uploadStatus.textContent = 'جاري الرفع...';
     const ext = file.name.split('.').pop();
     const path = `${currentUser.id}/avatar.${ext}`;
     const { error: uploadError } = await db.storage.from('avatars').upload(path, file, { upsert: true });
-    if(uploadError){ alert('حدث خطأ في رفع الصورة: ' + uploadError.message); return; }
+    if(uploadError){
+      uploadStatus.textContent = 'فشل الرفع: ' + uploadError.message;
+      return;
+    }
     const { data: urlData } = db.storage.from('avatars').getPublicUrl(path);
     const publicUrl = urlData.publicUrl + '?t=' + Date.now();
-    await db.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
+    const { error: updateError } = await db.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
+    if(updateError){
+      uploadStatus.textContent = 'اترفعت الصورة بس فشل حفظها في البروفايل: ' + updateError.message;
+      return;
+    }
     document.getElementById('avatar-img').src = publicUrl;
+    uploadStatus.textContent = '✅ تم حفظ الصورة';
+    setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
   });
 
   // حفظ التخصص
   document.getElementById('save-spec').addEventListener('click', async () => {
     const specialization = document.getElementById('specialization').value;
-    await db.from('profiles').update({ specialization }).eq('id', currentUser.id);
-    alert('تم حفظ التخصص');
+    const { error } = await db.from('profiles').update({ specialization }).eq('id', currentUser.id);
+    alert(error ? ('خطأ: ' + error.message) : 'تم حفظ التخصص');
   });
 
   // إظهار/إخفاء فورم إضافة مزرعة
@@ -205,57 +234,66 @@
             <div class="item-sub">${farm.location || 'بدون موقع محدد'} ${farm.area ? '· ' + farm.area + ' فدان' : ''}</div>
           </div>
           <div class="item-actions">
-            <button class="show-crops-btn">عرض المحاصيل</button>
             <button class="delete-btn delete-farm-btn">حذف</button>
           </div>
-        </div>
-        <div class="nested" id="farm-nested-${farm.id}">
-          <button class="toggle-form-btn add-crop-btn">+ إضافة محصول</button>
-          <form class="inline-form crop-form">
-            <div><label>نوع المحصول</label><input type="text" class="crop-type" required></div>
-            <div><label>الصنف</label><input type="text" class="crop-variety"></div>
-            <div><label>تاريخ الزراعة</label><input type="date" class="crop-date"></div>
-            <button class="save" type="submit">حفظ المحصول</button>
-          </form>
-          <div class="crops-list"><div class="empty-hint">جاري التحميل...</div></div>
         </div>
       `;
       list.appendChild(card);
 
-      card.querySelector('.delete-farm-btn').addEventListener('click', async () => {
+      card.addEventListener('click', (e) => {
+        if(e.target.closest('.delete-farm-btn')) return;
+        openFarmDetail(farm);
+      });
+
+      card.querySelector('.delete-farm-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
         if(!confirm('متأكد من حذف المزرعة دي وكل المحاصيل اللي جواها؟')) return;
         await db.from('farms').delete().eq('id', farm.id);
         loadFarms();
       });
-
-      const nested = card.querySelector(`#farm-nested-${farm.id}`);
-      card.querySelector('.show-crops-btn').addEventListener('click', () => {
-        nested.classList.toggle('active');
-        if(nested.classList.contains('active')) loadCrops(farm.id, nested.querySelector('.crops-list'));
-      });
-
-      card.querySelector('.add-crop-btn').addEventListener('click', () => {
-        card.querySelector('.crop-form').classList.toggle('active');
-      });
-
-      card.querySelector('.crop-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const crop_type = card.querySelector('.crop-type').value;
-        const variety = card.querySelector('.crop-variety').value;
-        const planting_date = card.querySelector('.crop-date').value || null;
-        const { error } = await db.from('crops').insert({ farm_id: farm.id, crop_type, variety, planting_date });
-        if(error){ alert('خطأ: ' + error.message); return; }
-        e.target.reset();
-        e.target.classList.remove('active');
-        loadCrops(farm.id, nested.querySelector('.crops-list'));
-      });
     });
   }
 
-  async function loadCrops(farmId, container){
+  function openFarmDetail(farm){
+    activeFarmId = farm.id;
+    document.getElementById('farms-section').style.display = 'none';
+    document.getElementById('farm-detail-section').style.display = 'block';
+    document.getElementById('farm-detail-title').textContent = '🌾 ' + farm.name;
+    document.getElementById('farm-detail-meta').textContent =
+      (farm.location || 'بدون موقع محدد') + (farm.area ? ' · ' + farm.area + ' فدان' : '');
+    document.getElementById('crop-form').classList.remove('active');
+    document.getElementById('crop-form').reset();
+    loadCrops(farm.id);
+  }
+
+  document.getElementById('back-to-farms').addEventListener('click', () => {
+    activeFarmId = null;
+    document.getElementById('farm-detail-section').style.display = 'none';
+    document.getElementById('farms-section').style.display = 'block';
+    loadFarms();
+  });
+
+  document.getElementById('add-crop-btn').addEventListener('click', () => {
+    document.getElementById('crop-form').classList.toggle('active');
+  });
+
+  document.getElementById('crop-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const crop_type = document.getElementById('crop-type').value;
+    const variety = document.getElementById('crop-variety').value;
+    const planting_date = document.getElementById('crop-date').value || null;
+    const { error } = await db.from('crops').insert({ farm_id: activeFarmId, crop_type, variety, planting_date });
+    if(error){ alert('خطأ: ' + error.message); return; }
+    e.target.reset();
+    e.target.classList.remove('active');
+    loadCrops(activeFarmId);
+  });
+
+  async function loadCrops(farmId){
+    const container = document.getElementById('crops-list');
     const { data: crops, error } = await db.from('crops').select('*').eq('farm_id', farmId).order('created_at', { ascending: false });
     if(error || !crops || crops.length === 0){
-      container.innerHTML = '<div class="empty-hint">لسه مفيش محاصيل مضافة</div>';
+      container.innerHTML = '<div class="empty-hint">لسه مفيش محاصيل مضافة لهذه المزرعة</div>';
       return;
     }
     container.innerHTML = '';
@@ -285,14 +323,16 @@
       `;
       container.appendChild(item);
 
-      item.querySelector('.delete-crop-btn').addEventListener('click', async () => {
+      item.querySelector('.delete-crop-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
         if(!confirm('متأكد من حذف المحصول ده وسجل معاملاته؟')) return;
         await db.from('crops').delete().eq('id', crop.id);
-        loadCrops(farmId, container);
+        loadCrops(farmId);
       });
 
       const nested = item.querySelector(`#crop-nested-${crop.id}`);
-      item.querySelector('.show-log-btn').addEventListener('click', () => {
+      item.querySelector('.show-log-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
         nested.classList.toggle('active');
         if(nested.classList.contains('active')) loadTreatments(crop.id, nested.querySelector('.treatments-list'));
       });
