@@ -41,6 +41,14 @@
     border:1px solid var(--line); background:#fff; font-size:15px; font-family:inherit;
   }
   input:focus{ outline:2px solid var(--leaf); }
+  select{
+    margin-top:6px; width:100%; padding:12px 14px; border-radius:9px;
+    border:1px solid var(--line); background:#fff; font-size:15px; font-family:inherit;
+  }
+  select:focus{ outline:2px solid var(--leaf); }
+  .remember-row{ display:flex; align-items:center; gap:8px; margin-top:2px; }
+  .remember-row input{ width:auto; margin:0; }
+  .remember-row label{ margin:0; font-weight:400; color:#5b543f; }
   button.submit{
     margin-top:6px; padding:13px; border:none; border-radius:9px;
     background:var(--leaf); color:var(--paper); font-family:'Tajawal'; font-weight:700;
@@ -70,10 +78,18 @@
         <label>كلمة المرور</label>
         <input type="password" id="login-password" required>
       </div>
+      <div class="remember-row">
+        <input type="checkbox" id="login-remember" checked>
+        <label for="login-remember">تذكرني</label>
+      </div>
       <button class="submit" type="submit">دخول</button>
     </form>
 
     <form id="form-signup">
+      <div>
+        <label>الاسم الثلاثي</label>
+        <input type="text" id="signup-fullname" required placeholder="مثال: محمد أحمد علي">
+      </div>
       <div>
         <label>البريد الإلكتروني</label>
         <input type="email" id="signup-email" required>
@@ -81,6 +97,27 @@
       <div>
         <label>كلمة المرور (٦ حروف على الأقل)</label>
         <input type="password" id="signup-password" required minlength="6">
+      </div>
+      <div>
+        <label>رقم الموبايل</label>
+        <input type="tel" id="signup-phone" required pattern="[0-9]{10,15}" placeholder="01xxxxxxxxx">
+      </div>
+      <div>
+        <label>الرقم القومي</label>
+        <input type="text" id="signup-national-id" required pattern="[0-9]{14}" maxlength="14" placeholder="١٤ رقم">
+      </div>
+      <div>
+        <label>العنوان</label>
+        <input type="text" id="signup-address" required placeholder="المحافظة، المركز، القرية/الحي">
+      </div>
+      <div>
+        <label>أنا بصفتي</label>
+        <select id="signup-role" required>
+          <option value="farmer">مزارع</option>
+          <option value="engineer">مهندس زراعي</option>
+          <option value="trader">تاجر</option>
+          <option value="company">شركة</option>
+        </select>
       </div>
       <button class="submit" type="submit">إنشاء حساب</button>
     </form>
@@ -93,7 +130,19 @@
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
   const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
   const { createClient } = supabase;
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
   const tabLogin = document.getElementById('tab-login');
   const tabSignup = document.getElementById('tab-signup');
@@ -123,6 +172,8 @@
     hideMsg();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
+    const remember = document.getElementById('login-remember').checked;
+    localStorage.setItem('agronex-remember', remember ? 'true' : 'false');
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if(error){ showMsg('خطأ: ' + error.message, 'error'); return; }
     window.location.href = 'dashboard.html';
@@ -131,10 +182,29 @@
   formSignup.addEventListener('submit', async (e)=>{
     e.preventDefault();
     hideMsg();
+    const fullName = document.getElementById('signup-fullname').value.trim();
+    if(fullName.split(/\s+/).filter(Boolean).length < 3){
+      showMsg('من فضلك اكتب الاسم الثلاثي كاملًا.', 'error');
+      return;
+    }
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
-    const { data, error } = await db.auth.signUp({ email, password });
-    if(error){ showMsg('خطأ: ' + error.message, 'error'); return; }
+    const role = document.getElementById('signup-role').value;
+    const phone = document.getElementById('signup-phone').value;
+    const nationalId = document.getElementById('signup-national-id').value;
+    const address = document.getElementById('signup-address').value;
+    const { data, error } = await db.auth.signUp({
+      email, password,
+      options: { data: { role: role, phone: phone, national_id: nationalId, address: address, full_name: fullName } }
+    });
+    if(error){
+      if(error.message.includes('duplicate') || error.message.includes('unique')){
+        showMsg('رقم الموبايل أو الرقم القومي مسجل بحساب آخر بالفعل.', 'error');
+      } else {
+        showMsg('خطأ: ' + error.message, 'error');
+      }
+      return;
+    }
     showMsg('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.', 'success');
     showLogin();
   });
