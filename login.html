@@ -3,67 +3,140 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لوحة التحكم — المنصة الزراعية</title>
+<title>تسجيل الدخول — المنصة الزراعية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
-    --line: #CDBF9C; --paper: #FCFAF3;
+    --rust: #A85D28; --line: #CDBF9C; --paper: #FCFAF3; --error:#B23A2E;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--bg); color:var(--ink);
     font-family:'IBM Plex Sans Arabic', sans-serif;
-    min-height:100vh; padding:24px;
-  }
-  header{
-    max-width:720px; margin:0 auto 24px; display:flex; justify-content:space-between; align-items:center;
-  }
-  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
-  button.logout{
-    padding:9px 18px; border-radius:8px; border:1px solid var(--line);
-    background:var(--paper); font-family:'Tajawal'; font-weight:700; cursor:pointer; font-size:14px;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
   }
   .card{
-    max-width:720px; margin:0 auto;
-    background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:32px;
-    text-align:center;
+    max-width:420px; width:100%;
+    background:var(--paper); border:1px solid var(--line); border-radius:18px;
+    padding:36px 32px;
   }
-  .card p{ margin-top:10px; color:#5b543f; font-size:15px; }
-  .card .email{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:17px; }
+  h1{ font-family:'Tajawal', sans-serif; font-weight:900; font-size:22px; color:var(--leaf-deep); text-align:center; }
+  p.tagline{ margin-top:6px; text-align:center; color:var(--rust); font-family:'Tajawal'; font-weight:700; font-size:13px; }
+  .tabs{ display:flex; margin-top:24px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .tab{
+    flex:1; text-align:center; padding:11px; cursor:pointer;
+    font-family:'Tajawal'; font-weight:700; font-size:14.5px; color:#7a7259;
+    background:var(--bg);
+  }
+  .tab.active{ background:var(--leaf); color:var(--paper); }
+  form{ margin-top:22px; display:none; flex-direction:column; gap:14px; }
+  form.active{ display:flex; }
+  label{ font-size:13.5px; font-weight:600; color:var(--leaf-deep); }
+  input{
+    margin-top:6px; width:100%; padding:12px 14px; border-radius:9px;
+    border:1px solid var(--line); background:#fff; font-size:15px; font-family:inherit;
+  }
+  input:focus{ outline:2px solid var(--leaf); }
+  button.submit{
+    margin-top:6px; padding:13px; border:none; border-radius:9px;
+    background:var(--leaf); color:var(--paper); font-family:'Tajawal'; font-weight:700;
+    font-size:15.5px; cursor:pointer;
+  }
+  button.submit:disabled{ opacity:.6; cursor:not-allowed; }
+  .msg{ margin-top:16px; font-size:14px; text-align:center; display:none; padding:10px; border-radius:8px; }
+  .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--error); }
+  .msg.success{ display:block; background:rgba(59,91,55,0.1); color:var(--leaf-deep); }
 </style>
 </head>
 <body>
-  <header>
-    <h1>🌱 AgroNex</h1>
-    <button class="logout" id="logout">تسجيل الخروج</button>
-  </header>
   <div class="card">
-    <p>مرحبًا بك، تم تسجيل الدخول بنجاح كـ</p>
-    <p class="email" id="user-email">...</p>
-    <p>هنا هيتم بناء باقي أقسام المنصة تباعًا.</p>
+    <h1>🌱 AgroNex</h1>
+    <p class="tagline">حينما تلتقي الزراعة بالتكنولوجيا</p>
+    <div class="tabs">
+      <div class="tab active" id="tab-login">تسجيل الدخول</div>
+      <div class="tab" id="tab-signup">حساب جديد</div>
+    </div>
+
+    <form id="form-login" class="active">
+      <div>
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="login-email" required>
+      </div>
+      <div>
+        <label>كلمة المرور</label>
+        <input type="password" id="login-password" required>
+      </div>
+      <button class="submit" type="submit">دخول</button>
+    </form>
+
+    <form id="form-signup">
+      <div>
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="signup-email" required>
+      </div>
+      <div>
+        <label>كلمة المرور (٦ حروف على الأقل)</label>
+        <input type="password" id="signup-password" required minlength="6">
+      </div>
+      <button class="submit" type="submit">إنشاء حساب</button>
+    </form>
+
+    <div class="msg" id="msg"></div>
   </div>
 
 <script>
+  // إعدادات الاتصال بـ Supabase
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
   const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
   const { createClient } = supabase;
   const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  (async () => {
-    const { data: { session } } = await db.auth.getSession();
-    if(!session){
-      window.location.href = 'login.html';
-      return;
-    }
-    document.getElementById('user-email').textContent = session.user.email;
-  })();
+  const tabLogin = document.getElementById('tab-login');
+  const tabSignup = document.getElementById('tab-signup');
+  const formLogin = document.getElementById('form-login');
+  const formSignup = document.getElementById('form-signup');
+  const msg = document.getElementById('msg');
 
-  document.getElementById('logout').addEventListener('click', async ()=>{
-    await db.auth.signOut();
-    window.location.href = 'login.html';
+  function showLogin(){
+    tabLogin.classList.add('active'); tabSignup.classList.remove('active');
+    formLogin.classList.add('active'); formSignup.classList.remove('active');
+    hideMsg();
+  }
+  function showSignup(){
+    tabSignup.classList.add('active'); tabLogin.classList.remove('active');
+    formSignup.classList.add('active'); formLogin.classList.remove('active');
+    hideMsg();
+  }
+  function hideMsg(){ msg.className = 'msg'; msg.textContent=''; }
+  function showMsg(text, type){ msg.textContent = text; msg.className = 'msg ' + type; }
+
+  tabLogin.addEventListener('click', showLogin);
+  tabSignup.addEventListener('click', showSignup);
+  if(window.location.hash === '#signup'){ showSignup(); }
+
+  formLogin.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    hideMsg();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if(error){ showMsg('خطأ: ' + error.message, 'error'); return; }
+    window.location.href = 'dashboard.html';
+  });
+
+  formSignup.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    hideMsg();
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+    const { data, error } = await db.auth.signUp({ email, password });
+    if(error){ showMsg('خطأ: ' + error.message, 'error'); return; }
+    showMsg('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.', 'success');
+    showLogin();
   });
 </script>
 </body>
