@@ -49,6 +49,19 @@
   .remember-row{ display:flex; align-items:center; gap:8px; margin-top:2px; }
   .remember-row input{ width:auto; margin:0; }
   .remember-row label{ margin:0; font-weight:400; color:#5b543f; }
+  .pw-wrap{ position:relative; }
+  .pw-wrap input{ padding-left:42px; }
+  .pw-toggle{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    cursor:pointer; font-size:15px; user-select:none; margin-top:3px;
+  }
+  .forgot-row{ text-align:left; margin-top:-6px; }
+  .forgot-row span{ font-size:12.5px; color:var(--rust); cursor:pointer; text-decoration:underline; }
+  .forgot-hint{ font-size:13px; color:#5b543f; }
+  .back-link{ text-align:center; font-size:12.5px; color:var(--leaf-deep); cursor:pointer; text-decoration:underline; margin-top:2px; }
+  .consent-row{ display:flex; align-items:flex-start; gap:8px; margin-top:2px; }
+  .consent-row input{ width:auto; margin:3px 0 0 0; }
+  .consent-row label{ margin:0; font-weight:400; color:#5b543f; font-size:12.5px; line-height:1.6; }
   button.submit{
     margin-top:6px; padding:13px; border:none; border-radius:9px;
     background:var(--leaf); color:var(--paper); font-family:'Tajawal'; font-weight:700;
@@ -76,13 +89,27 @@
       </div>
       <div>
         <label>كلمة المرور</label>
-        <input type="password" id="login-password" required>
+        <div class="pw-wrap">
+          <input type="password" id="login-password" required>
+          <span class="pw-toggle" data-target="login-password">👁️</span>
+        </div>
       </div>
+      <div class="forgot-row"><span id="forgot-link">نسيت كلمة المرور؟</span></div>
       <div class="remember-row">
         <input type="checkbox" id="login-remember" checked>
         <label for="login-remember">تذكرني</label>
       </div>
       <button class="submit" type="submit">دخول</button>
+    </form>
+
+    <form id="form-forgot">
+      <p class="forgot-hint">هنبعتلك رابط لإعادة تعيين كلمة المرور على بريدك الإلكتروني.</p>
+      <div>
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="forgot-email" required>
+      </div>
+      <button class="submit" type="submit">إرسال رابط إعادة التعيين</button>
+      <p class="back-link" id="back-to-login">العودة لتسجيل الدخول</p>
     </form>
 
     <form id="form-signup">
@@ -96,7 +123,10 @@
       </div>
       <div>
         <label>كلمة المرور (٦ حروف على الأقل)</label>
-        <input type="password" id="signup-password" required minlength="6">
+        <div class="pw-wrap">
+          <input type="password" id="signup-password" required minlength="6">
+          <span class="pw-toggle" data-target="signup-password">👁️</span>
+        </div>
       </div>
       <div>
         <label>رقم الموبايل</label>
@@ -118,6 +148,10 @@
           <option value="trader">تاجر</option>
           <option value="company">شركة</option>
         </select>
+      </div>
+      <div class="consent-row">
+        <input type="checkbox" id="signup-consent" required>
+        <label for="signup-consent">أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بـ AgroNex</label>
       </div>
       <button class="submit" type="submit">إنشاء حساب</button>
     </form>
@@ -148,16 +182,26 @@
   const tabSignup = document.getElementById('tab-signup');
   const formLogin = document.getElementById('form-login');
   const formSignup = document.getElementById('form-signup');
+  const formForgot = document.getElementById('form-forgot');
   const msg = document.getElementById('msg');
 
+  function hideAllForms(){
+    [formLogin, formSignup, formForgot].forEach(f => f.classList.remove('active'));
+    [tabLogin, tabSignup].forEach(t => t.classList.remove('active'));
+  }
   function showLogin(){
-    tabLogin.classList.add('active'); tabSignup.classList.remove('active');
-    formLogin.classList.add('active'); formSignup.classList.remove('active');
+    hideAllForms();
+    tabLogin.classList.add('active'); formLogin.classList.add('active');
     hideMsg();
   }
   function showSignup(){
-    tabSignup.classList.add('active'); tabLogin.classList.remove('active');
-    formSignup.classList.add('active'); formLogin.classList.remove('active');
+    hideAllForms();
+    tabSignup.classList.add('active'); formSignup.classList.add('active');
+    hideMsg();
+  }
+  function showForgot(){
+    hideAllForms();
+    formForgot.classList.add('active');
     hideMsg();
   }
   function hideMsg(){ msg.className = 'msg'; msg.textContent=''; }
@@ -165,7 +209,29 @@
 
   tabLogin.addEventListener('click', showLogin);
   tabSignup.addEventListener('click', showSignup);
+  document.getElementById('forgot-link').addEventListener('click', showForgot);
+  document.getElementById('back-to-login').addEventListener('click', showLogin);
   if(window.location.hash === '#signup'){ showSignup(); }
+
+  document.querySelectorAll('.pw-toggle').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const input = document.getElementById(toggle.dataset.target);
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      toggle.textContent = isHidden ? '🙈' : '👁️';
+    });
+  });
+
+  formForgot.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    hideMsg();
+    const email = document.getElementById('forgot-email').value;
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password.html'
+    });
+    if(error){ showMsg('خطأ: ' + error.message, 'error'); return; }
+    showMsg('تم إرسال رابط إعادة التعيين، تفقّد بريدك الإلكتروني.', 'success');
+  });
 
   formLogin.addEventListener('submit', async (e)=>{
     e.preventDefault();
