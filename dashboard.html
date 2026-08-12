@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
-    --line: #CDBF9C; --paper: #FCFAF3;
+    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
@@ -33,6 +33,18 @@
   }
   .card p{ margin-top:10px; color:#5b543f; font-size:15px; }
   .card .email{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:17px; }
+  .weather-widget{
+    position:fixed; top:90px; left:20px; z-index:10;
+    background:var(--paper); border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; font-size:13.5px; min-width:150px;
+    box-shadow:0 2px 8px rgba(30,42,27,0.08);
+  }
+  .weather-loading, .weather-error{ color:#8a7f63; }
+  .weather-error{ color:var(--rust); font-size:12.5px; cursor:pointer; }
+  .weather-data{ display:flex; flex-direction:column; gap:2px; }
+  .weather-data .city{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:13px; }
+  .weather-data .temp{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); }
+  .weather-data .humidity{ color:#5b543f; font-size:12.5px; }
 </style>
 </head>
 <body>
@@ -40,6 +52,9 @@
     <h1>🌱 AgroNex</h1>
     <button class="logout" id="logout">تسجيل الخروج</button>
   </header>
+  <div class="weather-widget" id="weather">
+    <div class="weather-loading">📍 جاري تحديد موقعك...</div>
+  </div>
   <div class="card">
     <p>مرحبًا بك، تم تسجيل الدخول بنجاح كـ</p>
     <p class="email" id="user-email">...</p>
@@ -50,7 +65,19 @@
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
   const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
   const { createClient } = supabase;
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
   (async () => {
     const { data: { session } } = await db.auth.getSession();
@@ -65,6 +92,43 @@
     await db.auth.signOut();
     window.location.href = 'login.html';
   });
+
+  // خانة الطقس
+  const weatherEl = document.getElementById('weather');
+  function showWeatherError(text){
+    weatherEl.innerHTML = `<div class="weather-error" id="retry-weather">⚠️ ${text}<br><span style="text-decoration:underline">إعادة المحاولة</span></div>`;
+    document.getElementById('retry-weather').addEventListener('click', loadWeather);
+  }
+  async function loadWeather(){
+    weatherEl.innerHTML = '<div class="weather-loading">📍 جاري تحديد موقعك...</div>';
+    if(!navigator.geolocation){ showWeatherError('المتصفح لا يدعم تحديد الموقع'); return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude } = pos.coords;
+      try{
+        weatherEl.innerHTML = '<div class="weather-loading">☁️ جاري جلب بيانات الطقس...</div>';
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const temp = Math.round(data.current.temperature_2m);
+        const humidity = Math.round(data.current.relative_humidity_2m);
+        let cityName = 'موقعك الحالي';
+        try{
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=ar`);
+          const geoData = await geoRes.json();
+          if(geoData.results && geoData.results.length){ cityName = geoData.results[0].name; }
+        }catch(e){}
+        weatherEl.innerHTML = `
+          <div class="weather-data">
+            <div class="city">📍 ${cityName}</div>
+            <div class="temp">${temp}°</div>
+            <div class="humidity">الرطوبة: ${humidity}%</div>
+          </div>`;
+      }catch(err){ showWeatherError('تعذر جلب بيانات الطقس'); }
+    }, (err) => {
+      showWeatherError(err.code === err.PERMISSION_DENIED ? 'يرجى السماح بالوصول للموقع لعرض الطقس' : 'تعذر تحديد الموقع');
+    });
+  }
+  loadWeather();
 </script>
 </body>
 </html>
