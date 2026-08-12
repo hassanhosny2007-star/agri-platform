@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بروفايل المهندس — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --error:#B23A2E;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:680px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .profile-card{ background:var(--paper); border:1px solid var(--line); border-radius:18px; padding:28px; text-align:center; margin-bottom:20px; }
+  .avatar-wrap{ position:relative; width:110px; height:110px; margin:0 auto 14px; }
+  .avatar-wrap img{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid var(--leaf); background:#fff; }
+  .avatar-wrap .cam-btn{
+    position:absolute; bottom:0; left:0; background:var(--leaf); color:var(--paper);
+    border:none; border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:14px;
+  }
+  input[type=file]{ display:none; }
+  .full-name{ font-family:'Tajawal'; font-weight:900; font-size:19px; color:var(--leaf-deep); margin-top:6px; }
+  .spec-row{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:8px; }
+  .spec-row input{
+    max-width:260px; padding:8px 12px; border-radius:8px; border:1px solid var(--line);
+    font-family:inherit; font-size:13.5px; text-align:center;
+  }
+  .spec-row button{
+    padding:8px 14px; border-radius:8px; border:none; background:var(--leaf); color:var(--paper);
+    font-family:'Tajawal'; font-weight:700; font-size:12.5px; cursor:pointer;
+  }
+
+  h2{ font-family:'Tajawal'; font-size:16px; color:var(--leaf-deep); font-weight:700; margin-bottom:12px; }
+  .section{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px; }
+  .toggle-form-btn{
+    display:inline-block; margin-bottom:14px; padding:9px 16px; border-radius:8px; border:1px solid var(--line);
+    background:var(--bg); font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  form.inline-form{ display:none; flex-direction:column; gap:10px; margin-bottom:16px; background:var(--bg); padding:16px; border-radius:12px; }
+  form.inline-form.active{ display:flex; }
+  form.inline-form label{ font-size:12.5px; font-weight:600; color:var(--leaf-deep); }
+  form.inline-form input, form.inline-form select{
+    margin-top:4px; width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    font-family:inherit; font-size:14px;
+  }
+  form.inline-form button.save{
+    margin-top:4px; padding:10px; border:none; border-radius:8px; background:var(--leaf); color:var(--paper);
+    font-family:'Tajawal'; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+
+  .item-card{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff; }
+  .item-card .item-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .item-card .item-title{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:14.5px; }
+  .item-card .item-sub{ font-size:12.5px; color:#5b543f; margin-top:3px; }
+  .item-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .item-actions button{ font-size:12px; border:none; background:none; cursor:pointer; color:var(--rust); font-family:inherit; }
+  .item-actions .delete-btn{ color:var(--error); }
+  .nested{ margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); display:none; }
+  .nested.active{ display:block; }
+  .empty-hint{ color:#8a7f63; font-size:13px; text-align:center; padding:10px; }
+  .treatment-row{ font-size:13px; padding:8px 0; border-bottom:1px solid var(--bg); }
+  .treatment-row .t-date{ font-family:'Tajawal'; font-weight:700; color:var(--rust); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>👨‍🌾 بروفايلي</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="profile-card">
+    <div class="avatar-wrap">
+      <img id="avatar-img" src="https://api.dicebear.com/7.x/initials/svg?seed=مهندس&backgroundColor=3B5B37" alt="صورة البروفايل">
+      <button class="cam-btn" id="avatar-btn" type="button">📷</button>
+      <input type="file" id="avatar-input" accept="image/*">
+    </div>
+    <div class="full-name" id="full-name">...</div>
+    <div class="spec-row">
+      <input type="text" id="specialization" placeholder="التخصص (مثال: أمراض النبات)">
+      <button id="save-spec">حفظ</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🚜 المزارع اللي بتتابعها</h2>
+    <button class="toggle-form-btn" id="toggle-farm-form">+ إضافة مزرعة جديدة</button>
+    <form class="inline-form" id="farm-form">
+      <div>
+        <label>اسم المزرعة</label>
+        <input type="text" id="farm-name" required>
+      </div>
+      <div>
+        <label>الموقع</label>
+        <input type="text" id="farm-location" placeholder="المحافظة، المركز، القرية">
+      </div>
+      <div>
+        <label>المساحة (بالفدان)</label>
+        <input type="number" id="farm-area" step="0.1">
+      </div>
+      <button class="save" type="submit">حفظ المزرعة</button>
+    </form>
+    <div id="farms-list"><div class="empty-hint">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUser = null;
+
+  async function init(){
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUser = session.user;
+
+    const { data: profile } = await db.from('profiles').select('*').eq('id', currentUser.id).single();
+    if(profile){
+      document.getElementById('full-name').textContent = profile.full_name || currentUser.email;
+      document.getElementById('specialization').value = profile.specialization || '';
+      if(profile.avatar_url){
+        document.getElementById('avatar-img').src = profile.avatar_url;
+      }
+    }
+    loadFarms();
+  }
+
+  // رفع/تغيير الصورة الشخصية
+  document.getElementById('avatar-btn').addEventListener('click', () => document.getElementById('avatar-input').click());
+  document.getElementById('avatar-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const ext = file.name.split('.').pop();
+    const path = `${currentUser.id}/avatar.${ext}`;
+    const { error: uploadError } = await db.storage.from('avatars').upload(path, file, { upsert: true });
+    if(uploadError){ alert('حدث خطأ في رفع الصورة: ' + uploadError.message); return; }
+    const { data: urlData } = db.storage.from('avatars').getPublicUrl(path);
+    const publicUrl = urlData.publicUrl + '?t=' + Date.now();
+    await db.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
+    document.getElementById('avatar-img').src = publicUrl;
+  });
+
+  // حفظ التخصص
+  document.getElementById('save-spec').addEventListener('click', async () => {
+    const specialization = document.getElementById('specialization').value;
+    await db.from('profiles').update({ specialization }).eq('id', currentUser.id);
+    alert('تم حفظ التخصص');
+  });
+
+  // إظهار/إخفاء فورم إضافة مزرعة
+  document.getElementById('toggle-farm-form').addEventListener('click', () => {
+    document.getElementById('farm-form').classList.toggle('active');
+  });
+
+  document.getElementById('farm-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('farm-name').value;
+    const location = document.getElementById('farm-location').value;
+    const area = document.getElementById('farm-area').value || null;
+    const { error } = await db.from('farms').insert({ owner_id: currentUser.id, name, location, area });
+    if(error){ alert('خطأ: ' + error.message); return; }
+    e.target.reset();
+    e.target.classList.remove('active');
+    loadFarms();
+  });
+
+  async function loadFarms(){
+    const list = document.getElementById('farms-list');
+    const { data: farms, error } = await db.from('farms').select('*').order('created_at', { ascending: false });
+    if(error || !farms || farms.length === 0){
+      list.innerHTML = '<div class="empty-hint">لسه معملتش أي مزرعة</div>';
+      return;
+    }
+    list.innerHTML = '';
+    farms.forEach(farm => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-head">
+          <div>
+            <div class="item-title">🌾 ${farm.name}</div>
+            <div class="item-sub">${farm.location || 'بدون موقع محدد'} ${farm.area ? '· ' + farm.area + ' فدان' : ''}</div>
+          </div>
+          <div class="item-actions">
+            <button class="show-crops-btn">عرض المحاصيل</button>
+            <button class="delete-btn delete-farm-btn">حذف</button>
+          </div>
+        </div>
+        <div class="nested" id="farm-nested-${farm.id}">
+          <button class="toggle-form-btn add-crop-btn">+ إضافة محصول</button>
+          <form class="inline-form crop-form">
+            <div><label>نوع المحصول</label><input type="text" class="crop-type" required></div>
+            <div><label>الصنف</label><input type="text" class="crop-variety"></div>
+            <div><label>تاريخ الزراعة</label><input type="date" class="crop-date"></div>
+            <button class="save" type="submit">حفظ المحصول</button>
+          </form>
+          <div class="crops-list"><div class="empty-hint">جاري التحميل...</div></div>
+        </div>
+      `;
+      list.appendChild(card);
+
+      card.querySelector('.delete-farm-btn').addEventListener('click', async () => {
+        if(!confirm('متأكد من حذف المزرعة دي وكل المحاصيل اللي جواها؟')) return;
+        await db.from('farms').delete().eq('id', farm.id);
+        loadFarms();
+      });
+
+      const nested = card.querySelector(`#farm-nested-${farm.id}`);
+      card.querySelector('.show-crops-btn').addEventListener('click', () => {
+        nested.classList.toggle('active');
+        if(nested.classList.contains('active')) loadCrops(farm.id, nested.querySelector('.crops-list'));
+      });
+
+      card.querySelector('.add-crop-btn').addEventListener('click', () => {
+        card.querySelector('.crop-form').classList.toggle('active');
+      });
+
+      card.querySelector('.crop-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const crop_type = card.querySelector('.crop-type').value;
+        const variety = card.querySelector('.crop-variety').value;
+        const planting_date = card.querySelector('.crop-date').value || null;
+        const { error } = await db.from('crops').insert({ farm_id: farm.id, crop_type, variety, planting_date });
+        if(error){ alert('خطأ: ' + error.message); return; }
+        e.target.reset();
+        e.target.classList.remove('active');
+        loadCrops(farm.id, nested.querySelector('.crops-list'));
+      });
+    });
+  }
+
+  async function loadCrops(farmId, container){
+    const { data: crops, error } = await db.from('crops').select('*').eq('farm_id', farmId).order('created_at', { ascending: false });
+    if(error || !crops || crops.length === 0){
+      container.innerHTML = '<div class="empty-hint">لسه مفيش محاصيل مضافة</div>';
+      return;
+    }
+    container.innerHTML = '';
+    crops.forEach(crop => {
+      const item = document.createElement('div');
+      item.className = 'item-card';
+      item.innerHTML = `
+        <div class="item-head">
+          <div>
+            <div class="item-title">🌱 ${crop.crop_type} ${crop.variety ? '(' + crop.variety + ')' : ''}</div>
+            <div class="item-sub">${crop.planting_date ? 'زراعة: ' + crop.planting_date : 'بدون تاريخ زراعة'}</div>
+          </div>
+          <div class="item-actions">
+            <button class="show-log-btn">سجل المعاملات</button>
+            <button class="delete-btn delete-crop-btn">حذف</button>
+          </div>
+        </div>
+        <div class="nested" id="crop-nested-${crop.id}">
+          <button class="toggle-form-btn add-treatment-btn">+ إضافة معاملة</button>
+          <form class="inline-form treatment-form">
+            <div><label>التاريخ</label><input type="date" class="treatment-date" required></div>
+            <div><label>وصف المعاملة</label><input type="text" class="treatment-desc" required placeholder="مثال: رش سماد ورقي"></div>
+            <button class="save" type="submit">حفظ</button>
+          </form>
+          <div class="treatments-list"><div class="empty-hint">جاري التحميل...</div></div>
+        </div>
+      `;
+      container.appendChild(item);
+
+      item.querySelector('.delete-crop-btn').addEventListener('click', async () => {
+        if(!confirm('متأكد من حذف المحصول ده وسجل معاملاته؟')) return;
+        await db.from('crops').delete().eq('id', crop.id);
+        loadCrops(farmId, container);
+      });
+
+      const nested = item.querySelector(`#crop-nested-${crop.id}`);
+      item.querySelector('.show-log-btn').addEventListener('click', () => {
+        nested.classList.toggle('active');
+        if(nested.classList.contains('active')) loadTreatments(crop.id, nested.querySelector('.treatments-list'));
+      });
+
+      item.querySelector('.add-treatment-btn').addEventListener('click', () => {
+        item.querySelector('.treatment-form').classList.toggle('active');
+      });
+
+      item.querySelector('.treatment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const treatment_date = item.querySelector('.treatment-date').value;
+        const description = item.querySelector('.treatment-desc').value;
+        const { error } = await db.from('crop_treatments').insert({ crop_id: crop.id, treatment_date, description });
+        if(error){ alert('خطأ: ' + error.message); return; }
+        e.target.reset();
+        e.target.classList.remove('active');
+        loadTreatments(crop.id, nested.querySelector('.treatments-list'));
+      });
+    });
+  }
+
+  async function loadTreatments(cropId, container){
+    const { data: treatments, error } = await db.from('crop_treatments').select('*').eq('crop_id', cropId).order('treatment_date', { ascending: false });
+    if(error || !treatments || treatments.length === 0){
+      container.innerHTML = '<div class="empty-hint">لسه مفيش معاملات مسجلة</div>';
+      return;
+    }
+    container.innerHTML = treatments.map(t => `
+      <div class="treatment-row">
+        <div class="t-date">${t.treatment_date}</div>
+        <div>${t.description}</div>
+      </div>
+    `).join('');
+  }
+
+  init();
+</script>
+</body>
+</html>
