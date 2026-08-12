@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تشخيص أمراض النبات — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --rust: #A85D28; --line: #CDBF9C; --paper: #FCFAF3; --error:#B23A2E;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; padding:24px;
+  }
+  header{
+    max-width:640px; margin:0 auto 20px; display:flex; justify-content:space-between; align-items:center;
+  }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .card{
+    max-width:640px; margin:0 auto;
+    background:var(--paper); border:1px solid var(--line); border-radius:18px;
+    padding:32px;
+  }
+  h2{ font-family:'Tajawal'; font-size:17px; color:var(--leaf-deep); font-weight:700; margin-bottom:14px; }
+  .upload-zone{
+    border:2px dashed var(--line); border-radius:14px; padding:28px; text-align:center;
+    cursor:pointer; background:var(--bg);
+  }
+  .upload-zone img{ max-width:100%; max-height:220px; border-radius:10px; margin-bottom:10px; }
+  .upload-zone p{ color:#5b543f; font-size:14px; }
+  .upload-buttons{ display:flex; gap:10px; margin-top:14px; justify-content:center; }
+  .upload-buttons button{
+    padding:10px 16px; border-radius:8px; border:1px solid var(--line);
+    background:var(--paper); font-family:'Tajawal'; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  input[type=file]{ display:none; }
+  form{ margin-top:24px; display:flex; flex-direction:column; gap:16px; }
+  label{ font-size:13.5px; font-weight:600; color:var(--leaf-deep); }
+  input, select{
+    margin-top:6px; width:100%; padding:12px 14px; border-radius:9px;
+    border:1px solid var(--line); background:#fff; font-size:15px; font-family:inherit;
+  }
+  input:focus, select:focus{ outline:2px solid var(--leaf); }
+  button.submit{
+    margin-top:6px; padding:14px; border:none; border-radius:9px;
+    background:var(--leaf); color:var(--paper); font-family:'Tajawal'; font-weight:700;
+    font-size:15.5px; cursor:pointer;
+  }
+  button.submit:disabled{ opacity:.6; cursor:not-allowed; }
+  .msg{ margin-top:16px; font-size:14px; text-align:center; display:none; padding:10px; border-radius:8px; }
+  .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--error); }
+
+  .result{ margin-top:26px; display:none; border-top:1px solid var(--line); padding-top:24px; }
+  .result.active{ display:block; }
+  .result .row{ margin-bottom:14px; }
+  .result .row .k{ font-family:'Tajawal'; font-weight:700; color:var(--rust); font-size:13px; }
+  .result .row .v{ margin-top:4px; color:var(--ink); font-size:15px; line-height:1.8; }
+  .loading-box{ display:none; text-align:center; padding:30px; color:#5b543f; }
+  .loading-box.active{ display:block; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🌱 تشخيص أمراض النبات</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="card">
+    <h2>١. صوّر النبات أو ارفع صورة</h2>
+    <div class="upload-zone" id="upload-zone">
+      <div id="preview-area">
+        <p>مفيش صورة مختارة بعد</p>
+      </div>
+      <div class="upload-buttons">
+        <button type="button" id="btn-camera">📷 التقط صورة</button>
+        <button type="button" id="btn-gallery">🖼️ ارفع من المعرض</button>
+      </div>
+      <input type="file" id="file-camera" accept="image/*" capture="environment">
+      <input type="file" id="file-gallery" accept="image/*">
+    </div>
+
+    <form id="diagnosis-form">
+      <h2 style="margin-top:8px">٢. بيانات إضافية عن النبات</h2>
+      <div>
+        <label>عمر النبات (بالأيام)</label>
+        <input type="number" id="plant-age" min="1" required placeholder="مثال: 30">
+      </div>
+      <div>
+        <label>تاريخ آخر معاملة (سماد/مبيد)</label>
+        <input type="date" id="last-treatment">
+      </div>
+      <div>
+        <label>تاريخ آخر ريّة</label>
+        <input type="date" id="last-watering" required>
+      </div>
+      <div>
+        <label>نوع الأرض</label>
+        <select id="soil-type" required>
+          <option value="">اختر نوع الأرض</option>
+          <option value="طينية">طينية</option>
+          <option value="رملية">رملية</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+      <button class="submit" type="submit" id="submit-btn">ابدأ التشخيص</button>
+    </form>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="loading-box" id="loading-box">
+      🔬 جاري تحليل الصورة والبيانات، برجاء الانتظار...
+    </div>
+
+    <div class="result" id="result">
+      <div class="row"><div class="k">النبات</div><div class="v" id="res-plant">—</div></div>
+      <div class="row"><div class="k">التشخيص</div><div class="v" id="res-disease">—</div></div>
+      <div class="row"><div class="k">الأعراض</div><div class="v" id="res-symptoms">—</div></div>
+      <div class="row"><div class="k">الحلول المقترحة</div><div class="v" id="res-treatment">—</div></div>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  // التأكد إن المستخدم مسجل دخول
+  let currentSession = null;
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentSession = session;
+  })();
+
+  const fileCamera = document.getElementById('file-camera');
+  const fileGallery = document.getElementById('file-gallery');
+  const previewArea = document.getElementById('preview-area');
+  let selectedFile = null;
+
+  document.getElementById('btn-camera').addEventListener('click', () => fileCamera.click());
+  document.getElementById('btn-gallery').addEventListener('click', () => fileGallery.click());
+
+  function handleFile(file){
+    if(!file) return;
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewArea.innerHTML = `<img src="${e.target.result}" alt="معاينة الصورة">`;
+    };
+    reader.readAsDataURL(file);
+  }
+  fileCamera.addEventListener('change', (e) => handleFile(e.target.files[0]));
+  fileGallery.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+  const msg = document.getElementById('msg');
+  const loadingBox = document.getElementById('loading-box');
+  const resultBox = document.getElementById('result');
+  const submitBtn = document.getElementById('submit-btn');
+
+  function showMsg(text){ msg.textContent = text; msg.className = 'msg error'; }
+  function hideMsg(){ msg.className = 'msg'; msg.textContent=''; }
+
+  document.getElementById('diagnosis-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideMsg();
+    resultBox.classList.remove('active');
+
+    if(!selectedFile){ showMsg('من فضلك ارفع أو صوّر صورة للنبات أولًا.'); return; }
+
+    const plantAge = document.getElementById('plant-age').value;
+    const lastTreatment = document.getElementById('last-treatment').value;
+    const lastWatering = document.getElementById('last-watering').value;
+    const soilType = document.getElementById('soil-type').value;
+
+    submitBtn.disabled = true;
+    loadingBox.classList.add('active');
+
+    try{
+      // تحويل الصورة إلى base64 لإرسالها لمحرك التحليل
+      const base64Image = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+
+      // استدعاء محرك التحليل (Supabase Edge Function) — سيتم إعداده في الخطوة القادمة
+      const { data: { session } } = await db.auth.getSession();
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/diagnose-plant`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          image: base64Image,
+          plant_age: plantAge,
+          last_treatment: lastTreatment,
+          last_watering: lastWatering,
+          soil_type: soilType
+        })
+      });
+
+      if(!response.ok){
+        throw new Error('تعذر الوصول لمحرك التحليل');
+      }
+
+      const result = await response.json();
+      document.getElementById('res-plant').textContent = result.plant_name || '—';
+      document.getElementById('res-disease').textContent = result.disease_name || '—';
+      document.getElementById('res-symptoms').textContent = result.symptoms || '—';
+      document.getElementById('res-treatment').textContent = result.treatment || '—';
+      resultBox.classList.add('active');
+
+    }catch(err){
+      showMsg('حدث خطأ أثناء التحليل: ' + err.message + ' (محرك الذكاء الاصطناعي لسه مش متصل)');
+    }finally{
+      loadingBox.classList.remove('active');
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
