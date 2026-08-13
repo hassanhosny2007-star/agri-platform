@@ -214,6 +214,7 @@
         },
         body: JSON.stringify({
           image: base64Image,
+          media_type: selectedFile.type || 'image/jpeg',
           plant_age: plantAge,
           last_treatment: lastTreatment,
           last_watering: lastWatering,
