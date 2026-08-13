@@ -69,7 +69,10 @@
 <body>
   <header>
     <h1>🌱 تشخيص أمراض النبات</h1>
-    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+    <div style="display:flex; gap:10px;">
+      <a class="back" href="diagnosis-history.html">📋 السجل التاريخي</a>
+      <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+    </div>
   </header>
 
   <div class="card">
@@ -232,6 +235,28 @@
       document.getElementById('res-symptoms').textContent = result.symptoms || '—';
       document.getElementById('res-treatment').textContent = result.treatment || '—';
       resultBox.classList.add('active');
+
+      // حفظ التشخيص في السجل التاريخي
+      try{
+        const ext = (selectedFile.name.split('.').pop() || 'jpg');
+        const path = `${session.user.id}/${Date.now()}.${ext}`;
+        await db.storage.from('diagnoses').upload(path, selectedFile);
+        const { data: urlData } = db.storage.from('diagnoses').getPublicUrl(path);
+        await db.from('diagnoses').insert({
+          user_id: session.user.id,
+          image_url: urlData.publicUrl,
+          plant_name: result.plant_name,
+          disease_name: result.disease_name,
+          symptoms: result.symptoms,
+          treatment: result.treatment,
+          plant_age: plantAge || null,
+          last_treatment: lastTreatment || null,
+          last_watering: lastWatering || null,
+          soil_type: soilType,
+        });
+      }catch(saveErr){
+        console.warn('تعذر حفظ السجل التاريخي:', saveErr);
+      }
 
     }catch(err){
       showMsg('حدث خطأ أثناء التحليل: ' + err.message + ' (محرك الذكاء الاصطناعي لسه مش متصل)');
