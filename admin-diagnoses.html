@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سجل التشخيصات — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; padding:24px;
+  }
+  .top{ max-width:760px; margin:0 auto 8px; display:flex; justify-content:space-between; align-items:center; }
+  a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
+  a.back:hover{ text-decoration:underline; }
+  h1{ max-width:760px; margin:8px auto 4px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .subtitle{ max-width:760px; margin:0 auto 20px; color:#5b543f; font-size:14px; }
+
+  .filters{ max-width:760px; margin:0 auto 16px; display:flex; gap:8px; flex-wrap:wrap; }
+  .filters select, .filters input{
+    padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--paper); font-family:inherit; font-size:13.5px;
+  }
+
+  .list{ max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  .diag-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; gap:14px;
+  }
+  .diag-card img{ width:76px; height:76px; border-radius:10px; object-fit:cover; background:#e7e0cb; flex-shrink:0; }
+  .diag-info{ flex:1; min-width:0; }
+  .diag-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+  .disease-name{ font-family:'Tajawal'; font-weight:700; font-size:15px; color:var(--rust); }
+  .plant-name{ font-size:13px; color:#5b543f; }
+  .date-tag{ font-size:11.5px; color:#8a7f63; white-space:nowrap; }
+  .user-line{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:13px; }
+  .user-name{ font-weight:600; }
+  .role-badge{ font-size:10.5px; background:#e8f0e5; color:var(--leaf-deep); padding:2px 9px; border-radius:20px; }
+  .loc-line{ margin-top:5px; font-size:12.5px; color:#8a7f63; }
+
+  .empty, .loading, .denied{ max-width:760px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="back" href="admin.html">← رجوع للوحة التحكم</a>
+  </div>
+  <h1>📋 سجل التشخيصات</h1>
+  <p class="subtitle">كل عمليات تشخيص أمراض النبات بتاعت جميع المستخدمين</p>
+
+  <div class="filters">
+    <select id="filter-role">
+      <option value="">كل الفئات</option>
+      <option value="farmer">مزارعين</option>
+      <option value="engineer">مهندسين</option>
+      <option value="trader">تجار</option>
+      <option value="company">شركات</option>
+    </select>
+    <input type="text" id="filter-search" placeholder="بحث بالاسم أو المرض...">
+  </div>
+
+  <div id="content"><div class="loading">جاري التحميل...</div></div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const ROLE_LABELS = { farmer:'مزارع', engineer:'مهندس زراعي', trader:'تاجر', company:'شركة', admin:'أدمن' };
+
+  let allDiagnoses = [];
+
+  function fmtDate(d){
+    if(!d) return '—';
+    return new Date(d).toLocaleDateString('ar-EG', { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function renderList(){
+    const roleFilter = document.getElementById('filter-role').value;
+    const search = document.getElementById('filter-search').value.trim().toLowerCase();
+
+    let filtered = allDiagnoses;
+    if(roleFilter){
+      filtered = filtered.filter(d => d._userRole === roleFilter);
+    }
+    if(search){
+      filtered = filtered.filter(d =>
+        (d._userName || '').toLowerCase().includes(search) ||
+        (d.disease_name || '').toLowerCase().includes(search) ||
+        (d.plant_name || '').toLowerCase().includes(search)
+      );
+    }
+
+    if(!filtered.length){
+      document.getElementById('content').innerHTML = '<div class="empty">مفيش سجلات تطابق البحث</div>';
+      return;
+    }
+
+    const html = filtered.map(d => `
+      <div class="diag-card">
+        <img src="${d.image_url || ''}" onerror="this.style.visibility='hidden'">
+        <div class="diag-info">
+          <div class="diag-top">
+            <div>
+              <div class="disease-name">${d.disease_name || 'تشخيص غير محدد'}</div>
+              <div class="plant-name">${d.plant_name || '—'}</div>
+            </div>
+            <div class="date-tag">${fmtDate(d.created_at)}</div>
+          </div>
+          <div class="user-line">
+            <span class="user-name">${d._userName || 'مستخدم محذوف'}</span>
+            <span class="role-badge">${ROLE_LABELS[d._userRole] || '—'}</span>
+          </div>
+          <div class="loc-line">📍 ${d.location_text || 'الموقع غير متاح'}</div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('content').innerHTML = `<div class="list">${html}</div>`;
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.getElementById('content').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+
+    const { data: diagnoses, error } = await db
+      .from('diagnoses')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if(error){
+      document.getElementById('content').innerHTML = '<div class="denied">حصل خطأ: ' + error.message + '</div>';
+      return;
+    }
+
+    // جلب بيانات المستخدمين (الاسم والدور) وربطها يدويًا بكل سجل
+    const userIds = [...new Set((diagnoses || []).map(d => d.user_id).filter(Boolean))];
+    let profilesMap = {};
+    if(userIds.length){
+      const { data: profiles } = await db.from('profiles').select('id, full_name, role').in('id', userIds);
+      (profiles || []).forEach(p => { profilesMap[p.id] = p; });
+    }
+
+    allDiagnoses = (diagnoses || []).map(d => ({
+      ...d,
+      _userName: profilesMap[d.user_id]?.full_name || null,
+      _userRole: profilesMap[d.user_id]?.role || null,
+    }));
+
+    renderList();
+
+    document.getElementById('filter-role').addEventListener('change', renderList);
+    document.getElementById('filter-search').addEventListener('input', renderList);
+  })();
+</script>
+</body>
+</html>
