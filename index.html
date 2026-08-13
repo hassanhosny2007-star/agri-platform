@@ -70,7 +70,6 @@
   <div class="weather-widget" id="weather">
     <div class="weather-loading">📍 جاري تحديد موقعك...</div>
   </div>
-  <div class="stats-bar" id="stats-bar"></div>
   <div class="card">
     <h1>🌱 AgroNex</h1>
     <p class="tagline">حينما تلتقي الزراعة بالتكنولوجيا</p>
@@ -133,63 +132,6 @@
   }
 
   loadWeather();
-
-  // شريط إحصائيات المستخدمين — يظهر للأدمن فقط
-  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
-  const { createClient } = supabase;
-  const customStorage = {
-    getItem: (key) => {
-      const remember = localStorage.getItem('agronex-remember') !== 'false';
-      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
-    },
-    setItem: (key, value) => {
-      const remember = localStorage.getItem('agronex-remember') !== 'false';
-      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
-      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
-    },
-    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
-  };
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
-
-  const ROLE_LABELS = { farmer: 'المزارعين', engineer: 'المهندسين', trader: 'التجار', company: 'الشركات' };
-
-  (async () => {
-    const { data: { session } } = await db.auth.getSession();
-    if(!session) return;
-
-    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
-    if(!myProfile || myProfile.role !== 'admin') return;
-
-    const { data: profiles, error } = await db.from('profiles').select('role, is_active');
-    if(error || !profiles) return;
-
-    const total = profiles.length;
-    const totalActive = profiles.filter(p => p.is_active !== false).length;
-
-    const counts = {};
-    Object.keys(ROLE_LABELS).forEach(role => {
-      const inRole = profiles.filter(p => p.role === role);
-      counts[role] = { total: inRole.length, active: inRole.filter(p => p.is_active !== false).length };
-    });
-
-    const bar = document.getElementById('stats-bar');
-    bar.innerHTML = `
-      <div class="stat-card main">
-        <div class="label">إجمالي المستخدمين</div>
-        <div class="total">${total}</div>
-        <div class="active-count">نشط: ${totalActive}</div>
-      </div>
-      ${Object.entries(ROLE_LABELS).map(([role, label]) => `
-        <div class="stat-card">
-          <div class="label">${label}</div>
-          <div class="total">${counts[role].total}</div>
-          <div class="active-count">نشط: ${counts[role].active}</div>
-        </div>
-      `).join('')}
-    `;
-    bar.classList.add('active');
-  })();
 </script>
 </body>
 </html>
