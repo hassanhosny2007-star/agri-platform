@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تفاصيل المستخدم — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; padding:24px;
+  }
+  .top{ max-width:640px; margin:0 auto 16px; }
+  a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
+  a.back:hover{ text-decoration:underline; }
+  .wrap{ max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  .profile-head{ display:flex; align-items:center; gap:14px; }
+  .avatar{ width:64px; height:64px; border-radius:50%; object-fit:cover; background:#e7e0cb; flex-shrink:0; }
+  .profile-head h2{ font-family:'Tajawal'; font-weight:700; font-size:17px; }
+  .profile-head .email{ font-size:13.5px; color:#5b543f; margin-top:2px; }
+  .role-badge{ display:inline-block; margin-top:6px; font-size:11.5px; background:#e8f0e5; color:var(--leaf-deep); padding:3px 10px; border-radius:20px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .status-row{ display:flex; justify-content:space-between; align-items:center; background:#F1EBDB; border-radius:10px; padding:12px 14px; margin-bottom:14px; }
+  .status-row .t1{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .status-row .t2{ font-size:12px; color:#5b543f; margin-top:2px; max-width:280px; }
+  button.status-btn{
+    padding:9px 16px; border-radius:8px; border:none; cursor:pointer;
+    font-family:'Tajawal'; font-weight:700; font-size:13px; white-space:nowrap;
+  }
+  button.status-btn.deactivate{ background:#fbe9e9; color:#a83232; }
+  button.status-btn.activate{ background:var(--leaf); color:#fff; }
+  .perm-row{ display:flex; justify-content:space-between; align-items:center; padding:11px 4px; border-bottom:1px solid #eee6cf; font-size:14px; }
+  .perm-row:last-child{ border-bottom:none; }
+  .switch{ position:relative; width:42px; height:24px; border-radius:20px; border:none; cursor:pointer; background:#cfc7ab; transition:.2s; flex-shrink:0; }
+  .switch.on{ background:var(--leaf); }
+  .switch .dot{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.2s; }
+  .switch.on .dot{ right:20px; }
+  .switch:disabled{ opacity:.4; cursor:not-allowed; }
+  .self-note{ font-size:12px; color:#8a7f63; margin-top:10px; }
+  .farm-item{ padding:10px 4px; border-bottom:1px solid #eee6cf; font-size:14px; }
+  .farm-item:last-child{ border-bottom:none; }
+  .farm-item .fname{ font-family:'Tajawal'; font-weight:700; }
+  .farm-item .fmeta{ font-size:12.5px; color:#5b543f; margin-top:2px; }
+  .empty, .loading, .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+</style>
+</head>
+<body>
+  <div class="top"><a class="back" id="back-link" href="admin.html">← رجوع</a></div>
+  <div id="content"><div class="loading">جاري التحميل...</div></div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const ROLE_LABELS = { farmer:'مزارع', engineer:'مهندس زراعي', trader:'تاجر', company:'شركة', admin:'أدمن' };
+  const PERMISSIONS_CONFIG = [
+    { key: 'can_add_farms', label: 'إضافة مزارع جديدة' },
+    { key: 'can_manage_crops', label: 'إدارة المحاصيل والسجلات' },
+    { key: 'can_use_ai_diagnosis', label: 'استخدام تشخيص الذكاء الاصطناعي' },
+    { key: 'can_export_reports', label: 'تصدير التقارير' },
+  ];
+
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get('id');
+
+  (async () => {
+    if(!userId){ window.location.href = 'admin.html'; return; }
+
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.getElementById('content').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+
+    const { data: profile, error } = await db.from('profiles').select('*').eq('id', userId).single();
+    if(error || !profile){
+      document.getElementById('content').innerHTML = '<div class="denied">المستخدم مش موجود</div>';
+      return;
+    }
+
+    if(profile.role) document.getElementById('back-link').href = 'admin-category.html?role=' + profile.role;
+
+    const { data: farms } = await db.from('farms').select('*, crops(count)').eq('owner_id', userId).order('created_at', { ascending: false });
+
+    const isSelf = profile.id === session.user.id;
+    let isActive = profile.is_active !== false;
+    let permissions = profile.permissions || {
+      can_add_farms: true, can_manage_crops: true, can_use_ai_diagnosis: true, can_export_reports: true
+    };
+
+    function renderPermRows(){
+      return PERMISSIONS_CONFIG.map(p => `
+        <div class="perm-row">
+          <span>${p.label}</span>
+          <button class="switch ${permissions[p.key] ? 'on' : ''}" data-perm="${p.key}" ${isSelf || !isActive ? 'disabled' : ''}>
+            <span class="dot"></span>
+          </button>
+        </div>`).join('');
+    }
+
+    const farmsHtml = (farms && farms.length) ? farms.map(f => `
+      <div class="farm-item">
+        <div class="fname">${f.farm_name}</div>
+        <div class="fmeta">${f.location_text || 'بدون موقع محدد'} · ${(f.crops && f.crops[0] && f.crops[0].count) || 0} محصول</div>
+      </div>`).join('') : '<div class="fmeta" style="padding:8px 4px;">لسه مفيش مزارع مسجلة</div>';
+
+    document.getElementById('content').innerHTML = `
+      <div class="wrap">
+        <div class="card profile-head">
+          <img class="avatar" src="${profile.avatar_url || ''}" onerror="this.style.visibility='hidden'">
+          <div>
+            <h2>${profile.full_name || '—'}</h2>
+            <div class="email">${profile.email}</div>
+            <span class="role-badge">${ROLE_LABELS[profile.role] || profile.role}</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>الصلاحيات</h3>
+          <div class="status-row">
+            <div>
+              <div class="t1">حالة الحساب</div>
+              <div class="t2">${isActive ? 'الحساب مفعّل ويقدر يستخدم المنصة بشكل طبيعي' : 'الحساب معطّل، مش هيقدر يضيف أو يعدّل أي بيانات'}</div>
+            </div>
+            <button class="status-btn ${isActive ? 'deactivate' : 'activate'}" id="status-toggle" ${isSelf ? 'disabled' : ''}>
+              ${isActive ? 'تعطيل الحساب' : 'تفعيل الحساب'}
+            </button>
+          </div>
+          <div id="perm-rows">${renderPermRows()}</div>
+          ${isSelf ? '<div class="self-note">متقدرش تعدّل صلاحياتك إنت بنفسك</div>' : ''}
+        </div>
+
+        <div class="card">
+          <h3>مزارع المستخدم</h3>
+          ${farmsHtml}
+        </div>
+      </div>`;
+
+    document.getElementById('status-toggle').addEventListener('click', async (e) => {
+      const btn = e.target;
+      btn.disabled = true;
+      const { error } = await db.from('profiles').update({ is_active: !isActive }).eq('id', userId);
+      if(!error){
+        isActive = !isActive;
+        btn.className = 'status-btn ' + (isActive ? 'deactivate' : 'activate');
+        btn.textContent = isActive ? 'تعطيل الحساب' : 'تفعيل الحساب';
+        document.querySelector('.status-row .t2').textContent = isActive
+          ? 'الحساب مفعّل ويقدر يستخدم المنصة بشكل طبيعي'
+          : 'الحساب معطّل، مش هيقدر يضيف أو يعدّل أي بيانات';
+        document.getElementById('perm-rows').innerHTML = renderPermRows();
+        attachPermListeners();
+      } else {
+        alert('حصل خطأ، حاول تاني');
+      }
+      btn.disabled = isSelf;
+    });
+
+    function attachPermListeners(){
+      document.querySelectorAll('[data-perm]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const key = btn.getAttribute('data-perm');
+          btn.disabled = true;
+          const newPermissions = { ...permissions, [key]: !permissions[key] };
+          const { error } = await db.from('profiles').update({ permissions: newPermissions }).eq('id', userId);
+          if(!error){
+            permissions = newPermissions;
+            btn.classList.toggle('on', permissions[key]);
+          } else {
+            alert('حصل خطأ، حاول تاني');
+          }
+          btn.disabled = isSelf || !isActive;
+        });
+      });
+    }
+    attachPermListeners();
+  })();
+</script>
+</body>
+</html>
