@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بروفايل المدير — المنصة الزراعية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28; --gold: #C9A227;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; padding:24px;
+  }
+  header{
+    max-width:640px; margin:0 auto 20px; display:flex; justify-content:space-between; align-items:center;
+  }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .header-btns{ display:flex; gap:8px; }
+  a.hbtn, button.hbtn{
+    padding:9px 16px; border-radius:8px; border:1px solid var(--line);
+    background:var(--paper); font-family:'Tajawal'; font-weight:700; cursor:pointer; font-size:13.5px;
+    text-decoration:none; color:var(--ink);
+  }
+
+  .wrap{ max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+
+  .hero{
+    background:linear-gradient(155deg, var(--leaf-deep), var(--leaf) 70%);
+    border-radius:20px; padding:36px 24px 28px; text-align:center; position:relative; overflow:hidden;
+  }
+  .hero::before{
+    content:''; position:absolute; inset:0; opacity:.08; background-image:radial-gradient(circle, #fff 1.5px, transparent 1.5px);
+    background-size:16px 16px;
+  }
+  .avatar-wrap{ position:relative; width:110px; height:110px; margin:0 auto 14px; z-index:1; }
+  .avatar{
+    width:110px; height:110px; border-radius:50%; object-fit:cover;
+    border:4px solid var(--paper); background:#dfd6bb; display:block;
+  }
+  .avatar-uploading{
+    position:absolute; inset:0; background:rgba(0,0,0,.45); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; text-align:center;
+  }
+  .camera-btn{
+    position:absolute; bottom:2px; left:2px; width:32px; height:32px; border-radius:50%;
+    background:var(--gold); border:2px solid var(--paper); cursor:pointer; font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hero h2{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:#fff; position:relative; z-index:1; }
+  .job-title{
+    display:inline-block; margin-top:8px; background:var(--gold); color:#2c2205;
+    font-family:'Tajawal'; font-weight:700; font-size:13px; padding:5px 16px; border-radius:20px;
+    position:relative; z-index:1;
+  }
+  .hero .email{ margin-top:10px; color:#e4e6da; font-size:13.5px; position:relative; z-index:1; }
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px; margin-top:12px;
+    background:rgba(255,255,255,.12); color:#e8f0e5; font-size:12.5px; padding:6px 14px; border-radius:20px;
+    position:relative; z-index:1;
+  }
+  .status-pill .dot{ width:7px; height:7px; border-radius:50%; background:#7ee08a; }
+  .edit-btn{
+    margin-top:16px; padding:10px 22px; border-radius:9px; border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.1); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:13.5px;
+    cursor:pointer; position:relative; z-index:1;
+  }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .stats-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  .stat-box{ background:#F1EBDB; border-radius:12px; padding:14px 6px; text-align:center; }
+  .stat-box .num{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf); }
+  .stat-box .lbl{ font-size:11px; color:#6a6249; margin-top:3px; }
+
+  .bio-text{ font-size:14px; color:#5b543f; line-height:1.7; }
+  .info-row{ display:flex; justify-content:space-between; padding:9px 2px; border-bottom:1px solid #eee6cf; font-size:14px; }
+  .info-row:last-child{ border-bottom:none; }
+  .info-row .lbl{ color:#8a7f63; }
+  .info-row .val{ font-weight:600; }
+
+  .action-btn{
+    display:block; width:100%; text-align:center; padding:14px; border-radius:11px;
+    background:var(--leaf); color:#fff; text-decoration:none; font-family:'Tajawal'; font-weight:700; font-size:14.5px;
+  }
+
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,42,27,.55); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal-bg.open{ display:flex; }
+  .modal{ background:var(--paper); border-radius:16px; padding:24px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
+  .modal h3{ font-family:'Tajawal'; font-weight:700; font-size:16px; margin-bottom:16px; }
+  .field{ margin-bottom:12px; }
+  .field label{ font-size:12.5px; color:#8a7f63; display:block; margin-bottom:5px; }
+  .field input, .field textarea{
+    width:100%; padding:11px; border:1px solid var(--line); border-radius:9px; font-family:inherit; font-size:14px;
+    background:#fff;
+  }
+  .modal-actions{ display:flex; gap:8px; margin-top:16px; }
+  .modal-actions button{
+    flex:1; padding:12px; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer; border:none;
+  }
+  .btn-cancel{ background:#fff; border:1px solid var(--line) !important; color:var(--ink); }
+  .btn-save{ background:var(--leaf); color:#fff; }
+  .err-msg{ color:var(--rust); font-size:12.5px; margin-top:6px; }
+
+  .loading, .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgroNex</h1>
+    <div class="header-btns">
+      <a class="hbtn" href="dashboard.html">الرئيسية</a>
+      <button class="hbtn" id="logout">تسجيل الخروج</button>
+    </div>
+  </header>
+
+  <div id="content"><div class="loading">جاري التحميل...</div></div>
+
+  <div class="modal-bg" id="edit-modal-bg">
+    <div class="modal">
+      <h3>تعديل بيانات البروفايل</h3>
+      <div class="field">
+        <label>الاسم بالكامل</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="field">
+        <label>المسمى الوظيفي</label>
+        <input type="text" id="edit-title" placeholder="مثال: مدير المنصة">
+      </div>
+      <div class="field">
+        <label>رقم الهاتف</label>
+        <input type="tel" id="edit-phone">
+      </div>
+      <div class="field">
+        <label>نبذة مختصرة</label>
+        <textarea id="edit-bio" rows="3"></textarea>
+      </div>
+      <div id="edit-err" class="err-msg"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="edit-cancel">إلغاء</button>
+        <button class="btn-save" id="edit-save">حفظ التعديلات</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentProfile = null;
+
+  function fmtDate(d){
+    if(!d) return '—';
+    return new Date(d).toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+  }
+
+  async function loadPage(){
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    const { data: profile, error } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if(error || !profile){
+      document.getElementById('content').innerHTML = '<div class="denied">تعذر تحميل البروفايل</div>';
+      return;
+    }
+    if(profile.role !== 'admin'){
+      document.getElementById('content').innerHTML = '<div class="denied">🚫 الصفحة دي لحساب الأدمن بس</div>';
+      return;
+    }
+
+    currentProfile = profile;
+
+    const { data: allProfiles } = await db.from('profiles').select('role, is_active');
+    const { data: allFarms } = await db.from('farms').select('id');
+
+    const total = (allProfiles || []).length;
+    const active = (allProfiles || []).filter(p => p.is_active !== false).length;
+    const farmsTotal = (allFarms || []).length;
+    const jobTitle = profile.specialization || 'مدير المنصة';
+
+    document.getElementById('content').innerHTML = `
+      <div class="wrap">
+        <div class="hero">
+          <div class="avatar-wrap">
+            <img class="avatar" id="avatar-img" src="${profile.avatar_url || ''}" onerror="this.style.visibility='hidden'">
+            <div class="avatar-uploading" id="avatar-uploading" style="display:none;">جاري الرفع...</div>
+            <button class="camera-btn" id="camera-btn">📷</button>
+            <input type="file" id="avatar-file" accept="image/*" style="display:none;">
+          </div>
+          <h2>${profile.full_name || 'بدون اسم'}</h2>
+          <div class="job-title">${jobTitle}</div>
+          <div class="email">${profile.email}</div>
+          <div class="status-pill"><span class="dot"></span> الحساب مفعّل — أدمن كامل الصلاحيات</div>
+          <br>
+          <button class="edit-btn" id="open-edit">تعديل البيانات</button>
+        </div>
+
+        <div class="card">
+          <h3>نظرة عامة على المنصة</h3>
+          <div class="stats-grid">
+            <div class="stat-box"><div class="num">${total}</div><div class="lbl">إجمالي المستخدمين</div></div>
+            <div class="stat-box"><div class="num">${active}</div><div class="lbl">حسابات مفعّلة</div></div>
+            <div class="stat-box"><div class="num">${farmsTotal}</div><div class="lbl">إجمالي المزارع</div></div>
+            <div class="stat-box"><div class="num">${total - active}</div><div class="lbl">حسابات معطّلة</div></div>
+          </div>
+        </div>
+
+        ${profile.bio ? `<div class="card"><h3>نبذة</h3><p class="bio-text">${profile.bio}</p></div>` : ''}
+
+        <div class="card">
+          <h3>بيانات الحساب</h3>
+          <div class="info-row"><span class="lbl">رقم الهاتف</span><span class="val">${profile.phone || '—'}</span></div>
+          <div class="info-row"><span class="lbl">تاريخ الانضمام</span><span class="val">${fmtDate(profile.created_at)}</span></div>
+          <div class="info-row"><span class="lbl">مستوى الصلاحية</span><span class="val">كامل الصلاحيات (Admin)</span></div>
+        </div>
+
+        <a class="action-btn" href="admin.html">🛠️ فتح لوحة التحكم الكاملة</a>
+      </div>`;
+
+    document.getElementById('open-edit').addEventListener('click', openEditModal);
+    document.getElementById('camera-btn').addEventListener('click', () => {
+      document.getElementById('avatar-file').click();
+    });
+    document.getElementById('avatar-file').addEventListener('change', handleAvatarUpload);
+  }
+
+  async function handleAvatarUpload(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    if(!file.type.startsWith('image/')){ alert('لازم ترفع صورة بس'); return; }
+
+    document.getElementById('avatar-uploading').style.display = 'flex';
+
+    try{
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${currentProfile.id}/avatar-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await db.storage.from('avatars').upload(filePath, file, { upsert: true });
+      if(uploadError) throw uploadError;
+
+      const { data } = db.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = data.publicUrl;
+
+      const { error: updateError } = await db.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentProfile.id);
+      if(updateError) throw updateError;
+
+      currentProfile.avatar_url = publicUrl;
+      document.getElementById('avatar-img').src = publicUrl;
+      document.getElementById('avatar-img').style.visibility = 'visible';
+    }catch(err){
+      alert('حصل خطأ أثناء رفع الصورة، حاول تاني');
+      console.error(err);
+    }finally{
+      document.getElementById('avatar-uploading').style.display = 'none';
+    }
+  }
+
+  function openEditModal(){
+    document.getElementById('edit-name').value = currentProfile.full_name || '';
+    document.getElementById('edit-title').value = currentProfile.specialization || '';
+    document.getElementById('edit-phone').value = currentProfile.phone || '';
+    document.getElementById('edit-bio').value = currentProfile.bio || '';
+    document.getElementById('edit-err').textContent = '';
+    document.getElementById('edit-modal-bg').classList.add('open');
+  }
+
+  document.getElementById('edit-cancel').addEventListener('click', () => {
+    document.getElementById('edit-modal-bg').classList.remove('open');
+  });
+
+  document.getElementById('edit-save').addEventListener('click', async () => {
+    const saveBtn = document.getElementById('edit-save');
+    const name = document.getElementById('edit-name').value.trim();
+    if(!name){
+      document.getElementById('edit-err').textContent = 'الاسم مطلوب';
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    const updates = {
+      full_name: name,
+      specialization: document.getElementById('edit-title').value.trim() || null,
+      phone: document.getElementById('edit-phone').value.trim() || null,
+      bio: document.getElementById('edit-bio').value.trim() || null,
+    };
+
+    const { error } = await db.from('profiles').update(updates).eq('id', currentProfile.id);
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ التعديلات';
+
+    if(error){
+      document.getElementById('edit-err').textContent = 'حصل خطأ، حاول تاني';
+      return;
+    }
+
+    document.getElementById('edit-modal-bg').classList.remove('open');
+    loadPage();
+  });
+
+  document.getElementById('logout').addEventListener('click', async ()=>{
+    await db.auth.signOut();
+    window.location.href = 'login.html';
+  });
+
+  loadPage();
+</script>
+</body>
+</html>
