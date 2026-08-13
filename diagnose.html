@@ -236,6 +236,22 @@
       document.getElementById('res-treatment').textContent = result.treatment || '—';
       resultBox.classList.add('active');
 
+      // التقاط الموقع الجغرافي (اختياري، ما بيمنعش الحفظ لو المستخدم رفض الإذن)
+      let locationText = null, lat = null, lng = null;
+      try{
+        const pos = await new Promise((resolve, reject) => {
+          if(!navigator.geolocation){ reject('no geo'); return; }
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
+        });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+        try{
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lng}&language=ar`);
+          const geoData = await geoRes.json();
+          if(geoData.results && geoData.results.length){ locationText = geoData.results[0].name; }
+        }catch(e){ /* اسم المكان اختياري */ }
+      }catch(e){ /* الموقع اختياري، لو المستخدم رفض الإذن نكمل من غيره */ }
+
       // حفظ التشخيص في السجل التاريخي
       try{
         const ext = (selectedFile.name.split('.').pop() || 'jpg');
@@ -253,6 +269,9 @@
           last_treatment: lastTreatment || null,
           last_watering: lastWatering || null,
           soil_type: soilType,
+          location_text: locationText,
+          latitude: lat,
+          longitude: lng,
         });
       }catch(saveErr){
         console.warn('تعذر حفظ السجل التاريخي:', saveErr);
