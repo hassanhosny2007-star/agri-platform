@@ -45,6 +45,22 @@
   .weather-data .city{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:13px; }
   .weather-data .temp{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); }
   .weather-data .humidity{ color:#5b543f; font-size:12.5px; }
+
+  .stats-bar{
+    display:none; max-width:720px; margin:0 auto 20px; gap:12px; flex-wrap:wrap;
+    justify-content:center;
+  }
+  .stats-bar.active{ display:flex; }
+  .stat-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:14px;
+    padding:16px 20px; min-width:120px; text-align:center; flex:1;
+  }
+  .stat-card .label{ font-family:'Tajawal'; font-weight:700; font-size:12.5px; color:var(--leaf-deep); }
+  .stat-card .total{ font-family:'Tajawal'; font-weight:900; font-size:24px; color:var(--leaf-deep); margin-top:6px; }
+  .stat-card .active-count{ font-size:11.5px; color:var(--rust); margin-top:4px; }
+  .stat-card.main{ background:var(--leaf-deep); border-color:var(--leaf-deep); }
+  .stat-card.main .label, .stat-card.main .total{ color:var(--paper); }
+  .stat-card.main .active-count{ color:#CFE0C9; }
 </style>
 </head>
 <body>
@@ -55,6 +71,7 @@
   <div class="weather-widget" id="weather">
     <div class="weather-loading">📍 جاري تحديد موقعك...</div>
   </div>
+  <div class="stats-bar" id="stats-bar"></div>
   <div class="card">
     <p>مرحبًا بك، تم تسجيل الدخول بنجاح كـ</p>
     <p class="email" id="user-email">...</p>
@@ -81,6 +98,39 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
+  const ROLE_LABELS = { farmer: 'المزارعين', engineer: 'المهندسين', trader: 'التجار', company: 'الشركات' };
+
+  async function loadStatsBar(){
+    const { data: profiles, error } = await db.from('profiles').select('role, is_active');
+    if(error || !profiles) return;
+
+    const total = profiles.length;
+    const totalActive = profiles.filter(p => p.is_active !== false).length;
+
+    const counts = {};
+    Object.keys(ROLE_LABELS).forEach(role => {
+      const inRole = profiles.filter(p => p.role === role);
+      counts[role] = { total: inRole.length, active: inRole.filter(p => p.is_active !== false).length };
+    });
+
+    const bar = document.getElementById('stats-bar');
+    bar.innerHTML = `
+      <div class="stat-card main">
+        <div class="label">إجمالي المستخدمين</div>
+        <div class="total">${total}</div>
+        <div class="active-count">نشط: ${totalActive}</div>
+      </div>
+      ${Object.entries(ROLE_LABELS).map(([role, label]) => `
+        <div class="stat-card">
+          <div class="label">${label}</div>
+          <div class="total">${counts[role].total}</div>
+          <div class="active-count">نشط: ${counts[role].active}</div>
+        </div>
+      `).join('')}
+    `;
+    bar.classList.add('active');
+  }
+
   (async () => {
     const { data: { session } } = await db.auth.getSession();
     if(!session){
@@ -93,6 +143,7 @@
     const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
     if(profile && profile.role === 'admin'){
       document.getElementById('admin-link').style.display = 'inline-block';
+      loadStatsBar();
     }
   })();
 
