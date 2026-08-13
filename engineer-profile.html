@@ -206,10 +206,10 @@
 
   document.getElementById('farm-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('farm-name').value;
-    const location = document.getElementById('farm-location').value;
+    const farm_name = document.getElementById('farm-name').value;
+    const location_text = document.getElementById('farm-location').value;
     const area = document.getElementById('farm-area').value || null;
-    const { error } = await db.from('farms').insert({ owner_id: currentUser.id, name, location, area });
+    const { error } = await db.from('farms').insert({ owner_id: currentUser.id, farm_name, location_text, area });
     if(error){ alert('خطأ: ' + error.message); return; }
     e.target.reset();
     e.target.classList.remove('active');
@@ -230,8 +230,8 @@
       card.innerHTML = `
         <div class="item-head">
           <div>
-            <div class="item-title">🌾 ${farm.name}</div>
-            <div class="item-sub">${farm.location || 'بدون موقع محدد'} ${farm.area ? '· ' + farm.area + ' فدان' : ''}</div>
+            <div class="item-title">🌾 ${farm.farm_name}</div>
+            <div class="item-sub">${farm.location_text || 'بدون موقع محدد'} ${farm.area ? '· ' + farm.area + ' فدان' : ''}</div>
           </div>
           <div class="item-actions">
             <button class="delete-btn delete-farm-btn">حذف</button>
@@ -258,9 +258,9 @@
     activeFarmId = farm.id;
     document.getElementById('farms-section').style.display = 'none';
     document.getElementById('farm-detail-section').style.display = 'block';
-    document.getElementById('farm-detail-title').textContent = '🌾 ' + farm.name;
+    document.getElementById('farm-detail-title').textContent = '🌾 ' + farm.farm_name;
     document.getElementById('farm-detail-meta').textContent =
-      (farm.location || 'بدون موقع محدد') + (farm.area ? ' · ' + farm.area + ' فدان' : '');
+      (farm.location_text || 'بدون موقع محدد') + (farm.area ? ' · ' + farm.area + ' فدان' : '');
     document.getElementById('crop-form').classList.remove('active');
     document.getElementById('crop-form').reset();
     loadCrops(farm.id);
