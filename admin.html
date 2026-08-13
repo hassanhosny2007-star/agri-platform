@@ -123,7 +123,15 @@
         </a>`;
     }).join('');
 
-    document.getElementById('content').innerHTML = `<div class="grid">${gridHtml}</div>`;
+    const diagnosesCard = `
+      <a class="cat-card" href="admin-diagnoses.html" style="border-color:var(--rust);">
+        <div class="icon">📋</div>
+        <div class="label">سجل التشخيصات</div>
+        <div class="count">→</div>
+        <div class="active-count">كل المستخدمين</div>
+      </a>`;
+
+    document.getElementById('content').innerHTML = `<div class="grid">${gridHtml}${diagnosesCard}</div>`;
   })();
 
   document.getElementById('logout').addEventListener('click', async ()=>{
