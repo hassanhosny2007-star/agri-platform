@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة بنك المعرفة — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; min-height:100vh; padding:24px; }
+  .top{ max-width:720px; margin:0 auto 8px; }
+  a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
+  a.back:hover{ text-decoration:underline; }
+  h1{ max-width:720px; margin:8px auto 4px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .subtitle{ max-width:720px; margin:0 auto 20px; color:#5b543f; font-size:14px; }
+
+  .update-card{
+    max-width:720px; margin:0 auto 20px; background:var(--paper); border:1px solid var(--line);
+    border-radius:16px; padding:22px; text-align:center;
+  }
+  .update-card p{ color:#5b543f; font-size:13.5px; margin-bottom:14px; line-height:1.7; }
+  button.update-btn{
+    padding:13px 28px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  button.update-btn:disabled{ opacity:.6; cursor:not-allowed; }
+  .update-status{ margin-top:12px; font-size:13.5px; min-height:18px; }
+  .update-status.success{ color:var(--leaf-deep); }
+  .update-status.error{ color:var(--rust); }
+
+  .add-card{ max-width:720px; margin:0 auto 20px; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; }
+  .add-card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .field{ margin-bottom:12px; }
+  .field label{ font-size:12.5px; color:#8a7f63; display:block; margin-bottom:5px; }
+  .field input, .field select, .field textarea{
+    width:100%; padding:11px; border:1px solid var(--line); border-radius:9px; font-family:inherit; font-size:14px; background:#fff;
+  }
+  button.save-btn{
+    padding:11px 22px; border:none; border-radius:9px; background:var(--leaf-deep); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer;
+  }
+
+  .list{ max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  .article-row{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .article-row .title{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .article-row .meta{ font-size:12px; color:#8a7f63; margin-top:3px; }
+  .cat-tag{ font-size:10.5px; background:#e8f0e5; color:var(--leaf-deep); padding:2px 8px; border-radius:20px; }
+  button.del-btn{ font-size:12px; padding:6px 12px; border-radius:7px; border:1px solid #e3b8b8; background:#fbe9e9; color:#a83232; cursor:pointer; white-space:nowrap; }
+
+  .loading, .empty, .denied{ max-width:720px; margin:40px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+</style>
+</head>
+<body>
+  <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
+  <h1>🗂️ إدارة بنك المعرفة</h1>
+  <p class="subtitle">حدّث المحتوى من مصدر موثوق، أو أضف مقال بنفسك يدويًا</p>
+
+  <div class="update-card">
+    <p>الزرار ده بيجيب آخر الأخبار والتقارير من منظمة الأغذية والزراعة (FAO)، ويصنّفها تلقائيًا للفئة المناسبة (مبيدات / أسمدة / بذور / نبات) حسب محتواها.</p>
+    <button class="update-btn" id="update-btn">🔄 تحديث المحتوى الآن</button>
+    <div class="update-status" id="update-status"></div>
+  </div>
+
+  <div class="add-card">
+    <h3>إضافة مقال يدويًا</h3>
+    <div class="field">
+      <label>الفئة</label>
+      <select id="new-category">
+        <option value="pesticides">مبيدات</option>
+        <option value="fertilizers">أسمدة</option>
+        <option value="seeds">بذور</option>
+        <option value="plants">نبات</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>العنوان</label>
+      <input type="text" id="new-title" placeholder="عنوان المقال">
+    </div>
+    <div class="field">
+      <label>المحتوى</label>
+      <textarea id="new-content" rows="5" placeholder="نص المقال..."></textarea>
+    </div>
+    <div class="field">
+      <label>اسم المصدر (اختياري)</label>
+      <input type="text" id="new-source" placeholder="مثال: خبرة شخصية، مرجع كذا...">
+    </div>
+    <button class="save-btn" id="add-btn">إضافة المقال</button>
+  </div>
+
+  <div id="list-content"><div class="loading">جاري التحميل...</div></div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const CAT_LABELS = { pesticides:'مبيدات', fertilizers:'أسمدة', seeds:'بذور', plants:'نبات' };
+
+  // مصدر RSS موثوق (الفاو) - تحديث مباشر من المتصفح، بدون سيرفر إضافي
+  const RSS_SOURCE_URL = "https://www.fao.org/feeds/fao-newsroom-rss";
+  // بروكسي بسيط لقراءة RSS من المتصفح (RSS مش بيدعم CORS غالبًا)
+  const PROXY = "https://api.allorigins.win/raw?url=";
+
+  const CATEGORY_KEYWORDS = {
+    pesticides: ["pest", "pesticide", "insect", "locust"],
+    fertilizers: ["fertilizer", "soil", "nutrient", "nitrogen"],
+    seeds: ["seed", "variety", "breeding"],
+    plants: ["crop", "plant", "disease", "harvest", "wheat", "rice", "maize"],
+  };
+
+  function classifyCategory(text){
+    const lower = text.toLowerCase();
+    for(const cat of Object.keys(CATEGORY_KEYWORDS)){
+      if(CATEGORY_KEYWORDS[cat].some(kw => lower.includes(kw))) return cat;
+    }
+    return null;
+  }
+  function stripHtml(html){ return html.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(); }
+  function parseRssItems(xml){
+    const items = [];
+    const matches = xml.match(/<item[\s\S]*?<\/item>/g) || [];
+    for(const item of matches){
+      const title = (item.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '';
+      const description = (item.match(/<description>([\s\S]*?)<\/description>/) || [])[1] || '';
+      const link = (item.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || '';
+      items.push({ title: stripHtml(title), description: stripHtml(description).slice(0,400), link: link.trim() });
+    }
+    return items;
+  }
+
+  document.getElementById('update-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('update-btn');
+    const statusEl = document.getElementById('update-status');
+    btn.disabled = true;
+    statusEl.className = 'update-status';
+    statusEl.textContent = 'جاري الجلب من المصدر...';
+
+    try{
+      const res = await fetch(PROXY + encodeURIComponent(RSS_SOURCE_URL));
+      if(!res.ok) throw new Error('تعذر الوصول للمصدر');
+      const xml = await res.text();
+      const items = parseRssItems(xml);
+
+      let inserted = 0;
+      for(const item of items){
+        if(!item.title || !item.link) continue;
+        const category = classifyCategory(item.title + ' ' + item.description);
+        if(!category) continue;
+
+        const { data: existing } = await db.from('knowledge_articles').select('id').eq('source_url', item.link).maybeSingle();
+        if(existing) continue;
+
+        const { error } = await db.from('knowledge_articles').insert({
+          category,
+          title: item.title,
+          content: item.description || 'اقرأ التفاصيل الكاملة من المصدر الأصلي.',
+          source_name: 'FAO - منظمة الأغذية والزراعة',
+          source_url: item.link,
+        });
+        if(!error) inserted++;
+      }
+
+      statusEl.className = 'update-status success';
+      statusEl.textContent = inserted > 0 ? `✅ تم إضافة ${inserted} مقال جديد` : 'مفيش مقالات جديدة دلوقتي، حاول تاني بعدين';
+      loadList();
+    }catch(err){
+      statusEl.className = 'update-status error';
+      statusEl.textContent = '⚠️ حصل خطأ أثناء الجلب، حاول تاني';
+      console.error(err);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('add-btn').addEventListener('click', async () => {
+    const category = document.getElementById('new-category').value;
+    const title = document.getElementById('new-title').value.trim();
+    const content = document.getElementById('new-content').value.trim();
+    const source = document.getElementById('new-source').value.trim();
+
+    if(!title || !content){ alert('العنوان والمحتوى مطلوبين'); return; }
+
+    const { error } = await db.from('knowledge_articles').insert({
+      category, title, content, source_name: source || 'إضافة يدوية'
+    });
+
+    if(error){ alert('حصل خطأ، حاول تاني'); return; }
+
+    document.getElementById('new-title').value = '';
+    document.getElementById('new-content').value = '';
+    document.getElementById('new-source').value = '';
+    loadList();
+  });
+
+  async function loadList(){
+    const { data: articles, error } = await db.from('knowledge_articles').select('*').order('created_at', { ascending: false });
+    if(error){
+      document.getElementById('list-content').innerHTML = '<div class="denied">حصل خطأ: ' + error.message + '</div>';
+      return;
+    }
+    if(!articles || !articles.length){
+      document.getElementById('list-content').innerHTML = '<div class="empty">مفيش مقالات لسه</div>';
+      return;
+    }
+    const html = articles.map(a => `
+      <div class="article-row">
+        <div>
+          <div class="title">${a.title}</div>
+          <div class="meta"><span class="cat-tag">${CAT_LABELS[a.category] || a.category}</span> · ${a.source_name || ''}</div>
+        </div>
+        <button class="del-btn" data-id="${a.id}">حذف</button>
+      </div>`).join('');
+    document.getElementById('list-content').innerHTML = `<div class="list">${html}</div>`;
+
+    document.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('متأكد من حذف المقال؟')) return;
+        await db.from('knowledge_articles').delete().eq('id', btn.getAttribute('data-id'));
+        loadList();
+      });
+    });
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.querySelector('.update-card').style.display = 'none';
+      document.querySelector('.add-card').style.display = 'none';
+      document.getElementById('list-content').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+    loadList();
+  })();
+</script>
+</body>
+</html>
