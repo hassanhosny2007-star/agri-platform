@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بنك المعرفة — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; }
+  .cat-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:16px;
+    padding:26px 14px; text-align:center; cursor:pointer;
+  }
+  .cat-card .icon{ font-size:30px; margin-bottom:8px; }
+  .cat-card .label{ font-family:'Tajawal'; font-weight:700; font-size:15px; color:var(--leaf-deep); }
+  .cat-card .count{ font-size:12px; color:#8a7f63; margin-top:4px; }
+
+  .cat-view{ display:none; }
+  .cat-view.active{ display:block; }
+  .cat-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+  .cat-header h2{ font-family:'Tajawal'; font-weight:800; font-size:18px; color:var(--leaf-deep); }
+  a.manage-link{
+    padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--paper);
+    font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; color:var(--rust); text-decoration:none;
+  }
+
+  .article{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; cursor:pointer; }
+  .article .title{ font-family:'Tajawal'; font-weight:700; font-size:15px; color:var(--leaf-deep); display:flex; justify-content:space-between; align-items:center; }
+  .article .arrow{ font-size:13px; color:#8a7f63; transition:transform .2s; }
+  .article.open .arrow{ transform:rotate(180deg); }
+  .article .content{ display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); font-size:14.5px; line-height:1.9; color:#3d3826; white-space:pre-line; }
+  .article.open .content{ display:block; }
+  .article .source{ margin-top:10px; font-size:12px; color:#8a7f63; }
+  .article .source a{ color:var(--rust); }
+  .empty{ text-align:center; color:#5b543f; padding:50px 0; }
+  .loading{ text-align:center; color:#5b543f; padding:30px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📚 بنك المعرفة</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="grid" id="categories-grid">
+    <div class="cat-card" data-cat="pesticides"><div class="icon">🧪</div><div class="label">المبيدات</div><div class="count" id="count-pesticides">...</div></div>
+    <div class="cat-card" data-cat="fertilizers"><div class="icon">🌾</div><div class="label">الأسمدة</div><div class="count" id="count-fertilizers">...</div></div>
+    <div class="cat-card" data-cat="seeds"><div class="icon">🌱</div><div class="label">البذور</div><div class="count" id="count-seeds">...</div></div>
+    <div class="cat-card" data-cat="plants"><div class="icon">🍃</div><div class="label">النبات</div><div class="count" id="count-plants">...</div></div>
+  </div>
+
+  <div class="cat-view" id="cat-view">
+    <div class="cat-header">
+      <a class="manage-link" id="back-to-grid" href="#">← كل الفئات</a>
+      <h2 id="cat-title"></h2>
+      <a class="manage-link" id="manage-link" href="knowledge-manage.html" style="display:none;">🛠️ إدارة المحتوى</a>
+    </div>
+    <div id="articles-list"><div class="loading">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const CAT_LABELS = { pesticides:'المبيدات', fertilizers:'الأسمدة', seeds:'البذور', plants:'النبات' };
+  let isAdmin = false;
+
+  async function loadCounts(){
+    for(const cat of Object.keys(CAT_LABELS)){
+      const { count } = await db.from('knowledge_articles').select('id', { count: 'exact', head: true }).eq('category', cat);
+      document.getElementById('count-' + cat).textContent = (count || 0) + ' مقال';
+    }
+  }
+
+  async function openCategory(cat){
+    document.getElementById('categories-grid').style.display = 'none';
+    document.getElementById('cat-view').classList.add('active');
+    document.getElementById('cat-title').textContent = CAT_LABELS[cat];
+    document.getElementById('manage-link').style.display = isAdmin ? 'inline-block' : 'none';
+    await loadArticles(cat);
+  }
+
+  document.getElementById('back-to-grid').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('cat-view').classList.remove('active');
+    document.getElementById('categories-grid').style.display = 'grid';
+    loadCounts();
+  });
+
+  document.querySelectorAll('.cat-card').forEach(card => {
+    card.addEventListener('click', () => openCategory(card.dataset.cat));
+  });
+
+  async function loadArticles(cat){
+    const list = document.getElementById('articles-list');
+    list.innerHTML = '<div class="loading">جاري التحميل...</div>';
+
+    const { data: articles, error } = await db
+      .from('knowledge_articles')
+      .select('*')
+      .eq('category', cat)
+      .order('created_at', { ascending: false });
+
+    if(error){
+      list.innerHTML = '<div class="empty">حدث خطأ: ' + error.message + '</div>';
+      return;
+    }
+    if(!articles || articles.length === 0){
+      list.innerHTML = `<div class="empty">لسه مفيش محتوى في الفئة دي.${isAdmin ? ' روح صفحة "إدارة المحتوى" فوق عشان تضيف أول مقال.' : ' تواصل مع الإدارة.'}</div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    articles.forEach((a) => {
+      const div = document.createElement('div');
+      div.className = 'article';
+      div.innerHTML = `
+        <div class="title"><span>📖 ${a.title}</span><span class="arrow">▾</span></div>
+        <div class="content">${a.content}${a.source_url ? `<div class="source">المصدر: <a href="${a.source_url}" target="_blank" rel="noopener">${a.source_name || 'رابط خارجي'}</a></div>` : (a.source_name ? `<div class="source">المصدر: ${a.source_name}</div>` : '')}</div>
+      `;
+      div.addEventListener('click', () => {
+        div.classList.toggle('open');
+      });
+      list.appendChild(div);
+    });
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    isAdmin = profile && profile.role === 'admin';
+
+    loadCounts();
+  })();
+</script>
+</body>
+</html>
