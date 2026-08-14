@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>جدول خلط المبيدات والأسمدة — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --danger:#B23A2E; --danger-bg:#FBE9E7;
+    --safe:#3B5B37; --safe-bg:#E8F0E5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .disclaimer{
+    background:#FFF6E0; border:1px solid #E8D190; border-radius:12px; padding:14px 16px;
+    font-size:12.5px; color:#6b5a24; line-height:1.7; margin-bottom:20px;
+  }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:18px; padding:26px; }
+  .field{ margin-bottom:16px; }
+  .field label{ font-size:13.5px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  select{
+    width:100%; padding:12px 14px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-size:15px; font-family:inherit;
+  }
+  .vs{ text-align:center; font-family:'Tajawal'; font-weight:900; color:var(--rust); margin:4px 0 16px; font-size:14px; }
+
+  button.check-btn{
+    width:100%; padding:14px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:15.5px; cursor:pointer;
+  }
+  button.check-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .result{ margin-top:22px; border-radius:14px; padding:20px; display:none; }
+  .result.show{ display:block; }
+  .result.safe{ background:var(--safe-bg); border:1px solid #b7cdae; }
+  .result.danger{ background:var(--danger-bg); border:1px solid #e3b8b8; }
+  .result .badge{ font-family:'Tajawal'; font-weight:900; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .result.safe .badge{ color:var(--safe); }
+  .result.danger .badge{ color:var(--danger); }
+  .result .row{ margin-top:12px; }
+  .result .row .k{ font-family:'Tajawal'; font-weight:700; font-size:12.5px; color:#5b543f; }
+  .result .row .v{ margin-top:3px; font-size:14.5px; line-height:1.8; }
+  .result .notes{ margin-top:12px; font-size:12.5px; color:#6b5a24; background:rgba(255,255,255,.5); padding:10px 12px; border-radius:8px; }
+  .no-data{ margin-top:22px; text-align:center; color:#5b543f; font-size:14px; background:#f1ebdb; border-radius:12px; padding:16px; }
+  .loading{ text-align:center; color:#5b543f; padding:20px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🧪 خلط المبيدات والأسمدة</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="disclaimer">
+    ⚠️ النتائج هنا استرشادية ومبنية على مبادئ زراعية عامة معروفة، ومش بديل عن قراءة ملصق المنتج نفسه (Product Label) أو استشارة مهندس زراعي في القرارات الحرجة. دايمًا اعمل اختبار عينة صغيرة (Jar Test) قبل الخلط على نطاق واسع.
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label>المادة الأولى</label>
+      <select id="substance-a"><option value="">جاري التحميل...</option></select>
+    </div>
+    <div class="vs">+</div>
+    <div class="field">
+      <label>المادة الثانية</label>
+      <select id="substance-b"><option value="">جاري التحميل...</option></select>
+    </div>
+    <button class="check-btn" id="check-btn">🔬 فحص إمكانية الخلط</button>
+
+    <div class="result" id="result"></div>
+    <div class="no-data" id="no-data" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const TYPE_LABELS = { pesticide: '🧪 مبيد', fertilizer: '🌾 سماد' };
+
+  async function loadSubstances(){
+    const { data: substances, error } = await db.from('agro_substances').select('*').order('type').order('name');
+    if(error || !substances){
+      document.getElementById('substance-a').innerHTML = '<option value="">تعذر التحميل</option>';
+      document.getElementById('substance-b').innerHTML = '<option value="">تعذر التحميل</option>';
+      return;
+    }
+
+    const optionsHtml = '<option value="">اختار المادة...</option>' + substances.map(s =>
+      `<option value="${s.id}">${TYPE_LABELS[s.type]} — ${s.name}</option>`
+    ).join('');
+
+    document.getElementById('substance-a').innerHTML = optionsHtml;
+    document.getElementById('substance-b').innerHTML = optionsHtml;
+  }
+
+  document.getElementById('check-btn').addEventListener('click', async () => {
+    const aId = document.getElementById('substance-a').value;
+    const bId = document.getElementById('substance-b').value;
+    const resultEl = document.getElementById('result');
+    const noDataEl = document.getElementById('no-data');
+
+    resultEl.className = 'result';
+    noDataEl.style.display = 'none';
+
+    if(!aId || !bId){ alert('اختار المادتين الأول'); return; }
+    if(aId === bId){ alert('اختار مادتين مختلفتين'); return; }
+
+    const btn = document.getElementById('check-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الفحص...';
+
+    const { data: rule } = await db
+      .from('mix_compatibility')
+      .select('*, a:substance_a_id(name), b:substance_b_id(name)')
+      .or(`and(substance_a_id.eq.${aId},substance_b_id.eq.${bId}),and(substance_a_id.eq.${bId},substance_b_id.eq.${aId})`)
+      .maybeSingle();
+
+    btn.disabled = false;
+    btn.textContent = '🔬 فحص إمكانية الخلط';
+
+    if(!rule){
+      noDataEl.style.display = 'block';
+      noDataEl.textContent = 'مفيش بيانات مسجلة عن خلط المادتين دول لسه. لو مش متأكد، متخلطهمش من غير استشارة مهندس زراعي.';
+      return;
+    }
+
+    if(rule.is_compatible){
+      resultEl.className = 'result show safe';
+      resultEl.innerHTML = `
+        <div class="badge">✅ الخلط آمن</div>
+        ${rule.result_name ? `<div class="row"><div class="k">اسم الخليط الناتج</div><div class="v">${rule.result_name}</div></div>` : ''}
+        ${rule.result_function ? `<div class="row"><div class="k">الفايدة من الخلط</div><div class="v">${rule.result_function}</div></div>` : ''}
+        ${rule.notes ? `<div class="notes">💡 ${rule.notes}</div>` : ''}
+      `;
+    } else {
+      resultEl.className = 'result show danger';
+      resultEl.innerHTML = `
+        <div class="badge">⛔ الخلط غير آمن</div>
+        ${rule.hazard ? `<div class="row"><div class="k">الضرر المتوقع</div><div class="v">${rule.hazard}</div></div>` : ''}
+        ${rule.notes ? `<div class="notes">💡 ${rule.notes}</div>` : ''}
+      `;
+    }
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    loadSubstances();
+  })();
+</script>
+</body>
+</html>
