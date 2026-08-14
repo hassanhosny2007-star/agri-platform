@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بنك المعرفة — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; }
+  .cat-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:16px;
+    padding:26px 14px; text-align:center; cursor:pointer;
+  }
+  .cat-card .icon{ font-size:30px; margin-bottom:8px; }
+  .cat-card .label{ font-family:'Tajawal'; font-weight:700; font-size:15px; color:var(--leaf-deep); }
+  .cat-card .count{ font-size:12px; color:#8a7f63; margin-top:4px; }
+
+  .cat-view{ display:none; }
+  .cat-view.active{ display:block; }
+  .cat-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .cat-header h2{ font-family:'Tajawal'; font-weight:800; font-size:18px; color:var(--leaf-deep); }
+  button.refresh-btn{
+    padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--paper);
+    font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; color:var(--rust);
+  }
+  button.refresh-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .article{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; cursor:pointer; }
+  .article .title{ font-family:'Tajawal'; font-weight:700; font-size:15px; color:var(--leaf-deep); }
+  .article .content{ display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); font-size:14.5px; line-height:1.9; color:#3d3826; white-space:pre-line; }
+  .article .content.active{ display:block; }
+  .empty{ text-align:center; color:#5b543f; padding:50px 0; }
+  .loading{ text-align:center; color:#5b543f; padding:30px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📚 بنك المعرفة</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="grid" id="categories-grid">
+    <div class="cat-card" data-cat="pesticides"><div class="icon">🧪</div><div class="label">المبيدات</div><div class="count" id="count-pesticides">...</div></div>
+    <div class="cat-card" data-cat="fertilizers"><div class="icon">🌾</div><div class="label">الأسمدة</div><div class="count" id="count-fertilizers">...</div></div>
+    <div class="cat-card" data-cat="seeds"><div class="icon">🌱</div><div class="label">البذور</div><div class="count" id="count-seeds">...</div></div>
+    <div class="cat-card" data-cat="plants"><div class="icon">🍃</div><div class="label">النبات</div><div class="count" id="count-plants">...</div></div>
+  </div>
+
+  <div class="cat-view" id="cat-view">
+    <div class="cat-header">
+      <button class="refresh-btn" id="back-to-grid">← كل الفئات</button>
+      <h2 id="cat-title"></h2>
+      <button class="refresh-btn" id="refresh-btn" style="display:none;">🔄 تحديث المحتوى</button>
+    </div>
+    <div id="articles-list"><div class="loading">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const CAT_LABELS = { pesticides:'المبيدات', fertilizers:'الأسمدة', seeds:'البذور', plants:'النبات' };
+  let isAdmin = false;
+  let currentSession = null;
+  let currentCategory = null;
+
+  async function loadCounts(){
+    for(const cat of Object.keys(CAT_LABELS)){
+      const { count } = await db.from('knowledge_articles').select('id', { count: 'exact', head: true }).eq('category', cat);
+      document.getElementById('count-' + cat).textContent = (count || 0) + ' مقال';
+    }
+  }
+
+  async function openCategory(cat){
+    currentCategory = cat;
+    document.getElementById('categories-grid').style.display = 'none';
+    document.getElementById('cat-view').classList.add('active');
+    document.getElementById('cat-title').textContent = CAT_LABELS[cat];
+    document.getElementById('refresh-btn').style.display = isAdmin ? 'inline-block' : 'none';
+    await loadArticles(cat);
+  }
+
+  document.getElementById('back-to-grid').addEventListener('click', () => {
+    document.getElementById('cat-view').classList.remove('active');
+    document.getElementById('categories-grid').style.display = 'grid';
+    loadCounts();
+  });
+
+  document.querySelectorAll('.cat-card').forEach(card => {
+    card.addEventListener('click', () => openCategory(card.dataset.cat));
+  });
+
+  async function loadArticles(cat){
+    const list = document.getElementById('articles-list');
+    list.innerHTML = '<div class="loading">جاري التحميل...</div>';
+    const { data: articles, error } = await db.from('knowledge_articles').select('*').eq('category', cat).order('created_at', { ascending: false });
+    if(error){
+      list.innerHTML = '<div class="empty">حدث خطأ: ' + error.message + '</div>';
+      return;
+    }
+    if(!articles || articles.length === 0){
+      list.innerHTML = `<div class="empty">لسه مفيش محتوى في الفئة دي.${isAdmin ? ' دوس "تحديث المحتوى" فوق عشان تجيب أول مجموعة مقالات.' : ' تواصل مع الإدارة.'}</div>`;
+      return;
+    }
+    list.innerHTML = articles.map((a, i) => `
+      <div class="article" data-idx="${i}">
+        <div class="title">📖 ${a.title}</div>
+        <div class="content" id="art-content-${i}">${a.content}</div>
+      </div>
+    `).join('');
+    document.querySelectorAll('.article').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('art-content-' + el.dataset.idx).classList.toggle('active');
+      });
+    });
+  }
+
+  document.getElementById('refresh-btn').addEventListener('click', async () => {
+    if(!confirm('هيتم استبدال كل مقالات الفئة دي بمقالات جديدة محدّثة من الإنترنت. متأكد؟')) return;
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري البحث والتحديث...';
+
+    try{
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/refresh-knowledge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`
+        },
+        body: JSON.stringify({ category: currentCategory })
+      });
+      const result = await response.json();
+      if(!response.ok || result.error){
+        alert('حصل خطأ: ' + (result.error || 'غير معروف'));
+        return;
+      }
+      await db.from('knowledge_articles').delete().eq('category', currentCategory);
+      const rows = result.articles.map(a => ({ category: currentCategory, title: a.title, content: a.content }));
+      await db.from('knowledge_articles').insert(rows);
+      await loadArticles(currentCategory);
+    }catch(err){
+      alert('حصل خطأ أثناء التحديث: ' + err.message);
+    }finally{
+      btn.disabled = false;
+      btn.textContent = '🔄 تحديث المحتوى';
+    }
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentSession = session;
+
+    const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    isAdmin = profile && profile.role === 'admin';
+
+    loadCounts();
+  })();
+</script>
+</body>
+</html>
