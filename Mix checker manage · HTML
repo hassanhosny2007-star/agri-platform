@@ -3,98 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>إدارة جدول الخلط — لوحة الأدمن</title>
+<title>جدول خلط المبيدات والأسمدة — AgroNex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
-    --line:#CDBF9C; --paper:#FCFAF3; --rust:#A85D28;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --danger:#B23A2E; --danger-bg:#FBE9E7;
+    --safe:#3B5B37; --safe-bg:#E8F0E5;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
-  .top{ max-width:720px; margin:0 auto 8px; }
-  a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
-  h1{ max-width:720px; margin:8px auto 20px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .wrap{ max-width:640px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
 
-  .tabs{ max-width:720px; margin:0 auto 16px; display:flex; gap:8px; }
-  .tab{ padding:10px 18px; border-radius:8px; border:1px solid var(--line); background:var(--paper); font-family:'Tajawal'; font-weight:700; font-size:13.5px; cursor:pointer; }
-  .tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
-
-  .panel{ display:none; max-width:720px; margin:0 auto; }
-  .panel.active{ display:block; }
-
-  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px; }
-  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
-  .field{ margin-bottom:12px; }
-  .field label{ font-size:12.5px; color:#8a7f63; display:block; margin-bottom:5px; }
-  .field input, .field select, .field textarea{
-    width:100%; padding:11px; border:1px solid var(--line); border-radius:9px; font-family:inherit; font-size:14px; background:#fff;
+  .disclaimer{
+    background:#FFF6E0; border:1px solid #E8D190; border-radius:12px; padding:14px 16px;
+    font-size:12.5px; color:#6b5a24; line-height:1.7; margin-bottom:20px;
   }
-  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  button.save-btn{ padding:11px 22px; border:none; border-radius:9px; background:var(--leaf-deep); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer; }
 
-  .list-row{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
-  .list-row .name{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
-  .list-row .meta{ font-size:12px; color:#8a7f63; margin-top:2px; }
-  button.del-btn{ font-size:12px; padding:6px 12px; border-radius:7px; border:1px solid #e3b8b8; background:#fbe9e9; color:#a83232; cursor:pointer; white-space:nowrap; }
-  .compat-yes{ color:var(--leaf); }
-  .compat-no{ color:#a83232; }
-  .denied{ max-width:720px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:18px; padding:26px; }
+  .field{ margin-bottom:16px; }
+  .field label{ font-size:13.5px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  select{
+    width:100%; padding:12px 14px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-size:15px; font-family:inherit;
+  }
+  .vs{ text-align:center; font-family:'Tajawal'; font-weight:900; color:var(--rust); margin:4px 0 16px; font-size:14px; }
+
+  button.check-btn{
+    width:100%; padding:14px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:15.5px; cursor:pointer;
+  }
+  button.check-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .result{ margin-top:22px; border-radius:14px; padding:20px; display:none; }
+  .result.show{ display:block; }
+  .result.safe{ background:var(--safe-bg); border:1px solid #b7cdae; }
+  .result.danger{ background:var(--danger-bg); border:1px solid #e3b8b8; }
+  .result .badge{ font-family:'Tajawal'; font-weight:900; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .result.safe .badge{ color:var(--safe); }
+  .result.danger .badge{ color:var(--danger); }
+  .result .row{ margin-top:12px; }
+  .result .row .k{ font-family:'Tajawal'; font-weight:700; font-size:12.5px; color:#5b543f; }
+  .result .row .v{ margin-top:3px; font-size:14.5px; line-height:1.8; }
+  .result .notes{ margin-top:12px; font-size:12.5px; color:#6b5a24; background:rgba(255,255,255,.5); padding:10px 12px; border-radius:8px; }
+  .no-data{ margin-top:22px; text-align:center; color:#5b543f; font-size:14px; background:#f1ebdb; border-radius:12px; padding:16px; }
+  .loading{ text-align:center; color:#5b543f; padding:20px 0; }
 </style>
 </head>
 <body>
-  <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
-  <h1>🧪 إدارة جدول خلط المبيدات والأسمدة</h1>
+<div class="wrap">
+  <header>
+    <h1>🧪 خلط المبيدات والأسمدة</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
 
-  <div id="access-gate">
-    <div class="tabs">
-      <button class="tab active" data-panel="substances">المواد</button>
-      <button class="tab" data-panel="rules">قواعد التوافق</button>
-    </div>
-
-    <div class="panel active" id="panel-substances">
-      <div class="card">
-        <h3>إضافة مادة جديدة</h3>
-        <div class="row2">
-          <div class="field"><label>النوع</label>
-            <select id="sub-type">
-              <option value="pesticide">مبيد</option>
-              <option value="fertilizer">سماد</option>
-            </select>
-          </div>
-          <div class="field"><label>التصنيف الفرعي</label>
-            <input type="text" id="sub-subtype" placeholder="مثال: مبيد فطري">
-          </div>
-        </div>
-        <div class="field"><label>الاسم</label><input type="text" id="sub-name" placeholder="اسم المادة"></div>
-        <div class="field"><label>المادة الفعالة (اختياري)</label><input type="text" id="sub-active" placeholder="الاسم الكيميائي"></div>
-        <button class="save-btn" id="add-sub-btn">إضافة المادة</button>
-      </div>
-      <div id="substances-list"><div class="denied">جاري التحميل...</div></div>
-    </div>
-
-    <div class="panel" id="panel-rules">
-      <div class="card">
-        <h3>إضافة قاعدة توافق جديدة</h3>
-        <div class="field"><label>المادة الأولى</label><select id="rule-a"></select></div>
-        <div class="field"><label>المادة الثانية</label><select id="rule-b"></select></div>
-        <div class="field"><label>هل الخلط آمن؟</label>
-          <select id="rule-compatible">
-            <option value="true">آمن ✅</option>
-            <option value="false">غير آمن ⛔</option>
-          </select>
-        </div>
-        <div class="field"><label>اسم الخليط الناتج (لو آمن)</label><input type="text" id="rule-result-name"></div>
-        <div class="field"><label>الفايدة من الخلط (لو آمن)</label><input type="text" id="rule-result-function"></div>
-        <div class="field"><label>الضرر المتوقع (لو غير آمن)</label><input type="text" id="rule-hazard"></div>
-        <div class="field"><label>ملاحظات إضافية</label><textarea id="rule-notes" rows="2"></textarea></div>
-        <button class="save-btn" id="add-rule-btn">إضافة القاعدة</button>
-      </div>
-      <div id="rules-list"><div class="denied">جاري التحميل...</div></div>
-    </div>
+  <div class="disclaimer">
+    ⚠️ النتائج هنا استرشادية ومبنية على مبادئ زراعية عامة معروفة، ومش بديل عن قراءة ملصق المنتج نفسه (Product Label) أو استشارة مهندس زراعي في القرارات الحرجة. دايمًا اعمل اختبار عينة صغيرة (Jar Test) قبل الخلط على نطاق واسع.
   </div>
+
+  <div class="card">
+    <div class="field">
+      <label>المادة الأولى</label>
+      <select id="substance-a"><option value="">جاري التحميل...</option></select>
+    </div>
+    <div class="vs">+</div>
+    <div class="field">
+      <label>المادة الثانية</label>
+      <select id="substance-b"><option value="">جاري التحميل...</option></select>
+    </div>
+    <button class="check-btn" id="check-btn">🔬 فحص إمكانية الخلط</button>
+
+    <div class="result" id="result"></div>
+    <div class="no-data" id="no-data" style="display:none;"></div>
+  </div>
+</div>
 
 <script>
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
@@ -116,112 +104,91 @@
 
   const TYPE_LABELS = { pesticide: '🧪 مبيد', fertilizer: '🌾 سماد' };
 
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
-    });
-  });
-
   async function loadSubstances(){
-    const { data: substances } = await db.from('agro_substances').select('*').order('type').order('name');
-    const list = document.getElementById('substances-list');
-    if(!substances || !substances.length){ list.innerHTML = '<div class="denied">مفيش مواد لسه</div>'; return; }
-    list.innerHTML = substances.map(s => `
-      <div class="list-row">
-        <div><div class="name">${TYPE_LABELS[s.type]} — ${s.name}</div><div class="meta">${s.subtype}${s.active_ingredient ? ' · ' + s.active_ingredient : ''}</div></div>
-        <button class="del-btn" data-sub-id="${s.id}">حذف</button>
-      </div>`).join('');
-    document.querySelectorAll('[data-sub-id]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if(!confirm('حذف المادة هيمسح كل قواعد التوافق الخاصة بيها كمان. متأكد؟')) return;
-        await db.from('agro_substances').delete().eq('id', btn.getAttribute('data-sub-id'));
-        loadSubstances(); populateRuleSelects();
-      });
-    });
+    // نجيب بس المواد اللي ليها قاعدة توافق واحدة على الأقل مسجلة
+    const { data: rules, error: rulesError } = await db.from('mix_compatibility').select('substance_a_id, substance_b_id');
+    if(rulesError || !rules || !rules.length){
+      document.getElementById('substance-a').innerHTML = '<option value="">لا توجد بيانات كافية بعد</option>';
+      document.getElementById('substance-b').innerHTML = '<option value="">لا توجد بيانات كافية بعد</option>';
+      return;
+    }
 
-    return substances;
+    const knownIds = [...new Set(rules.flatMap(r => [r.substance_a_id, r.substance_b_id]))];
+
+    const { data: substances, error } = await db
+      .from('agro_substances')
+      .select('*')
+      .in('id', knownIds)
+      .order('type')
+      .order('name');
+
+    if(error || !substances){
+      document.getElementById('substance-a').innerHTML = '<option value="">تعذر التحميل</option>';
+      document.getElementById('substance-b').innerHTML = '<option value="">تعذر التحميل</option>';
+      return;
+    }
+
+    const optionsHtml = '<option value="">اختار المادة...</option>' + substances.map(s =>
+      `<option value="${s.id}">${TYPE_LABELS[s.type]} — ${s.name}</option>`
+    ).join('');
+
+    document.getElementById('substance-a').innerHTML = optionsHtml;
+    document.getElementById('substance-b').innerHTML = optionsHtml;
   }
 
-  async function populateRuleSelects(){
-    const { data: substances } = await db.from('agro_substances').select('*').order('type').order('name');
-    const opts = '<option value="">اختار...</option>' + (substances || []).map(s => `<option value="${s.id}">${TYPE_LABELS[s.type]} — ${s.name}</option>`).join('');
-    document.getElementById('rule-a').innerHTML = opts;
-    document.getElementById('rule-b').innerHTML = opts;
-  }
+  document.getElementById('check-btn').addEventListener('click', async () => {
+    const aId = document.getElementById('substance-a').value;
+    const bId = document.getElementById('substance-b').value;
+    const resultEl = document.getElementById('result');
+    const noDataEl = document.getElementById('no-data');
 
-  document.getElementById('add-sub-btn').addEventListener('click', async () => {
-    const name = document.getElementById('sub-name').value.trim();
-    const type = document.getElementById('sub-type').value;
-    const subtype = document.getElementById('sub-subtype').value.trim();
-    const active_ingredient = document.getElementById('sub-active').value.trim();
-    if(!name || !subtype){ alert('الاسم والتصنيف مطلوبين'); return; }
+    resultEl.className = 'result';
+    noDataEl.style.display = 'none';
 
-    const { error } = await db.from('agro_substances').insert({ name, type, subtype, active_ingredient: active_ingredient || null });
-    if(error){ alert('حصل خطأ، حاول تاني'); return; }
+    if(!aId || !bId){ alert('اختار المادتين الأول'); return; }
+    if(aId === bId){ alert('اختار مادتين مختلفتين'); return; }
 
-    document.getElementById('sub-name').value = '';
-    document.getElementById('sub-subtype').value = '';
-    document.getElementById('sub-active').value = '';
-    loadSubstances(); populateRuleSelects();
-  });
+    const btn = document.getElementById('check-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الفحص...';
 
-  async function loadRules(){
-    const { data: rules } = await db.from('mix_compatibility').select('*, a:substance_a_id(name), b:substance_b_id(name)').order('created_at', { ascending: false });
-    const list = document.getElementById('rules-list');
-    if(!rules || !rules.length){ list.innerHTML = '<div class="denied">مفيش قواعد لسه</div>'; return; }
-    list.innerHTML = rules.map(r => `
-      <div class="list-row">
-        <div>
-          <div class="name">${r.a?.name || '—'} + ${r.b?.name || '—'}</div>
-          <div class="meta ${r.is_compatible ? 'compat-yes' : 'compat-no'}">${r.is_compatible ? '✅ آمن' : '⛔ غير آمن'}</div>
-        </div>
-        <button class="del-btn" data-rule-id="${r.id}">حذف</button>
-      </div>`).join('');
-    document.querySelectorAll('[data-rule-id]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if(!confirm('متأكد من حذف القاعدة؟')) return;
-        await db.from('mix_compatibility').delete().eq('id', btn.getAttribute('data-rule-id'));
-        loadRules();
-      });
-    });
-  }
+    const { data: rule } = await db
+      .from('mix_compatibility')
+      .select('*, a:substance_a_id(name), b:substance_b_id(name)')
+      .or(`and(substance_a_id.eq.${aId},substance_b_id.eq.${bId}),and(substance_a_id.eq.${bId},substance_b_id.eq.${aId})`)
+      .maybeSingle();
 
-  document.getElementById('add-rule-btn').addEventListener('click', async () => {
-    const a = document.getElementById('rule-a').value;
-    const b = document.getElementById('rule-b').value;
-    if(!a || !b || a === b){ alert('اختار مادتين مختلفتين'); return; }
+    btn.disabled = false;
+    btn.textContent = '🔬 فحص إمكانية الخلط';
 
-    const payload = {
-      substance_a_id: a,
-      substance_b_id: b,
-      is_compatible: document.getElementById('rule-compatible').value === 'true',
-      result_name: document.getElementById('rule-result-name').value.trim() || null,
-      result_function: document.getElementById('rule-result-function').value.trim() || null,
-      hazard: document.getElementById('rule-hazard').value.trim() || null,
-      notes: document.getElementById('rule-notes').value.trim() || null,
-    };
+    if(!rule){
+      noDataEl.style.display = 'block';
+      noDataEl.textContent = 'مفيش بيانات مسجلة عن خلط المادتين دول لسه. لو مش متأكد، متخلطهمش من غير استشارة مهندس زراعي.';
+      return;
+    }
 
-    const { error } = await db.from('mix_compatibility').insert(payload);
-    if(error){ alert('حصل خطأ (يمكن القاعدة دي موجودة بالفعل لنفس المادتين)'); return; }
-
-    ['rule-result-name','rule-result-function','rule-hazard','rule-notes'].forEach(id => document.getElementById(id).value = '');
-    loadRules();
+    if(rule.is_compatible){
+      resultEl.className = 'result show safe';
+      resultEl.innerHTML = `
+        <div class="badge">✅ الخلط آمن</div>
+        ${rule.result_name ? `<div class="row"><div class="k">اسم الخليط الناتج</div><div class="v">${rule.result_name}</div></div>` : ''}
+        ${rule.result_function ? `<div class="row"><div class="k">الفايدة من الخلط</div><div class="v">${rule.result_function}</div></div>` : ''}
+        ${rule.notes ? `<div class="notes">💡 ${rule.notes}</div>` : ''}
+      `;
+    } else {
+      resultEl.className = 'result show danger';
+      resultEl.innerHTML = `
+        <div class="badge">⛔ الخلط غير آمن</div>
+        ${rule.hazard ? `<div class="row"><div class="k">الضرر المتوقع</div><div class="v">${rule.hazard}</div></div>` : ''}
+        ${rule.notes ? `<div class="notes">💡 ${rule.notes}</div>` : ''}
+      `;
+    }
   });
 
   (async () => {
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
-    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
-    if(!myProfile || myProfile.role !== 'admin'){
-      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
-      return;
-    }
     loadSubstances();
-    populateRuleSelects();
-    loadRules();
   })();
 </script>
 </body>
