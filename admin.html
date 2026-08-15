@@ -1,118 +1,106 @@
-/* ============================================
-   assets/layout.js
-   يبني الهيدر + السايدبار تلقائيًا، ويفعّل مود الليل/النهار
-   الاستخدام: AgroNexLayout.init({ active: 'admin-dashboard', db, session, profile })
-   ============================================ */
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم الأدمن — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/layout.js"></script>
+</head>
+<body>
 
-const AgroNexLayout = (() => {
+  <div class="page-title-row">
+    <div>
+      <h1>لوحة تحكم الأدمن</h1>
+      <div class="sub">نظرة عامة على المنصة والمستخدمين</div>
+    </div>
+  </div>
 
-  // كل روابط السايدبار الممكنة، مقسّمة بحسب من يشوفها
-  const NAV_ITEMS = [
-    { key: 'dashboard', href: 'dashboard.html', icon: '🏠', label: 'الرئيسية', roles: 'all' },
-    { key: 'diagnose', href: 'diagnose.html', icon: '🌿', label: 'تشخيص أمراض النبات', roles: 'all' },
-    { key: 'knowledge', href: 'knowledge-base.html', icon: '📚', label: 'بنك المعرفة', roles: 'all' },
-    { key: 'mix-checker', href: 'mix-checker.html', icon: '🧪', label: 'خلط المبيدات والأسمدة', roles: 'all' },
-    { key: 'substances', href: 'substances-directory.html', icon: '🔍', label: 'دليل المواد الفعالة', roles: 'all' },
-    { key: 'my-profile', href: 'engineer-profile.html', icon: '👤', label: 'بروفايلي', roles: 'all' },
+  <div class="stat-tiles" id="tiles"><div class="surface-card">جاري التحميل...</div></div>
 
-    { key: 'admin-section', label: 'إدارة المنصة', roles: ['admin'], isSection: true },
-    { key: 'admin-dashboard', href: 'admin.html', icon: '🛠️', label: 'لوحة تحكم الأدمن', roles: ['admin'] },
-    { key: 'admin-profile', href: 'admin-profile.html', icon: '⭐', label: 'بروفايل المدير', roles: ['admin'] },
-    { key: 'admin-diagnoses', href: 'admin-diagnoses.html', icon: '📋', label: 'سجل التشخيصات', roles: ['admin'] },
-    { key: 'knowledge-manage', href: 'knowledge-manage.html', icon: '🗂️', label: 'إدارة بنك المعرفة', roles: ['admin'] },
-    { key: 'mix-manage', href: 'mix-checker-manage.html', icon: '⚗️', label: 'إدارة جدول الخلط', roles: ['admin'] },
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const CATEGORIES = [
+    { role: 'company', label: 'الشركات', icon: '🏢', color: 'tile-indigo' },
+    { role: 'engineer', label: 'المهندسين الزراعيين', icon: '👨‍🔬', color: 'tile-blue' },
+    { role: 'trader', label: 'التجار', icon: '💼', color: 'tile-orange' },
+    { role: 'farmer', label: 'المزارعين', icon: '🌾', color: 'tile-green' },
   ];
 
-  function applyTheme(theme){
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('agronex-theme', theme);
-  }
+  async function loadTiles(){
+    const { data: allProfiles } = await db.from('profiles').select('role, is_active');
 
-  function getInitialTheme(){
-    return localStorage.getItem('agronex-theme') || 'light';
-  }
-
-  function buildSidebar(activeKey, isAdmin){
-    const items = NAV_ITEMS.filter(i => i.roles === 'all' || (isAdmin && i.roles.includes('admin')));
-    const linksHtml = items.map(i => {
-      if(i.isSection){
-        return `<div class="side-section-title">${i.label}</div>`;
-      }
-      return `<a class="side-link ${i.key === activeKey ? 'active' : ''}" href="${i.href}">
-        <span class="icon">${i.icon}</span><span>${i.label}</span>
-      </a>`;
+    const categoryTiles = CATEGORIES.map(c => {
+      const usersInRole = (allProfiles || []).filter(p => p.role === c.role);
+      const total = usersInRole.length;
+      const active = usersInRole.filter(p => p.is_active !== false).length;
+      return `
+        <a class="stat-tile ${c.color}" href="admin-category.html?role=${c.role}">
+          <span class="badge-num">${total}</span>
+          <span class="tile-icon">${c.icon}</span>
+          <div>
+            <div class="tile-label">${c.label}</div>
+            <div class="tile-sub">${active} حساب مفعّل</div>
+          </div>
+        </a>`;
     }).join('');
 
-    return `
-      <div class="side-brand">🌱 AgroNex</div>
-      ${linksHtml}
-    `;
-  }
-
-  function buildTopbar(profile, email){
-    const name = (profile && profile.full_name) || email || '...';
-    const avatar = (profile && profile.avatar_url) || '';
-    return `
-      <button class="icon-btn" id="mobile-menu-btn">☰</button>
-      <div class="user-block">
-        <img src="${avatar}" onerror="this.style.visibility='hidden'">
+    const extraTiles = `
+      <a class="stat-tile tile-red" href="admin-diagnoses.html">
+        <span class="tile-icon">📋</span>
         <div>
-          <div class="u-name">${name}</div>
-          <div class="u-email">${email || ''}</div>
+          <div class="tile-label">سجل التشخيصات</div>
+          <div class="tile-sub">كل عمليات التشخيص</div>
         </div>
-      </div>
-      <div class="top-actions">
-        <a class="site-link" href="index.html" target="_blank">🌐 عرض الموقع</a>
-        <button class="icon-btn" id="theme-toggle-btn" title="تبديل الوضع الليلي/النهاري">🌙</button>
-        <button class="icon-btn" id="layout-logout-btn" title="تسجيل الخروج">🚪</button>
-      </div>
-    `;
+      </a>
+      <a class="stat-tile tile-pink" href="knowledge-manage.html">
+        <span class="tile-icon">🗂️</span>
+        <div>
+          <div class="tile-label">إدارة بنك المعرفة</div>
+          <div class="tile-sub">إضافة وتحديث المقالات</div>
+        </div>
+      </a>
+      <a class="stat-tile tile-teal" href="mix-checker-manage.html">
+        <span class="tile-icon">⚗️</span>
+        <div>
+          <div class="tile-label">إدارة جدول الخلط</div>
+          <div class="tile-sub">المواد وقواعد التوافق</div>
+        </div>
+      </a>`;
+
+    document.getElementById('tiles').innerHTML = categoryTiles + extraTiles;
   }
 
-  async function init({ active, db }){
-    applyTheme(getInitialTheme());
+  (async () => {
+    const ctx = await AgroNexLayout.init({ active: 'admin-dashboard', db });
+    if(!ctx) return;
 
-    const { data: { session } } = await db.auth.getSession();
-    if(!session){ window.location.href = 'login.html'; return null; }
+    if(!ctx.isAdmin){
+      document.getElementById('page-content').innerHTML = '<div class="surface-card">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
 
-    const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).single();
-    const isAdmin = profile && profile.role === 'admin';
-
-    // بناء الهيكل حوالين المحتوى الموجود بالفعل في الصفحة
-    const existingContent = document.body.innerHTML;
-    document.body.innerHTML = `
-      <div id="app-shell">
-        <aside id="app-sidebar">${buildSidebar(active, isAdmin)}</aside>
-        <div id="app-main">
-          <header id="app-topbar">${buildTopbar(profile, session.user.email)}</header>
-          <main id="page-content">${existingContent}</main>
-        </div>
-      </div>
-    `;
-
-    // مود الليل/النهار
-    const themeBtn = document.getElementById('theme-toggle-btn');
-    themeBtn.textContent = getInitialTheme() === 'dark' ? '☀️' : '🌙';
-    themeBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      applyTheme(next);
-      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
-    });
-
-    // تسجيل الخروج
-    document.getElementById('layout-logout-btn').addEventListener('click', async () => {
-      await db.auth.signOut();
-      window.location.href = 'login.html';
-    });
-
-    // زرار القائمة على الموبايل
-    document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-      document.getElementById('app-sidebar').classList.toggle('open');
-    });
-
-    return { session, profile, isAdmin };
-  }
-
-  return { init };
-})();
+    loadTiles();
+  })();
+</script>
+</body>
+</html>
