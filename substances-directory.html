@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دليل المواد الفعالة والأسمدة — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:18px; padding:26px; }
+  .field{ margin-bottom:16px; }
+  .field label{ font-size:13.5px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  select{
+    width:100%; padding:12px 14px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-size:15px; font-family:inherit;
+  }
+  .or-sep{ text-align:center; font-family:'Tajawal'; font-weight:700; color:var(--rust); margin:6px 0 18px; font-size:13px; }
+
+  .result{ margin-top:22px; border-radius:14px; padding:20px; display:none; background:#E8F0E5; border:1px solid #b7cdae; }
+  .result.show{ display:block; }
+  .result .name{ font-family:'Tajawal'; font-weight:900; font-size:17px; color:var(--leaf-deep); }
+  .result .tags{ margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; }
+  .result .tag{ font-size:11.5px; background:var(--paper); border:1px solid var(--line); padding:3px 10px; border-radius:20px; color:var(--leaf-deep); }
+  .result .row{ margin-top:14px; }
+  .result .row .k{ font-family:'Tajawal'; font-weight:700; font-size:12.5px; color:#5b543f; }
+  .result .row .v{ margin-top:3px; font-size:14.5px; line-height:1.8; }
+
+  .hint{ text-align:center; color:#8a7f63; font-size:13px; margin-top:20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🔍 دليل المواد الفعالة</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <label>1) اختار التصنيف (اختياري، بيفلتر القائمة تحت)</label>
+      <select id="category-select"><option value="">كل التصنيفات</option></select>
+    </div>
+
+    <div class="or-sep">ثم</div>
+
+    <div class="field">
+      <label>2) اختار المادة</label>
+      <select id="substance-select"><option value="">جاري التحميل...</option></select>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="name" id="res-name"></div>
+    <div class="tags">
+      <span class="tag" id="res-type"></span>
+      <span class="tag" id="res-subtype"></span>
+    </div>
+    <div class="row" id="res-active-row" style="display:none;">
+      <div class="k">المادة الفعالة (الاسم الكيميائي)</div>
+      <div class="v" id="res-active"></div>
+    </div>
+    <div class="row">
+      <div class="k">الاستخدام</div>
+      <div class="v" id="res-usage"></div>
+    </div>
+  </div>
+
+  <p class="hint" id="hint">اختار تصنيف أو مادة من فوق عشان تشوف التفاصيل</p>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const TYPE_LABELS = { pesticide: '🧪 مبيد', fertilizer: '🌾 سماد' };
+  let allSubstances = [];
+
+  function populateSubstanceSelect(filterSubtype){
+    const list = filterSubtype ? allSubstances.filter(s => s.subtype === filterSubtype) : allSubstances;
+    const select = document.getElementById('substance-select');
+    select.innerHTML = '<option value="">اختار المادة...</option>' + list.map(s =>
+      `<option value="${s.id}">${TYPE_LABELS[s.type]} — ${s.name}</option>`
+    ).join('');
+  }
+
+  function showSubstance(sub){
+    document.getElementById('res-name').textContent = sub.name;
+    document.getElementById('res-type').textContent = TYPE_LABELS[sub.type];
+    document.getElementById('res-subtype').textContent = sub.subtype;
+
+    if(sub.active_ingredient){
+      document.getElementById('res-active-row').style.display = 'block';
+      document.getElementById('res-active').textContent = sub.active_ingredient;
+    } else {
+      document.getElementById('res-active-row').style.display = 'none';
+    }
+
+    document.getElementById('res-usage').textContent = sub.usage_description || 'مفيش وصف استخدام مسجل لسه لهذه المادة.';
+
+    document.getElementById('result').classList.add('show');
+    document.getElementById('hint').style.display = 'none';
+  }
+
+  document.getElementById('category-select').addEventListener('change', (e) => {
+    const subtype = e.target.value;
+    populateSubstanceSelect(subtype);
+    document.getElementById('substance-select').value = '';
+    document.getElementById('result').classList.remove('show');
+    document.getElementById('hint').style.display = 'block';
+    document.getElementById('hint').textContent = subtype ? 'اختار مادة من التصنيف اللي اخترته عشان تشوف تفاصيلها' : 'اختار تصنيف أو مادة من فوق عشان تشوف التفاصيل';
+  });
+
+  document.getElementById('substance-select').addEventListener('change', (e) => {
+    const id = e.target.value;
+    if(!id){ document.getElementById('result').classList.remove('show'); document.getElementById('hint').style.display = 'block'; return; }
+    const sub = allSubstances.find(s => s.id === id);
+    if(sub) showSubstance(sub);
+  });
+
+  async function loadAll(){
+    const { data: substances, error } = await db.from('agro_substances').select('*').order('type').order('name');
+    if(error || !substances){
+      document.getElementById('substance-select').innerHTML = '<option value="">تعذر التحميل</option>';
+      return;
+    }
+    allSubstances = substances;
+
+    // بناء قائمة التصنيفات الفريدة
+    const subtypes = [...new Set(substances.map(s => s.subtype))].sort();
+    document.getElementById('category-select').innerHTML =
+      '<option value="">كل التصنيفات</option>' +
+      subtypes.map(st => `<option value="${st}">${st}</option>`).join('');
+
+    populateSubstanceSelect(null);
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    loadAll();
+  })();
+</script>
+</body>
+</html>
