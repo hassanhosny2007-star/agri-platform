@@ -1,143 +1,118 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لوحة تحكم الأدمن — المنصة الزراعية</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<style>
-  :root{
-    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
-    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    background:var(--bg); color:var(--ink);
-    font-family:'IBM Plex Sans Arabic', sans-serif;
-    min-height:100vh; padding:24px;
-  }
-  header{
-    max-width:900px; margin:0 auto 8px; display:flex; justify-content:space-between; align-items:center;
-  }
-  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
-  a.back, button.logout{
-    padding:9px 18px; border-radius:8px; border:1px solid var(--line);
-    background:var(--paper); font-family:'Tajawal'; font-weight:700; cursor:pointer; font-size:14px;
-    text-decoration:none; color:var(--ink); display:inline-block;
-  }
-  .subtitle{ max-width:900px; margin:0 auto 24px; color:#5b543f; font-size:14.5px; }
-  .grid{
-    max-width:900px; margin:0 auto; display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px;
-  }
-  .cat-card{
-    background:var(--paper); border:1px solid var(--line); border-radius:16px;
-    padding:24px 16px; text-align:center; text-decoration:none; color:var(--ink);
-    transition:box-shadow .15s, border-color .15s;
-  }
-  .cat-card:hover{ box-shadow:0 4px 14px rgba(30,42,27,0.1); border-color:var(--leaf); }
-  .cat-card .icon{ font-size:32px; margin-bottom:8px; }
-  .cat-card .label{ font-family:'Tajawal'; font-weight:700; font-size:16px; color:var(--leaf-deep); }
-  .cat-card .count{ font-family:'Tajawal'; font-weight:900; font-size:28px; color:var(--leaf); margin-top:8px; }
-  .cat-card .active-count{ font-size:12px; color:#8a7f63; margin-top:2px; }
-  .loading, .denied{ max-width:900px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
-</style>
-</head>
-<body>
-  <header>
-    <h1>🌱 لوحة تحكم الأدمن</h1>
-    <div style="display:flex; gap:8px;">
-      <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
-      <button class="logout" id="logout">تسجيل الخروج</button>
-    </div>
-  </header>
-  <p class="subtitle">اختار فئة عشان تشوف المستخدمين وتدير صلاحياتهم</p>
+/* ============================================
+   assets/layout.js
+   يبني الهيدر + السايدبار تلقائيًا، ويفعّل مود الليل/النهار
+   الاستخدام: AgroNexLayout.init({ active: 'admin-dashboard', db, session, profile })
+   ============================================ */
 
-  <div id="content">
-    <div class="loading">جاري التحميل...</div>
-  </div>
+const AgroNexLayout = (() => {
 
-<script>
-  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
-  const { createClient } = supabase;
-  const customStorage = {
-    getItem: (key) => {
-      const remember = localStorage.getItem('agronex-remember') !== 'false';
-      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
-    },
-    setItem: (key, value) => {
-      const remember = localStorage.getItem('agronex-remember') !== 'false';
-      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
-      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
-    },
-    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
-  };
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+  // كل روابط السايدبار الممكنة، مقسّمة بحسب من يشوفها
+  const NAV_ITEMS = [
+    { key: 'dashboard', href: 'dashboard.html', icon: '🏠', label: 'الرئيسية', roles: 'all' },
+    { key: 'diagnose', href: 'diagnose.html', icon: '🌿', label: 'تشخيص أمراض النبات', roles: 'all' },
+    { key: 'knowledge', href: 'knowledge-base.html', icon: '📚', label: 'بنك المعرفة', roles: 'all' },
+    { key: 'mix-checker', href: 'mix-checker.html', icon: '🧪', label: 'خلط المبيدات والأسمدة', roles: 'all' },
+    { key: 'substances', href: 'substances-directory.html', icon: '🔍', label: 'دليل المواد الفعالة', roles: 'all' },
+    { key: 'my-profile', href: 'engineer-profile.html', icon: '👤', label: 'بروفايلي', roles: 'all' },
 
-  const CATEGORIES = [
-    { role: 'company', label: 'الشركات', icon: '🏢' },
-    { role: 'engineer', label: 'المهندسين الزراعيين', icon: '👨‍🔬' },
-    { role: 'trader', label: 'التجار', icon: '💼' },
-    { role: 'farmer', label: 'المزارعين', icon: '🌾' },
+    { key: 'admin-section', label: 'إدارة المنصة', roles: ['admin'], isSection: true },
+    { key: 'admin-dashboard', href: 'admin.html', icon: '🛠️', label: 'لوحة تحكم الأدمن', roles: ['admin'] },
+    { key: 'admin-profile', href: 'admin-profile.html', icon: '⭐', label: 'بروفايل المدير', roles: ['admin'] },
+    { key: 'admin-diagnoses', href: 'admin-diagnoses.html', icon: '📋', label: 'سجل التشخيصات', roles: ['admin'] },
+    { key: 'knowledge-manage', href: 'knowledge-manage.html', icon: '🗂️', label: 'إدارة بنك المعرفة', roles: ['admin'] },
+    { key: 'mix-manage', href: 'mix-checker-manage.html', icon: '⚗️', label: 'إدارة جدول الخلط', roles: ['admin'] },
   ];
 
-  (async () => {
-    const { data: { session } } = await db.auth.getSession();
-    if(!session){ window.location.href = 'login.html'; return; }
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('agronex-theme', theme);
+  }
 
-    const { data: myProfile } = await db
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
+  function getInitialTheme(){
+    return localStorage.getItem('agronex-theme') || 'light';
+  }
 
-    if(!myProfile || myProfile.role !== 'admin'){
-      document.getElementById('content').innerHTML =
-        '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
-      return;
-    }
-
-    const { data: allProfiles, error } = await db
-      .from('profiles')
-      .select('role, is_active');
-
-    if(error){
-      document.getElementById('content').innerHTML =
-        '<div class="denied">حصل خطأ في جلب البيانات: ' + error.message + '</div>';
-      return;
-    }
-
-    const gridHtml = CATEGORIES.map(c => {
-      const usersInRole = (allProfiles || []).filter(p => p.role === c.role);
-      const total = usersInRole.length;
-      const active = usersInRole.filter(p => p.is_active !== false).length;
-      return `
-        <a class="cat-card" href="admin-category.html?role=${c.role}">
-          <div class="icon">${c.icon}</div>
-          <div class="label">${c.label}</div>
-          <div class="count">${total}</div>
-          <div class="active-count">${active} مفعّل</div>
-        </a>`;
+  function buildSidebar(activeKey, isAdmin){
+    const items = NAV_ITEMS.filter(i => i.roles === 'all' || (isAdmin && i.roles.includes('admin')));
+    const linksHtml = items.map(i => {
+      if(i.isSection){
+        return `<div class="side-section-title">${i.label}</div>`;
+      }
+      return `<a class="side-link ${i.key === activeKey ? 'active' : ''}" href="${i.href}">
+        <span class="icon">${i.icon}</span><span>${i.label}</span>
+      </a>`;
     }).join('');
 
-    const diagnosesCard = `
-      <a class="cat-card" href="admin-diagnoses.html" style="border-color:var(--rust);">
-        <div class="icon">📋</div>
-        <div class="label">سجل التشخيصات</div>
-        <div class="count">→</div>
-        <div class="active-count">كل المستخدمين</div>
-      </a>`;
+    return `
+      <div class="side-brand">🌱 AgroNex</div>
+      ${linksHtml}
+    `;
+  }
 
-    document.getElementById('content').innerHTML = `<div class="grid">${gridHtml}${diagnosesCard}</div>`;
-  })();
+  function buildTopbar(profile, email){
+    const name = (profile && profile.full_name) || email || '...';
+    const avatar = (profile && profile.avatar_url) || '';
+    return `
+      <button class="icon-btn" id="mobile-menu-btn">☰</button>
+      <div class="user-block">
+        <img src="${avatar}" onerror="this.style.visibility='hidden'">
+        <div>
+          <div class="u-name">${name}</div>
+          <div class="u-email">${email || ''}</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <a class="site-link" href="index.html" target="_blank">🌐 عرض الموقع</a>
+        <button class="icon-btn" id="theme-toggle-btn" title="تبديل الوضع الليلي/النهاري">🌙</button>
+        <button class="icon-btn" id="layout-logout-btn" title="تسجيل الخروج">🚪</button>
+      </div>
+    `;
+  }
 
-  document.getElementById('logout').addEventListener('click', async ()=>{
-    await db.auth.signOut();
-    window.location.href = 'login.html';
-  });
-</script>
-</body>
-</html>
+  async function init({ active, db }){
+    applyTheme(getInitialTheme());
+
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return null; }
+
+    const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    const isAdmin = profile && profile.role === 'admin';
+
+    // بناء الهيكل حوالين المحتوى الموجود بالفعل في الصفحة
+    const existingContent = document.body.innerHTML;
+    document.body.innerHTML = `
+      <div id="app-shell">
+        <aside id="app-sidebar">${buildSidebar(active, isAdmin)}</aside>
+        <div id="app-main">
+          <header id="app-topbar">${buildTopbar(profile, session.user.email)}</header>
+          <main id="page-content">${existingContent}</main>
+        </div>
+      </div>
+    `;
+
+    // مود الليل/النهار
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    themeBtn.textContent = getInitialTheme() === 'dark' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+    });
+
+    // تسجيل الخروج
+    document.getElementById('layout-logout-btn').addEventListener('click', async () => {
+      await db.auth.signOut();
+      window.location.href = 'login.html';
+    });
+
+    // زرار القائمة على الموبايل
+    document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+      document.getElementById('app-sidebar').classList.toggle('open');
+    });
+
+    return { session, profile, isAdmin };
+  }
+
+  return { init };
+})();
