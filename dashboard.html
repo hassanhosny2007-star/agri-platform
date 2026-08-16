@@ -23,6 +23,9 @@
     <div class="w-city">📍 جاري تحديد موقعك...</div>
   </div>
 
+  <button id="notif-toggle-btn" class="notif-toggle-btn">🔔 تفعيل تنبيهات الطقس الخطيرة</button>
+  <div id="notif-status" class="notif-status"></div>
+
   <div class="advice-grid" id="weather-advice"></div>
 
   <div class="stat-tiles" id="quick-tiles">
@@ -113,9 +116,12 @@
     `);
   }
 
+  let currentUserId = null;
+
   (async () => {
     const ctx = await AgroNexLayout.init({ active: 'dashboard', db });
     if(!ctx) return;
+    currentUserId = ctx.session.user.id;
 
     const roleLabel = ctx.isAdmin ? 'المدير' : (ROLE_LABELS_SINGULAR[ctx.profile?.role] || '');
     const name = ctx.profile?.full_name || '';
@@ -196,6 +202,82 @@
     `).join('');
   }
 
+  // ===== نظام تفعيل إشعارات الطقس الخطيرة =====
+  const VAPID_PUBLIC_KEY = "BCcZ1YTiD0HtWx2kwFsFSuZ07MfvvN-GUULT7b26dQiyaX3Thyo60XEwVECdX8lBMf2wCJjSjEO9SPbhIrlBeV0";
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  }
+
+  async function setupNotifications(userId, lat, lng){
+    const btn = document.getElementById('notif-toggle-btn');
+    const status = document.getElementById('notif-status');
+
+    // حفظ موقع المستخدم دايمًا (لازم للتنبيهات لاحقًا)
+    if(lat && lng){
+      await db.from('profiles').update({ latitude: lat, longitude: lng }).eq('id', userId);
+    }
+
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      btn.style.display = 'none';
+      return;
+    }
+
+    const { data: profile } = await db.from('profiles').select('notifications_enabled').eq('id', userId).single();
+    if(profile && profile.notifications_enabled){
+      btn.textContent = '🔔 التنبيهات مفعّلة';
+      btn.classList.add('active');
+    }
+
+    btn.addEventListener('click', async () => {
+      if(btn.classList.contains('active')){
+        status.textContent = 'التنبيهات مفعّلة بالفعل ✅';
+        return;
+      }
+
+      btn.disabled = true;
+      status.textContent = 'جاري التفعيل...';
+
+      try{
+        const permission = await Notification.requestPermission();
+        if(permission !== 'granted'){
+          status.textContent = '⚠️ محتاجين إذن الإشعارات من المتصفح عشان الميزة دي تشتغل';
+          btn.disabled = false;
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.register('sw.js');
+        await navigator.serviceWorker.ready;
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+
+        const subJson = subscription.toJSON();
+        await db.from('push_subscriptions').upsert({
+          user_id: userId,
+          endpoint: subJson.endpoint,
+          p256dh: subJson.keys.p256dh,
+          auth: subJson.keys.auth,
+        }, { onConflict: 'endpoint' });
+
+        await db.from('profiles').update({ notifications_enabled: true }).eq('id', userId);
+
+        btn.textContent = '🔔 التنبيهات مفعّلة';
+        btn.classList.add('active');
+        status.textContent = '✅ هتوصلك تنبيهات لو الطقس في منطقتك بقى خطير';
+      }catch(err){
+        console.error(err);
+        status.textContent = '⚠️ حصل خطأ أثناء التفعيل، حاول تاني';
+      }
+      btn.disabled = false;
+    });
+  }
+
   function showWeatherError(text){
     const weatherEl = document.getElementById('weather');
     weatherEl.innerHTML = `<div class="w-error" id="retry-weather">⚠️ ${text} — إعادة المحاولة</div>`;
@@ -236,6 +318,7 @@
           <div class="w-temp">${temp}°</div>
           <div class="w-humidity">الرطوبة: ${humidity}%</div>`;
         renderWeatherAdvice(temp, humidity);
+        if(currentUserId) setupNotifications(currentUserId, latitude, longitude);
       }catch(err){ showWeatherError('تعذر جلب بيانات الطقس'); }
     }, (err) => {
       if(settled) return;
