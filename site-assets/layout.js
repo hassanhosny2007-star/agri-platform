@@ -1,15 +1,15 @@
 /* ============================================
    assets/layout.js
-   يبني الهيدر + السايدبار تلقائيًا، ويفعّل مود الليل/النهار
-   الاستخدام: AgroNexLayout.init({ active: 'admin-dashboard', db, session, profile })
+   يبني الهيدر + السايدبار تلقائيًا، ويفعّل مود الليل/النهار واللغة
+   الاستخدام: AgroNexLayout.init({ active: 'admin-dashboard', db })
    ============================================ */
 
 const AgroNexLayout = (() => {
 
-  // قاموس الترجمة لعناصر الهيكل المشترك (سايدبار + هيدر)
+  // قاموس الترجمة لعناصر الهيكل المشترك (سايدبار + هيدر) فقط
+  // ملحوظة: محتوى كل صفحة نفسه (العناوين والنصوص جوا #page-content) لسه بالعربي بس حاليًا
   const I18N = {
     ar: {
-      dir: 'rtl',
       nav: {
         dashboard: 'الرئيسية', diagnose: 'تشخيص أمراض النبات', knowledge: 'بنك المعرفة',
         'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'my-profile': 'بروفايلي',
@@ -20,7 +20,6 @@ const AgroNexLayout = (() => {
       themeTitle: 'تبديل الوضع الليلي/النهاري', logoutTitle: 'تسجيل الخروج', langBtn: 'EN',
     },
     en: {
-      dir: 'rtl', // نحافظ على نفس اتجاه الشاشة (السايدبار يمين) بغض النظر عن اللغة، تفاديًا لكسر التصميم
       nav: {
         dashboard: 'Home', diagnose: 'Plant Disease Diagnosis', knowledge: 'Knowledge Base',
         'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'my-profile': 'My Profile',
@@ -32,11 +31,6 @@ const AgroNexLayout = (() => {
     }
   };
 
-  function getInitialLang(){
-    return localStorage.getItem('agronex-lang') || 'ar';
-  }
-
-  // كل روابط السايدبار الممكنة (النص بيتحدد وقت العرض من قاموس الترجمة)
   const NAV_ITEMS = [
     { key: 'dashboard', href: 'dashboard.html', icon: '🏠', roles: 'all' },
     { key: 'diagnose', href: 'diagnose.html', icon: '🌿', roles: 'all' },
@@ -53,14 +47,12 @@ const AgroNexLayout = (() => {
     { key: 'mix-manage', href: 'mix-checker-manage.html', icon: '⚗️', roles: ['admin'] },
   ];
 
+  function getInitialLang(){ return localStorage.getItem('agronex-lang') || 'ar'; }
   function applyTheme(theme){
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('agronex-theme', theme);
   }
-
-  function getInitialTheme(){
-    return localStorage.getItem('agronex-theme') || 'light';
-  }
+  function getInitialTheme(){ return localStorage.getItem('agronex-theme') || 'light'; }
 
   function buildSidebar(activeKey, isAdmin, lang){
     const t = I18N[lang];
@@ -73,11 +65,7 @@ const AgroNexLayout = (() => {
         <span class="icon">${i.icon}</span><span>${t.nav[i.key]}</span>
       </a>`;
     }).join('');
-
-    return `
-      <div class="side-brand">🌱 AgroNex</div>
-      ${linksHtml}
-    `;
+    return `<div class="side-brand">🌱 AgroNex</div>${linksHtml}`;
   }
 
   function buildTopbar(profile, email, isAdmin, lang){
@@ -94,7 +82,7 @@ const AgroNexLayout = (() => {
         </div>
       </a>
       <div class="top-actions">
-        <a class="site-link" href="index.html" target="_blank" id="site-link-text">${t.siteLink}</a>
+        <a class="site-link" href="index.html" target="_blank">${t.siteLink}</a>
         <button class="icon-btn" id="lang-toggle-btn" title="Switch language / تبديل اللغة">${t.langBtn}</button>
         <button class="icon-btn" id="theme-toggle-btn" title="${t.themeTitle}">🌙</button>
         <button class="icon-btn" id="layout-logout-btn" title="${t.logoutTitle}">🚪</button>
@@ -112,7 +100,6 @@ const AgroNexLayout = (() => {
     const isAdmin = profile && profile.role === 'admin';
     let currentLang = getInitialLang();
 
-    // بناء الهيكل حوالين المحتوى الموجود بالفعل في الصفحة
     const existingContent = document.body.innerHTML;
     document.body.innerHTML = `
       <button class="icon-btn" id="sidebar-toggle-btn" title="إظهار/إخفاء القائمة الجانبية">☰</button>
@@ -125,49 +112,38 @@ const AgroNexLayout = (() => {
       </div>
     `;
 
-    // زرار تبديل اللغة (يعيد بناء السايدبار والهيدر بس، من غير ما يفقد محتوى الصفحة)
-    document.getElementById('lang-toggle-btn').addEventListener('click', () => {
-      currentLang = currentLang === 'ar' ? 'en' : 'ar';
-      localStorage.setItem('agronex-lang', currentLang);
-      document.getElementById('app-sidebar').innerHTML = buildSidebar(active, isAdmin, currentLang);
-      document.getElementById('app-topbar').innerHTML = buildTopbar(profile, session.user.email, isAdmin, currentLang);
-      attachTopbarEvents(currentLang);
-    });
-
-    // مود الليل/النهار
-    const themeBtn = document.getElementById('theme-toggle-btn');
-    themeBtn.textContent = getInitialTheme() === 'dark' ? '☀️' : '🌙';
-    themeBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      applyTheme(next);
-      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
-    });
-
-    // تسجيل الخروج
-    document.getElementById('layout-logout-btn').addEventListener('click', async () => {
-      await db.auth.signOut();
-      window.location.href = 'login.html';
-    });
-
-    // استرجاع حالة الطي المحفوظة (سطح المكتب بس)
     const sidebarEl = document.getElementById('app-sidebar');
     const toggleBtn = document.getElementById('sidebar-toggle-btn');
 
-    function updateTogglePosition(){
-      if(window.innerWidth <= 860){
-        toggleBtn.style.right = '14px';
-      } else {
-        toggleBtn.style.right = sidebarEl.classList.contains('collapsed') ? '14px' : '264px';
-      }
+    function attachTopbarEvents(){
+      const themeBtn = document.getElementById('theme-toggle-btn');
+      themeBtn.textContent = getInitialTheme() === 'dark' ? '☀️' : '🌙';
+      themeBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+      });
+
+      document.getElementById('layout-logout-btn').addEventListener('click', async () => {
+        await db.auth.signOut();
+        window.location.href = 'login.html';
+      });
+
+      document.getElementById('lang-toggle-btn').addEventListener('click', () => {
+        currentLang = currentLang === 'ar' ? 'en' : 'ar';
+        localStorage.setItem('agronex-lang', currentLang);
+        document.getElementById('app-sidebar').innerHTML = buildSidebar(active, isAdmin, currentLang);
+        document.getElementById('app-topbar').innerHTML = buildTopbar(profile, session.user.email, isAdmin, currentLang);
+        attachTopbarEvents();
+      });
     }
+    attachTopbarEvents();
 
     if(window.innerWidth > 860 && localStorage.getItem('agronex-sidebar-collapsed') === 'true'){
       sidebarEl.classList.add('collapsed');
     }
-    updateTogglePosition();
 
-    // زرار إظهار/إخفاء السايدبار (شغال على الموبايل وسطح المكتب)
     toggleBtn.addEventListener('click', () => {
       if(window.innerWidth <= 860){
         sidebarEl.classList.toggle('open');
@@ -175,9 +151,7 @@ const AgroNexLayout = (() => {
         sidebarEl.classList.toggle('collapsed');
         localStorage.setItem('agronex-sidebar-collapsed', sidebarEl.classList.contains('collapsed') ? 'true' : 'false');
       }
-      updateTogglePosition();
     });
-    window.addEventListener('resize', updateTogglePosition);
 
     return { session, profile, isAdmin };
   }
