@@ -77,7 +77,7 @@ const AgroNexLayout = (() => {
         <span class="icon">${i.icon}</span><span>${t.nav[i.key]}</span>
       </a>`;
     }).join('');
-    return `<div class="side-brand">🌱 AgroNex</div>${linksHtml}`;
+    return `<div class="side-brand"><img src="site-assets/logo.png" alt="AgroNex" class="side-logo"> AgroNex</div>${linksHtml}`;
   }
 
   function buildTopbar(profile, email, isAdmin, lang){
