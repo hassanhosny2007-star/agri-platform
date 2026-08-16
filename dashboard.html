@@ -91,32 +91,16 @@
 
     const total = profiles.length;
     const totalActive = profiles.filter(p => p.is_active !== false).length;
-    const colors = { farmer:'tile-green', engineer:'tile-blue', trader:'tile-orange', company:'tile-indigo' };
-
-    const counts = {};
-    Object.keys(ROLE_LABELS).forEach(role => {
-      const inRole = profiles.filter(p => p.role === role);
-      counts[role] = { total: inRole.length, active: inRole.filter(p => p.is_active !== false).length };
-    });
 
     const bar = document.getElementById('admin-stats-bar');
     bar.innerHTML = `
-      <div class="stat-tile tile-red">
+      <a class="stat-tile tile-red" href="admin.html">
         <span class="tile-icon">👥</span>
         <div>
-          <div class="tile-label">إجمالي المستخدمين</div>
-          <div class="tile-sub">${totalActive} حساب نشط من ${total}</div>
+          <div class="tile-label">المستخدمين</div>
+          <div class="tile-sub">${totalActive} حساب نشط من إجمالي ${total}</div>
         </div>
-      </div>
-      ${Object.entries(ROLE_LABELS).map(([role, label]) => `
-        <div class="stat-tile ${colors[role]}">
-          <span class="tile-icon">📊</span>
-          <div>
-            <div class="tile-label">${label}</div>
-            <div class="tile-sub">${counts[role].active} نشط من ${counts[role].total}</div>
-          </div>
-        </div>
-      `).join('')}
+      </a>
     `;
     bar.style.display = 'grid';
   }
