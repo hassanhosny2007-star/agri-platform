@@ -348,7 +348,8 @@
     saveBtn.textContent = 'حفظ التعديلات';
 
     if(error){
-      document.getElementById('edit-err').textContent = 'حصل خطأ، حاول تاني';
+      document.getElementById('edit-err').textContent = 'حصل خطأ: ' + error.message;
+      console.error('Profile update error:', error);
       return;
     }
 
