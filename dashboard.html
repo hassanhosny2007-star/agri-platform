@@ -23,6 +23,8 @@
     <div class="w-city">📍 جاري تحديد موقعك...</div>
   </div>
 
+  <div class="advice-grid" id="weather-advice"></div>
+
   <div class="stat-tiles" id="quick-tiles">
     <a class="stat-tile tile-green" href="diagnose.html">
       <span class="tile-icon">🌿</span>
@@ -129,6 +131,71 @@
     loadWeather();
   })();
 
+  // ===== تنبيهات الطقس الذكية (حسب الحرارة والرطوبة الفعلية لكل مستخدم) =====
+  function getWeatherAdvice(temp, humidity){
+    const cards = [];
+
+    // 1) الرش
+    if(temp > 32 || temp < 10){
+      cards.push({ icon:'🚿', title:'الرش', level:'danger', status:'غير مناسب الآن',
+        msg: temp > 32 ? 'الحرارة مرتفعة جدًا، خطر تبخر سريع للمبيد وحرق الأوراق' : 'الحرارة منخفضة جدًا، فعالية المبيد بتقل' });
+    } else if(humidity > 85){
+      cards.push({ icon:'🚿', title:'الرش', level:'caution', status:'يُفضّل تأجيله',
+        msg: 'الرطوبة عالية جدًا، احتمال غسيل المبيد أو تكثيف على الأوراق' });
+    } else {
+      cards.push({ icon:'🚿', title:'الرش', level:'good', status:'مناسب دلوقتي',
+        msg: 'الحرارة والرطوبة في مدى معتدل، ظروف جيدة لفعالية المبيد' });
+    }
+
+    // 2) الري
+    if(temp > 30 && humidity < 40){
+      cards.push({ icon:'💧', title:'الري', level:'caution', status:'موصى بيه الآن',
+        msg: 'حرارة عالية ورطوبة منخفضة، التربة بتفقد رطوبتها بسرعة' });
+    } else if(temp < 15 || humidity > 75){
+      cards.push({ icon:'💧', title:'الري', level:'good', status:'مش ملحّ',
+        msg: 'الجو بارد أو رطب، التربة محتفظة برطوبتها لفترة أطول' });
+    } else {
+      cards.push({ icon:'💧', title:'الري', level:'good', status:'حسب البرنامج المعتاد',
+        msg: 'مفيش داعي لتغيير جدول الري بسبب الطقس الحالي' });
+    }
+
+    // 3) الأمراض الفطرية
+    if(humidity >= 75 && temp >= 18 && temp <= 30){
+      cards.push({ icon:'🍄', title:'الأمراض الفطرية', level:'danger', status:'خطر مرتفع',
+        msg: 'رطوبة عالية مع حرارة معتدلة — الظروف المثالية لانتشار الفطريات زي البياض الدقيقي واللفحة' });
+    } else if(humidity >= 60 && temp >= 15 && temp <= 32){
+      cards.push({ icon:'🍄', title:'الأمراض الفطرية', level:'caution', status:'خطر متوسط',
+        msg: 'راقب النبات، الظروف ممكن تتحول مناسبة لنمو الفطريات' });
+    } else {
+      cards.push({ icon:'🍄', title:'الأمراض الفطرية', level:'good', status:'خطر منخفض',
+        msg: 'الظروف الحالية مش مناسبة لانتشار معظم الأمراض الفطرية' });
+    }
+
+    // 4) إجهاد حراري أو برودة (يظهر بس لو فيه تحذير فعلي)
+    if(temp >= 38){
+      cards.push({ icon:'🌡️', title:'إجهاد حراري', level:'danger', status:'تحذير',
+        msg: 'حرارة شديدة، النبات معرّض للذبول والإجهاد — تجنب أي رش أو تسميد نهارًا' });
+    } else if(temp <= 5){
+      cards.push({ icon:'❄️', title:'خطر برودة', level:'danger', status:'تحذير',
+        msg: 'درجة حرارة منخفضة جدًا، احتمال ضرر بردي للمحاصيل الحساسة' });
+    }
+
+    return cards;
+  }
+
+  function renderWeatherAdvice(temp, humidity){
+    const container = document.getElementById('weather-advice');
+    if(!container) return;
+    const cards = getWeatherAdvice(temp, humidity);
+    container.innerHTML = cards.map(c => `
+      <div class="advice-card level-${c.level}">
+        <div class="a-title">${c.icon} ${c.title}</div>
+        <div class="a-status">${c.status}</div>
+        <div class="a-msg">${c.msg}</div>
+      </div>
+    `).join('');
+  }
+
   function showWeatherError(text){
     const weatherEl = document.getElementById('weather');
     weatherEl.innerHTML = `<div class="w-error" id="retry-weather">⚠️ ${text} — إعادة المحاولة</div>`;
@@ -168,6 +235,7 @@
           <div class="w-city">📍 ${cityName}</div>
           <div class="w-temp">${temp}°</div>
           <div class="w-humidity">الرطوبة: ${humidity}%</div>`;
+        renderWeatherAdvice(temp, humidity);
       }catch(err){ showWeatherError('تعذر جلب بيانات الطقس'); }
     }, (err) => {
       if(settled) return;
