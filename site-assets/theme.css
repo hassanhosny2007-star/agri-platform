@@ -80,7 +80,7 @@ body{
 /* ===== الشريط العلوي ===== */
 #app-topbar{
   background:var(--topbar-bg); border-bottom:1px solid var(--line);
-  padding:10px 20px; display:flex; align-items:center; justify-content:space-between;
+  padding:10px 20px 10px 70px; display:flex; align-items:center; justify-content:space-between;
   position:sticky; top:0; z-index:20; box-shadow:var(--shadow);
 }
 #app-topbar .user-block{ display:flex; align-items:center; gap:10px; color:inherit; }
