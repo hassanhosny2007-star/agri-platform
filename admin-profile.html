@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>بروفايل المدير — المنصة الزراعية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
@@ -31,6 +31,7 @@
 
   .wrap{ max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
 
+  /* بطاقة البروفايل الرئيسية */
   .hero{
     background:linear-gradient(155deg, var(--leaf-deep), var(--leaf) 70%);
     border-radius:20px; padding:36px 24px 28px; text-align:center; position:relative; overflow:hidden;
@@ -72,6 +73,7 @@
     cursor:pointer; position:relative; z-index:1;
   }
 
+  /* الإحصائيات */
   .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; }
   .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
   .stats-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
@@ -90,6 +92,7 @@
     background:var(--leaf); color:#fff; text-decoration:none; font-family:'Tajawal'; font-weight:700; font-size:14.5px;
   }
 
+  /* مودال التعديل */
   .modal-bg{ position:fixed; inset:0; background:rgba(30,42,27,.55); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
   .modal-bg.open{ display:flex; }
   .modal{ background:var(--paper); border-radius:16px; padding:24px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
@@ -109,11 +112,20 @@
   .err-msg{ color:var(--rust); font-size:12.5px; margin-top:6px; }
 
   .loading, .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+
+  .brand-word{ font-family:'Poppins', sans-serif; font-weight:800; letter-spacing:.3px; font-size:19px; }
+  .brand-word .b-agro{ color:var(--leaf-deep); }
+  .brand-word .b-nex{ color:var(--leaf); }
+  .header-logo{ display:flex; align-items:center; gap:10px; }
+  .header-logo img{ width:34px; height:34px; object-fit:contain; }
 </style>
 </head>
 <body>
   <header>
-    <h1>🌱 AgroNex</h1>
+    <div class="header-logo">
+      <img src="site-assets/logo.png" alt="AgroNex" onerror="this.style.display='none'">
+      <span class="brand-word"><span class="b-agro">Agro</span><span class="b-nex">Nex</span></span>
+    </div>
     <div class="header-btns">
       <a class="hbtn" href="dashboard.html">الرئيسية</a>
       <button class="hbtn" id="logout">تسجيل الخروج</button>
@@ -122,6 +134,7 @@
 
   <div id="content"><div class="loading">جاري التحميل...</div></div>
 
+  <!-- مودال تعديل البيانات -->
   <div class="modal-bg" id="edit-modal-bg">
     <div class="modal">
       <h3>تعديل بيانات البروفايل</h3>
@@ -190,6 +203,7 @@
 
     currentProfile = profile;
 
+    // إحصائيات المنصة
     const { data: allProfiles } = await db.from('profiles').select('role, is_active');
     const { data: allFarms } = await db.from('farms').select('id');
 
@@ -237,7 +251,10 @@
         <a class="action-btn" href="admin.html">🛠️ فتح لوحة التحكم الكاملة</a>
       </div>`;
 
+    // ربط أحداث تعديل البيانات
     document.getElementById('open-edit').addEventListener('click', openEditModal);
+
+    // ربط أحداث رفع الصورة
     document.getElementById('camera-btn').addEventListener('click', () => {
       document.getElementById('avatar-file').click();
     });
