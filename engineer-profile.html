@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>بروفايل المهندس — AgroNex</title>
+<title>بروفايلي — AgroNex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -28,6 +28,7 @@
   }
   input[type=file]{ display:none; }
   .full-name{ font-family:'Tajawal'; font-weight:900; font-size:19px; color:var(--leaf-deep); margin-top:6px; }
+  .role-badge{ display:inline-block; margin-top:6px; font-size:11.5px; background:#e8f0e5; color:var(--leaf-deep); padding:3px 12px; border-radius:20px; }
   .upload-status{ font-size:12px; color:var(--rust); margin-top:4px; min-height:16px; }
   .spec-row{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:8px; }
   .spec-row input{
@@ -70,6 +71,22 @@
   .treatment-row{ font-size:13px; padding:8px 0; border-bottom:1px solid var(--bg); }
   .treatment-row .t-date{ font-family:'Tajawal'; font-weight:700; color:var(--rust); font-size:12px; }
   #farm-detail-meta{ margin-bottom:16px; }
+
+  /* تعديل البيانات الشخصية */
+  .edit-field{ margin-bottom:12px; text-align:right; }
+  .edit-field label{ font-size:12.5px; color:#8a7f63; display:block; margin-bottom:5px; }
+  .edit-field input{
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    font-family:inherit; font-size:14px; background:#fff;
+  }
+  .edit-hint{ font-size:11.5px; color:var(--rust); margin-top:4px; }
+  .save-profile-btn{
+    width:100%; padding:11px; border:none; border-radius:9px; background:var(--leaf); color:var(--paper);
+    font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer; margin-top:6px;
+  }
+  .profile-msg{ font-size:12.5px; margin-top:8px; min-height:16px; }
+  .profile-msg.success{ color:var(--leaf); }
+  .profile-msg.error{ color:var(--error); }
 </style>
 </head>
 <body>
@@ -81,16 +98,36 @@
 
   <div class="profile-card">
     <div class="avatar-wrap">
-      <img id="avatar-img" src="https://api.dicebear.com/7.x/initials/svg?seed=مهندس&backgroundColor=3B5B37" alt="صورة البروفايل">
+      <img id="avatar-img" src="https://api.dicebear.com/7.x/initials/svg?seed=مستخدم&backgroundColor=3B5B37" alt="صورة البروفايل">
       <button class="cam-btn" id="avatar-btn" type="button">📷</button>
       <input type="file" id="avatar-input" accept="image/*">
     </div>
     <div class="full-name" id="full-name">...</div>
+    <div class="role-badge" id="role-badge"></div>
     <div class="upload-status" id="upload-status"></div>
-    <div class="spec-row">
+    <div class="spec-row" id="spec-row" style="display:none;">
       <input type="text" id="specialization" placeholder="التخصص (مثال: أمراض النبات)">
       <button id="save-spec">حفظ</button>
     </div>
+  </div>
+
+  <div class="section" id="edit-profile-section">
+    <h2>✏️ تعديل البيانات الشخصية</h2>
+    <div class="edit-field">
+      <label>الاسم بالكامل</label>
+      <input type="text" id="edit-fullname">
+    </div>
+    <div class="edit-field">
+      <label>رقم الموبايل</label>
+      <input type="tel" id="edit-phone" placeholder="01xxxxxxxxx">
+    </div>
+    <div class="edit-field">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="edit-email">
+      <div class="edit-hint">⚠️ تغيير الإيميل بيحتاج تأكيد من الإيميل الجديد نفسه قبل ما يتفعّل</div>
+    </div>
+    <button class="save-profile-btn" id="save-profile-btn">حفظ التعديلات</button>
+    <div class="profile-msg" id="profile-msg"></div>
   </div>
 
   <div class="section" id="farms-section">
@@ -147,7 +184,10 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
+  const ROLE_LABELS = { farmer:'مزارع', engineer:'مهندس زراعي', trader:'تاجر', company:'شركة', admin:'أدمن' };
+
   let currentUser = null;
+  let currentProfile = null;
   let activeFarmId = null;
 
   async function init(){
@@ -157,11 +197,23 @@
 
     const { data: profile } = await db.from('profiles').select('*').eq('id', currentUser.id).single();
     if(profile){
+      currentProfile = profile;
       document.getElementById('full-name').textContent = profile.full_name || currentUser.email;
-      document.getElementById('specialization').value = profile.specialization || '';
+      document.getElementById('role-badge').textContent = ROLE_LABELS[profile.role] || profile.role;
       if(profile.avatar_url){
         document.getElementById('avatar-img').src = profile.avatar_url;
       }
+
+      // التخصص يظهر بس للمهندسين
+      if(profile.role === 'engineer'){
+        document.getElementById('spec-row').style.display = 'flex';
+        document.getElementById('specialization').value = profile.specialization || '';
+      }
+
+      // تعبئة فورم التعديل
+      document.getElementById('edit-fullname').value = profile.full_name || '';
+      document.getElementById('edit-phone').value = profile.phone || '';
+      document.getElementById('edit-email').value = currentUser.email || '';
     }
     loadFarms();
   }
@@ -192,11 +244,63 @@
     setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
   });
 
-  // حفظ التخصص
+  // حفظ التخصص (للمهندسين بس)
   document.getElementById('save-spec').addEventListener('click', async () => {
     const specialization = document.getElementById('specialization').value;
     const { error } = await db.from('profiles').update({ specialization }).eq('id', currentUser.id);
     alert(error ? ('خطأ: ' + error.message) : 'تم حفظ التخصص');
+  });
+
+  // حفظ تعديلات البيانات الشخصية (الاسم، الموبايل، الإيميل)
+  document.getElementById('save-profile-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('profile-msg');
+    const btn = document.getElementById('save-profile-btn');
+    const newName = document.getElementById('edit-fullname').value.trim();
+    const newPhone = document.getElementById('edit-phone').value.trim();
+    const newEmail = document.getElementById('edit-email').value.trim();
+
+    if(!newName){
+      msg.className = 'profile-msg error';
+      msg.textContent = 'الاسم مطلوب';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'جاري الحفظ...';
+    msg.className = 'profile-msg';
+    msg.textContent = '';
+
+    // 1) تحديث الاسم ورقم الموبايل في جدول profiles
+    const { error: profileError } = await db
+      .from('profiles')
+      .update({ full_name: newName, phone: newPhone || null })
+      .eq('id', currentUser.id);
+
+    if(profileError){
+      btn.disabled = false;
+      btn.textContent = 'حفظ التعديلات';
+      msg.className = 'profile-msg error';
+      msg.textContent = 'حصل خطأ أثناء حفظ الاسم/الموبايل: ' + profileError.message;
+      return;
+    }
+
+    document.getElementById('full-name').textContent = newName;
+
+    // 2) لو الإيميل اتغيّر، ابعت طلب تحديث (هيحتاج تأكيد من الإيميل الجديد)
+    let emailNotice = '';
+    if(newEmail && newEmail !== currentUser.email){
+      const { error: emailError } = await db.auth.updateUser({ email: newEmail });
+      if(emailError){
+        emailNotice = ' لكن حصل خطأ في تحديث الإيميل: ' + emailError.message;
+      } else {
+        emailNotice = ' وتم إرسال رابط تأكيد على الإيميل الجديد، لازم تدوس عليه عشان التغيير يتفعّل.';
+      }
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'حفظ التعديلات';
+    msg.className = emailNotice.includes('خطأ') ? 'profile-msg error' : 'profile-msg success';
+    msg.textContent = '✅ تم حفظ البيانات.' + emailNotice;
   });
 
   // إظهار/إخفاء فورم إضافة مزرعة
