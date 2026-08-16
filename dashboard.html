@@ -60,8 +60,6 @@
     </a>
   </div>
 
-  <div class="stat-tiles" id="admin-tiles" style="display:none;"></div>
-
 <script>
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
   const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
@@ -87,8 +85,7 @@
     const total = (profiles || []).length;
     const totalActive = (profiles || []).filter(p => p.is_active !== false).length;
 
-    const tiles = document.getElementById('admin-tiles');
-    tiles.innerHTML = `
+    document.getElementById('quick-tiles').insertAdjacentHTML('beforeend', `
       <a class="stat-tile tile-red" href="admin.html">
         <span class="tile-icon">👥</span>
         <div>
@@ -103,8 +100,7 @@
           <div class="tile-sub">لوحة تحكم الأدمن الكاملة</div>
         </div>
       </a>
-    `;
-    tiles.style.display = 'grid';
+    `);
   }
 
   (async () => {
@@ -118,21 +114,25 @@
     if(ctx.isAdmin){
       await loadAdminTiles();
     }
+
+    // خانة الطقس - بتشتغل هنا بعد ما بناء الصفحة يخلص، عشان تمسك العنصر الصحيح الظاهر فعليًا
+    loadWeather();
   })();
 
-  // خانة الطقس
-  const weatherEl = document.getElementById('weather');
   function showWeatherError(text){
+    const weatherEl = document.getElementById('weather');
     weatherEl.innerHTML = `<div class="w-error" id="retry-weather">⚠️ ${text} — إعادة المحاولة</div>`;
     document.getElementById('retry-weather').addEventListener('click', loadWeather);
   }
   async function loadWeather(){
+    const weatherEl = document.getElementById('weather');
+    if(!weatherEl) return;
     weatherEl.innerHTML = '<div class="w-city">📍 جاري تحديد موقعك...</div>';
     if(!navigator.geolocation){ showWeatherError('المتصفح لا يدعم تحديد الموقع'); return; }
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
       try{
-        weatherEl.innerHTML = '<div class="w-city">☁️ جاري جلب بيانات الطقس...</div>';
+        document.getElementById('weather').innerHTML = '<div class="w-city">☁️ جاري جلب بيانات الطقس...</div>';
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m`;
         const res = await fetch(url);
         const data = await res.json();
@@ -144,7 +144,7 @@
           const geoData = await geoRes.json();
           if(geoData.results && geoData.results.length){ cityName = geoData.results[0].name; }
         }catch(e){}
-        weatherEl.innerHTML = `
+        document.getElementById('weather').innerHTML = `
           <div class="w-city">📍 ${cityName}</div>
           <div class="w-temp">${temp}°</div>
           <div class="w-humidity">الرطوبة: ${humidity}%</div>`;
@@ -153,7 +153,6 @@
       showWeatherError(err.code === err.PERMISSION_DENIED ? 'يرجى السماح بالوصول للموقع' : 'تعذر تحديد الموقع');
     });
   }
-  loadWeather();
 </script>
 </body>
 </html>
