@@ -45,6 +45,12 @@ body{
   margin:0; transition:background .2s, color .2s;
 }
 
+/* ===== شعار AgroNex النصي (نفس خط وألوان الكلمة تحت اللوجو) ===== */
+.brand-word{ font-family:'Poppins', sans-serif; font-weight:800; letter-spacing:.3px; }
+.brand-word .b-agro{ color:#16233F; }
+.brand-word .b-nex{ color:#3B8C46; }
+[data-theme="dark"] .brand-word .b-agro{ color:#C9D1CB; }
+
 /* ===== هيكل الصفحة العام ===== */
 #app-shell{ display:flex; min-height:100vh; flex-direction:row-reverse; }
 
