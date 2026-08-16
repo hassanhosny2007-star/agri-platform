@@ -14,16 +14,13 @@
 
   <div class="page-title-row">
     <div>
-      <h1>أهلًا بيك 👋</h1>
-      <div class="sub" id="welcome-email">...</div>
+      <h1 id="welcome-title">أهلًا بيك 👋</h1>
     </div>
   </div>
 
   <div class="weather-card" id="weather">
     <div class="w-city">📍 جاري تحديد موقعك...</div>
   </div>
-
-  <div class="stat-tiles" id="admin-stats-bar" style="display:none;"></div>
 
   <div class="stat-tiles" id="quick-tiles">
     <a class="stat-tile tile-green" href="diagnose.html">
@@ -63,7 +60,7 @@
     </a>
   </div>
 
-  <div id="admin-entry-tile"></div>
+  <div class="stat-tiles" id="admin-tiles" style="display:none;"></div>
 
 <script>
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
@@ -83,17 +80,15 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
-  const ROLE_LABELS = { farmer: 'المزارعين', engineer: 'المهندسين', trader: 'التجار', company: 'الشركات' };
+  const ROLE_LABELS_SINGULAR = { farmer: 'مزارع', engineer: 'مهندس', trader: 'تاجر', company: 'شركة' };
 
-  async function loadAdminStats(){
-    const { data: profiles, error } = await db.from('profiles').select('role, is_active');
-    if(error || !profiles) return;
+  async function loadAdminTiles(){
+    const { data: profiles } = await db.from('profiles').select('role, is_active');
+    const total = (profiles || []).length;
+    const totalActive = (profiles || []).filter(p => p.is_active !== false).length;
 
-    const total = profiles.length;
-    const totalActive = profiles.filter(p => p.is_active !== false).length;
-
-    const bar = document.getElementById('admin-stats-bar');
-    bar.innerHTML = `
+    const tiles = document.getElementById('admin-tiles');
+    tiles.innerHTML = `
       <a class="stat-tile tile-red" href="admin.html">
         <span class="tile-icon">👥</span>
         <div>
@@ -101,28 +96,27 @@
           <div class="tile-sub">${totalActive} حساب نشط من إجمالي ${total}</div>
         </div>
       </a>
+      <a class="stat-tile tile-purple" href="admin-profile.html">
+        <span class="tile-icon">🛠️</span>
+        <div>
+          <div class="tile-label">بروفايل المدير</div>
+          <div class="tile-sub">لوحة تحكم الأدمن الكاملة</div>
+        </div>
+      </a>
     `;
-    bar.style.display = 'grid';
+    tiles.style.display = 'grid';
   }
 
   (async () => {
     const ctx = await AgroNexLayout.init({ active: 'dashboard', db });
     if(!ctx) return;
 
-    document.getElementById('welcome-email').textContent = 'سجّلت الدخول كـ ' + ctx.session.user.email;
+    const roleLabel = ctx.isAdmin ? 'المدير' : (ROLE_LABELS_SINGULAR[ctx.profile?.role] || '');
+    const name = ctx.profile?.full_name || '';
+    document.getElementById('welcome-title').textContent = `أهلًا بيك 👋 ${roleLabel} ${name}`.trim();
 
     if(ctx.isAdmin){
-      document.getElementById('admin-entry-tile').innerHTML = `
-        <div class="stat-tiles">
-          <a class="stat-tile tile-purple" href="admin-profile.html">
-            <span class="tile-icon">🛠️</span>
-            <div>
-              <div class="tile-label">بروفايل المدير</div>
-              <div class="tile-sub">لوحة تحكم الأدمن الكاملة</div>
-            </div>
-          </a>
-        </div>`;
-      loadAdminStats();
+      loadAdminTiles();
     }
   })();
 
