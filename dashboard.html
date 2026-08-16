@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>الرئيسية — AgroNex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="site-assets/theme.css">
 <script src="site-assets/layout.js"></script>
@@ -110,7 +110,9 @@
 
     const roleLabel = ctx.isAdmin ? 'المدير' : (ROLE_LABELS_SINGULAR[ctx.profile?.role] || '');
     const name = ctx.profile?.full_name || '';
-    document.getElementById('welcome-title').textContent = `أهلًا بيك 👋 ${roleLabel} ${name} في AgroNex`.replace(/\s+/g, ' ').trim();
+    const welcomeText = `أهلًا بيك 👋 ${roleLabel} ${name}`.replace(/\s+/g, ' ').trim();
+    document.getElementById('welcome-title').innerHTML =
+      welcomeText + ' في <span class="brand-word"><span class="b-agro">Agro</span><span class="b-nex">Nex</span></span>';
 
     if(ctx.isAdmin){
       await loadAdminTiles();
