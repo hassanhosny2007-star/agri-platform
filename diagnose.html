@@ -76,6 +76,22 @@
   .result .row .v{ margin-top:4px; color:var(--ink); font-size:15px; line-height:1.8; }
   .loading-box{ display:none; text-align:center; padding:30px; color:#5b543f; }
   .loading-box.active{ display:block; }
+
+  .confidence-badge{ display:inline-block; padding:3px 12px; border-radius:20px; font-size:12.5px; font-weight:700; }
+  .confidence-high{ background:#E8F5E9; color:#2E7D32; }
+  .confidence-medium{ background:#FFF6E0; color:#C9A227; }
+  .confidence-low{ background:#FDECEA; color:#C62828; }
+  [data-theme="dark"] .confidence-high{ background:rgba(102,187,106,.15); color:#66BB6A; }
+  [data-theme="dark"] .confidence-medium{ background:rgba(224,184,77,.15); color:#E0B84D; }
+  [data-theme="dark"] .confidence-low{ background:rgba(239,83,80,.15); color:#EF5350; }
+
+  .related-box{ margin-top:16px; background:var(--bg); border-radius:10px; padding:12px 14px; }
+  .related-box .rb-title{ font-family:'Tajawal'; font-weight:700; font-size:12.5px; color:var(--leaf-deep); margin-bottom:6px; }
+  .related-box a{ display:block; font-size:12.5px; color:var(--rust); text-decoration:none; margin-top:4px; }
+
+  .feedback-row{ margin-top:18px; padding-top:16px; border-top:1px dashed var(--line); display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; }
+  .fb-btn{ padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:inherit; font-size:12.5px; }
+  .fb-btn.selected{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
 </style>
 </head>
 <body>
@@ -136,10 +152,18 @@
     </div>
 
     <div class="result" id="result">
+      <div class="row"><div class="k">مستوى ثقة التحليل</div><div class="v" id="res-confidence">—</div></div>
       <div class="row"><div class="k">النبات</div><div class="v" id="res-plant">—</div></div>
       <div class="row"><div class="k">التشخيص</div><div class="v" id="res-disease">—</div></div>
       <div class="row"><div class="k">الأعراض</div><div class="v" id="res-symptoms">—</div></div>
       <div class="row"><div class="k">الحلول المقترحة</div><div class="v" id="res-treatment">—</div></div>
+      <div id="related-info"></div>
+      <div class="feedback-row" id="feedback-row">
+        <span>التشخيص ده كان مفيد وصحيح؟</span>
+        <button class="fb-btn" id="fb-yes">👍 صحيح</button>
+        <button class="fb-btn" id="fb-no">👎 غير دقيق</button>
+      </div>
+      <div id="feedback-msg" style="font-size:12px; color:var(--leaf); margin-top:6px;"></div>
     </div>
   </div>
 
@@ -197,12 +221,29 @@
   function showMsg(text){ msg.textContent = text; msg.className = 'msg error'; }
   function hideMsg(){ msg.className = 'msg'; msg.textContent=''; }
 
+  async function submitFeedback(value, diagnosisId){
+    const feedbackMsg = document.getElementById('feedback-msg');
+    document.getElementById('fb-yes').classList.toggle('selected', value === 'correct');
+    document.getElementById('fb-no').classList.toggle('selected', value === 'incorrect');
+    if(!diagnosisId){
+      feedbackMsg.textContent = 'شكرًا لرأيك 🙏';
+      return;
+    }
+    await db.from('diagnoses').update({ feedback: value }).eq('id', diagnosisId);
+    feedbackMsg.textContent = value === 'correct' ? 'شكرًا! سعيدين إن التشخيص كان مفيد 🌱' : 'شكرًا لإبلاغنا، هيساعدنا نحسّن الدقة 🙏';
+  }
+
   document.getElementById('diagnosis-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     hideMsg();
     resultBox.classList.remove('active');
+    document.getElementById('feedback-msg').textContent = '';
+    document.getElementById('fb-yes').classList.remove('selected');
+    document.getElementById('fb-no').classList.remove('selected');
 
     if(!selectedFile){ showMsg('من فضلك ارفع أو صوّر صورة للنبات أولًا.'); return; }
+
+    let savedDiagnosisId = null;
 
     const plantAge = document.getElementById('plant-age').value;
     const lastTreatment = document.getElementById('last-treatment').value;
@@ -221,7 +262,7 @@
         reader.readAsDataURL(selectedFile);
       });
 
-      // استدعاء محرك التحليل (Supabase Edge Function) — سيتم إعداده في الخطوة القادمة
+      // استدعاء محرك التحليل الحقيقي (Supabase Edge Function - Claude Vision)
       const { data: { session } } = await db.auth.getSession();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/diagnose-plant`, {
         method: 'POST',
@@ -248,7 +289,28 @@
       document.getElementById('res-disease').textContent = result.disease_name || '—';
       document.getElementById('res-symptoms').textContent = result.symptoms || '—';
       document.getElementById('res-treatment').textContent = result.treatment || '—';
+
+      const confLevel = result.confidence === 'عالية' ? 'high' : (result.confidence === 'منخفضة' ? 'low' : 'medium');
+      document.getElementById('res-confidence').innerHTML = `<span class="confidence-badge confidence-${confLevel}">${result.confidence || 'متوسطة'}</span>`;
+
       resultBox.classList.add('active');
+
+      // ربط النتيجة ببنك المعرفة (لو فيه مقال بنفس اسم المرض تقريبًا)
+      let relatedHtml = '';
+      if(result.disease_name && !result.disease_name.includes('سليم')){
+        try{
+          const { data: articles } = await db.from('knowledge_articles').select('id, title, category').ilike('title', `%${result.disease_name.split(' ')[0]}%`).limit(2);
+          if(articles && articles.length){
+            relatedHtml += `<div class="related-box"><div class="rb-title">📚 مقالات ذات صلة من بنك المعرفة</div>` +
+              articles.map(a => `<a href="knowledge-base.html">• ${a.title}</a>`).join('') + `</div>`;
+          }
+        }catch(e){}
+      }
+      document.getElementById('related-info').innerHTML = relatedHtml;
+
+      // حفظ التقييم لما المستخدم يدوس صح/غلط
+      document.getElementById('fb-yes').onclick = () => submitFeedback('correct', savedDiagnosisId);
+      document.getElementById('fb-no').onclick = () => submitFeedback('incorrect', savedDiagnosisId);
 
       // التقاط الموقع الجغرافي (اختياري، ما بيمنعش الحفظ لو المستخدم رفض الإذن)
       let locationText = null, lat = null, lng = null;
@@ -272,7 +334,7 @@
         const path = `${session.user.id}/${Date.now()}.${ext}`;
         await db.storage.from('diagnoses').upload(path, selectedFile);
         const { data: urlData } = db.storage.from('diagnoses').getPublicUrl(path);
-        await db.from('diagnoses').insert({
+        const { data: inserted } = await db.from('diagnoses').insert({
           user_id: session.user.id,
           image_url: urlData.publicUrl,
           plant_name: result.plant_name,
@@ -286,13 +348,15 @@
           location_text: locationText,
           latitude: lat,
           longitude: lng,
-        });
+          confidence: result.confidence || null,
+        }).select('id').single();
+        savedDiagnosisId = inserted?.id || null;
       }catch(saveErr){
         console.warn('تعذر حفظ السجل التاريخي:', saveErr);
       }
 
     }catch(err){
-      showMsg('حدث خطأ أثناء التحليل: ' + err.message + ' (محرك الذكاء الاصطناعي لسه مش متصل)');
+      showMsg('حدث خطأ أثناء التحليل: ' + err.message + '. حاول تاني، أو تأكد إن الصورة واضحة.');
     }finally{
       loadingBox.classList.remove('active');
       submitBtn.disabled = false;
