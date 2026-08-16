@@ -37,6 +37,7 @@
 }
 
 *{ box-sizing:border-box; }
+html, body{ max-width:100%; overflow-x:hidden; }
 body{
   background:var(--bg); color:var(--ink);
   font-family:'IBM Plex Sans Arabic', sans-serif;
@@ -146,8 +147,14 @@ body{
 
 /* موبايل - تابلت وأصغر */
 @media (max-width:860px){
-  #app-sidebar{ position:fixed; z-index:50; transform:translateX(100%); box-shadow:0 0 30px rgba(0,0,0,.3); width:250px !important; padding:14px !important; }
-  #app-sidebar.open{ transform:translateX(0); }
+  #app-shell{ display:block !important; }
+  #app-main{ width:100% !important; }
+  #app-sidebar{
+    position:fixed !important; z-index:50; transform:translateX(100%) !important;
+    box-shadow:0 0 30px rgba(0,0,0,.3); width:250px !important; padding:14px !important;
+    inset-inline-end:0; top:0;
+  }
+  #app-sidebar.open{ transform:translateX(0) !important; }
   #app-sidebar .side-brand, #app-sidebar a.side-link span:last-child, #app-sidebar .side-section-title{ display:initial; }
   #page-content{ padding:16px; }
 }
