@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تحليل مخاطر الأمراض — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --up-bg:#E8F5E9; --mid:#C9A227; --mid-bg:#FFF6E0; --down:#C62828; --down-bg:#FDECEA;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --up-bg:rgba(102,187,106,.12); --mid:#E0B84D; --mid-bg:rgba(224,184,77,.12); --down:#EF5350; --down-bg:rgba(239,83,80,.12);
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:20px; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .field{ margin-bottom:14px; }
+  .field label{ font-size:13px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  select, input{
+    width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-size:14.5px; font-family:inherit;
+  }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px solid var(--bg); }
+  .toggle-row:first-child{ border-top:none; }
+  .toggle-row .t-label{ font-size:13.5px; }
+  .toggle-row .t-hint{ font-size:11px; color:#8a7f63; margin-top:2px; }
+  .switch{ position:relative; width:42px; height:24px; border-radius:20px; border:none; cursor:pointer; background:#cfc7ab; flex-shrink:0; }
+  .switch.on{ background:var(--leaf); }
+  .switch .dot{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.2s; }
+  .switch.on .dot{ right:20px; }
+
+  button.analyze-btn{
+    width:100%; padding:13px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer; margin-top:8px;
+  }
+  button.analyze-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .env-summary{ display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px; margin-bottom:16px; }
+  .env-box{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .env-box .v{ font-family:'Tajawal'; font-weight:900; font-size:18px; color:var(--leaf-deep); }
+  .env-box .l{ font-size:10.5px; color:#8a7f63; margin-top:3px; }
+
+  .risk-card{ border-radius:14px; padding:16px 18px; margin-bottom:10px; border-inline-start:5px solid var(--line); background:var(--paper); border:1px solid var(--line); }
+  .risk-card.level-high{ border-inline-start-color:var(--down); background:var(--down-bg); }
+  .risk-card.level-medium{ border-inline-start-color:var(--mid); background:var(--mid-bg); }
+  .risk-card.level-low{ border-inline-start-color:var(--up); background:var(--up-bg); }
+  .risk-card .r-title{ font-family:'Tajawal'; font-weight:800; font-size:15px; }
+  .risk-card.level-high .r-title{ color:var(--down); }
+  .risk-card.level-medium .r-title{ color:var(--mid); }
+  .risk-card.level-low .r-title{ color:var(--up); }
+  .risk-card .r-desc{ font-size:12.5px; color:#5b543f; margin-top:6px; line-height:1.7; }
+  .risk-card .r-rec{ font-size:12.5px; margin-top:8px; background:rgba(255,255,255,.5); padding:8px 10px; border-radius:8px; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:14px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🔬 تحليل مخاطر الأمراض</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">تحليل مبني على نماذج زراعية معروفة يربط بين الحرارة والرطوبة ومدة بقائها، والرياح، وبلل الأوراق، وعمر النبات — استرشادي، راجع مهندس زراعي في القرارات الحرجة</p>
+
+  <div class="card">
+    <div class="field">
+      <label>اختار المحصول</label>
+      <select id="crop-select"><option value="">جاري تحميل محاصيلك...</option></select>
+    </div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="t-label">هل لاحظت مياه/طل على الأوراق النهاردة؟</div>
+        <div class="t-hint">لو مش متأكد، سيبها زي ما هي (بنحاول نحددها تلقائي من بيانات الأمطار)</div>
+      </div>
+      <button class="switch" id="leaf-wet-toggle"><span class="dot"></span></button>
+    </div>
+
+    <button class="analyze-btn" id="analyze-btn">🔍 حلّل المخاطر دلوقتي</button>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let userCrops = [];
+  let leafWetManual = null; // null = تلقائي، true/false = المستخدم حدّدها بنفسه
+
+  document.getElementById('leaf-wet-toggle').addEventListener('click', function(){
+    if(leafWetManual === null || leafWetManual === false){ leafWetManual = true; }
+    else { leafWetManual = false; }
+    this.classList.toggle('on', leafWetManual);
+  });
+
+  async function loadUserCrops(){
+    const { data: farms } = await db.from('farms').select('id, farm_name').order('created_at', { ascending:false });
+    if(!farms || !farms.length){
+      document.getElementById('crop-select').innerHTML = '<option value="">لسه معملتش مزرعة أو محصول</option>';
+      return;
+    }
+    const farmIds = farms.map(f => f.id);
+    const { data: crops } = await db.from('crops').select('*').in('farm_id', farmIds).order('created_at', { ascending:false });
+    if(!crops || !crops.length){
+      document.getElementById('crop-select').innerHTML = '<option value="">لسه معملتش أي محصول</option>';
+      return;
+    }
+    userCrops = crops.map(c => ({ ...c, farm_name: farms.find(f => f.id === c.farm_id)?.farm_name || '' }));
+    document.getElementById('crop-select').innerHTML = '<option value="">اختار محصول...</option>' +
+      userCrops.map(c => `<option value="${c.id}">${c.crop_type}${c.variety ? ' - ' + c.variety : ''} (${c.farm_name})</option>`).join('');
+  }
+
+  function ageInDays(plantingDate){
+    if(!plantingDate) return null;
+    const diff = Date.now() - new Date(plantingDate).getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
+  async function getEnvironmentData(){
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+    });
+    const { latitude, longitude } = pos.coords;
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation` +
+      `&hourly=relative_humidity_2m,precipitation&past_days=1&forecast_days=1`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const currentTemp = data.current.temperature_2m;
+    const currentHumidity = data.current.relative_humidity_2m;
+    const windSpeed = data.current.wind_speed_10m;
+    const currentPrecip = data.current.precipitation;
+
+    // حساب عدد الساعات اللي كانت فيها الرطوبة 85%+ في آخر 24 ساعة
+    const humidityArr = data.hourly.relative_humidity_2m.slice(-24);
+    const precipArr = data.hourly.precipitation.slice(-24);
+    const wetHours = humidityArr.filter(h => h >= 85).length;
+    const totalPrecip24h = precipArr.reduce((a,b) => a + (b || 0), 0);
+
+    return { currentTemp, currentHumidity, windSpeed, currentPrecip, wetHours, totalPrecip24h };
+  }
+
+  function evaluateRisk(rules, env, plantAge, leafWet){
+    return rules.map(rule => {
+      const tempOk = env.currentTemp >= rule.min_temp && env.currentTemp <= rule.max_temp;
+      const humidityOk = env.currentHumidity >= rule.min_humidity;
+      const durationOk = env.wetHours >= rule.min_wet_hours;
+      const wetnessOk = !rule.needs_leaf_wetness || leafWet;
+      const windOk = !rule.max_wind_kmh || env.windSpeed <= rule.max_wind_kmh;
+      const ageRelevant = !rule.affects_young_plants || (plantAge !== null && plantAge <= 30);
+
+      let matchCount = [tempOk, humidityOk, durationOk, wetnessOk, windOk].filter(Boolean).length;
+      let level = 'low';
+      if(tempOk && humidityOk && durationOk && wetnessOk && windOk) level = 'high';
+      else if(matchCount >= 3) level = 'medium';
+
+      // لو المرض بيصيب النباتات الصغيرة بس، والنبات كبير، قلل الخطورة
+      if(rule.affects_young_plants && !ageRelevant && level === 'high') level = 'medium';
+
+      return { ...rule, level };
+    }).filter(r => r.level !== 'low' || true).sort((a,b) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return order[a.level] - order[b.level];
+    });
+  }
+
+  document.getElementById('analyze-btn').addEventListener('click', async () => {
+    const cropId = document.getElementById('crop-select').value;
+    const results = document.getElementById('results');
+    const btn = document.getElementById('analyze-btn');
+
+    if(!cropId){ alert('اختار محصول الأول'); return; }
+
+    const crop = userCrops.find(c => c.id === cropId);
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري التحليل...';
+    results.innerHTML = '';
+
+    try{
+      const env = await getEnvironmentData();
+      const plantAge = ageInDays(crop.planting_date);
+      const leafWet = leafWetManual !== null ? leafWetManual : (env.totalPrecip24h > 0.5);
+
+      const { data: rules } = await db.from('disease_risk_rules').select('*').eq('crop_type', crop.crop_type);
+
+      // كارت ملخص البيئة
+      results.innerHTML = `
+        <div class="env-summary">
+          <div class="env-box"><div class="v">${Math.round(env.currentTemp)}°</div><div class="l">الحرارة الحالية</div></div>
+          <div class="env-box"><div class="v">${Math.round(env.currentHumidity)}%</div><div class="l">الرطوبة الحالية</div></div>
+          <div class="env-box"><div class="v">${env.wetHours} س</div><div class="l">ساعات رطوبة عالية (24س)</div></div>
+          <div class="env-box"><div class="v">${Math.round(env.windSpeed)} كم/س</div><div class="l">سرعة الرياح</div></div>
+          <div class="env-box"><div class="v">${leafWet ? 'مبللة' : 'جافة'}</div><div class="l">حالة الأوراق</div></div>
+          <div class="env-box"><div class="v">${plantAge !== null ? plantAge + ' يوم' : '—'}</div><div class="l">عمر النبات</div></div>
+        </div>
+      `;
+
+      if(!rules || !rules.length){
+        results.innerHTML += '<div class="empty">مفيش بيانات مخاطر مسجلة للمحصول ده لسه</div>';
+        return;
+      }
+
+      const evaluated = evaluateRisk(rules, env, plantAge, leafWet);
+      const levelLabels = { high: '🔴 خطر مرتفع', medium: '🟡 خطر متوسط', low: '🟢 خطر منخفض' };
+
+      results.innerHTML += evaluated.map(r => `
+        <div class="risk-card level-${r.level}">
+          <div class="r-title">${levelLabels[r.level]} — ${r.disease_name_ar}</div>
+          <div class="r-desc">${r.description || ''}</div>
+          ${r.level !== 'low' ? `<div class="r-rec">💡 <b>التوصية:</b> ${r.recommendation || ''}</div>` : ''}
+        </div>
+      `).join('');
+    }catch(err){
+      console.error(err);
+      results.innerHTML = '<div class="empty">تعذر جلب بيانات الطقس، تأكد من إذن الموقع وحاول تاني</div>';
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🔍 حلّل المخاطر دلوقتي';
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    loadUserCrops();
+  })();
+</script>
+</body>
+</html>
