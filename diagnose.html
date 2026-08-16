@@ -12,6 +12,17 @@
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
     --rust: #A85D28; --line: #CDBF9C; --paper: #FCFAF3; --error:#B23A2E;
   }
+[data-theme="dark"]{
+    --bg: #12181B;
+    --ink: #EDEFEC;
+    --leaf: #6FA568;
+    --leaf-deep: #8FC286;
+    --rust: #D48A52;
+    --line: #2B3438;
+    --paper: #1B2327;
+    --error: #E57373;
+}
+
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--bg); color:var(--ink);
@@ -67,6 +78,8 @@
 </style>
 </head>
 <body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+
   <header>
     <h1>🌱 تشخيص أمراض النبات</h1>
     <div style="display:flex; gap:10px;">

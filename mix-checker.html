@@ -14,6 +14,20 @@
     --danger:#B23A2E; --danger-bg:#FBE9E7;
     --safe:#3B5B37; --safe-bg:#E8F0E5;
   }
+[data-theme="dark"]{
+    --bg: #12181B;
+    --ink: #EDEFEC;
+    --leaf: #6FA568;
+    --leaf-deep: #8FC286;
+    --rust: #D48A52;
+    --line: #2B3438;
+    --paper: #1B2327;
+    --danger: #E57373;
+    --danger-bg: rgba(229,115,115,.15);
+    --safe: #6FA568;
+    --safe-bg: rgba(111,165,104,.15);
+}
+
   *{box-sizing:border-box; margin:0; padding:0;}
   body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
   .wrap{ max-width:640px; margin:0 auto; }
@@ -57,6 +71,8 @@
 </style>
 </head>
 <body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+
 <div class="wrap">
   <header>
     <h1>🧪 خلط المبيدات والأسمدة</h1>
@@ -105,7 +121,23 @@
   const TYPE_LABELS = { pesticide: '🧪 مبيد', fertilizer: '🌾 سماد' };
 
   async function loadSubstances(){
-    const { data: substances, error } = await db.from('agro_substances').select('*').order('type').order('name');
+    // نجيب بس المواد اللي ليها قاعدة توافق واحدة على الأقل مسجلة
+    const { data: rules, error: rulesError } = await db.from('mix_compatibility').select('substance_a_id, substance_b_id');
+    if(rulesError || !rules || !rules.length){
+      document.getElementById('substance-a').innerHTML = '<option value="">لا توجد بيانات كافية بعد</option>';
+      document.getElementById('substance-b').innerHTML = '<option value="">لا توجد بيانات كافية بعد</option>';
+      return;
+    }
+
+    const knownIds = [...new Set(rules.flatMap(r => [r.substance_a_id, r.substance_b_id]))];
+
+    const { data: substances, error } = await db
+      .from('agro_substances')
+      .select('*')
+      .in('id', knownIds)
+      .order('type')
+      .order('name');
+
     if(error || !substances){
       document.getElementById('substance-a').innerHTML = '<option value="">تعذر التحميل</option>';
       document.getElementById('substance-b').innerHTML = '<option value="">تعذر التحميل</option>';

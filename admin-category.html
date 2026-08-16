@@ -12,6 +12,16 @@
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
     --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
   }
+[data-theme="dark"]{
+    --bg: #12181B;
+    --ink: #EDEFEC;
+    --leaf: #6FA568;
+    --leaf-deep: #8FC286;
+    --line: #2B3438;
+    --paper: #1B2327;
+    --rust: #D48A52;
+}
+
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--bg); color:var(--ink);
@@ -47,6 +57,8 @@
 </style>
 </head>
 <body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+
   <div class="top"><a class="back" href="admin.html">← رجوع لكل الفئات</a></div>
   <h1 id="page-title">جاري التحميل...</h1>
   <div id="content"><div class="loading">جاري التحميل...</div></div>
