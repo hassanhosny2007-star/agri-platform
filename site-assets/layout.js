@@ -54,6 +54,18 @@ const AgroNexLayout = (() => {
   }
   function getInitialTheme(){ return localStorage.getItem('agronex-theme') || 'light'; }
 
+  // بترتب كروت stat-tiles في صفوف متوازنة (زي: 7 كروت = 4 فوق و3 تحت، 6 كروت = 3 و3)
+  function arrangeTiles(container){
+    if(!container) return;
+    const n = container.children.length;
+    if(n === 0) return;
+    const desired = n <= 4 ? n : Math.ceil(n / 2);
+    const minTileWidth = 190;
+    const maxByWidth = Math.max(1, Math.floor(container.clientWidth / minTileWidth));
+    const cols = Math.min(desired, maxByWidth);
+    container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  }
+
   function buildSidebar(activeKey, isAdmin, lang){
     const t = I18N[lang];
     const items = NAV_ITEMS.filter(i => i.roles === 'all' || (isAdmin && i.roles.includes('admin')));
@@ -156,5 +168,5 @@ const AgroNexLayout = (() => {
     return { session, profile, isAdmin };
   }
 
-  return { init };
+  return { init, arrangeTiles };
 })();
