@@ -184,6 +184,15 @@ body{
 .advice-card.level-danger .a-status{ color:#C62828; }
 .advice-card .a-msg{ font-size:11.5px; color:var(--ink-soft); margin-top:5px; line-height:1.6; }
 
+/* ===== زرار تفعيل الإشعارات ===== */
+.notif-toggle-btn{
+  display:block; margin-bottom:16px; padding:11px 20px; border-radius:9px;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  font-family:'Tajawal'; font-weight:700; font-size:13.5px; cursor:pointer;
+}
+.notif-toggle-btn.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+.notif-status{ font-size:12px; color:var(--ink-soft); margin-bottom:16px; margin-top:-10px; }
+
 /* موبايل - تابلت وأصغر */
 @media (max-width:860px){
   #app-shell{ display:block !important; }
