@@ -49,21 +49,20 @@ const AgroNexLayout = (() => {
     `;
   }
 
-  function buildTopbar(profile, email){
+  function buildTopbar(profile, email, isAdmin){
     const name = (profile && profile.full_name) || email || '...';
     const avatar = (profile && profile.avatar_url) || '';
+    const profileHref = isAdmin ? 'admin-profile.html' : 'engineer-profile.html';
     return `
-      <div style="display:flex; align-items:center; gap:10px;">
-        <button class="icon-btn" id="sidebar-toggle-btn" title="إظهار/إخفاء القائمة الجانبية">☰</button>
-        <div class="user-block">
-          <img src="${avatar}" onerror="this.style.visibility='hidden'">
-          <div>
-            <div class="u-name">${name}</div>
-            <div class="u-email">${email || ''}</div>
-          </div>
+      <a class="user-block" href="${profileHref}" style="text-decoration:none; cursor:pointer;">
+        <img src="${avatar}" onerror="this.style.visibility='hidden'">
+        <div>
+          <div class="u-name">${name}</div>
+          <div class="u-email">${email || ''}</div>
         </div>
-      </div>
+      </a>
       <div class="top-actions">
+        <button class="icon-btn" id="sidebar-toggle-btn" title="إظهار/إخفاء القائمة الجانبية">☰</button>
         <a class="site-link" href="index.html" target="_blank">🌐 عرض الموقع</a>
         <button class="icon-btn" id="theme-toggle-btn" title="تبديل الوضع الليلي/النهاري">🌙</button>
         <button class="icon-btn" id="layout-logout-btn" title="تسجيل الخروج">🚪</button>
@@ -86,7 +85,7 @@ const AgroNexLayout = (() => {
       <div id="app-shell">
         <aside id="app-sidebar">${buildSidebar(active, isAdmin)}</aside>
         <div id="app-main">
-          <header id="app-topbar">${buildTopbar(profile, session.user.email)}</header>
+          <header id="app-topbar">${buildTopbar(profile, session.user.email, isAdmin)}</header>
           <main id="page-content">${existingContent}</main>
         </div>
       </div>
