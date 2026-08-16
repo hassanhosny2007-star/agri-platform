@@ -3,85 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لوحة التحكم — المنصة الزراعية</title>
+<title>الرئيسية — AgroNex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<style>
-  :root{
-    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
-    --line: #CDBF9C; --paper: #FCFAF3; --rust: #A85D28;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    background:var(--bg); color:var(--ink);
-    font-family:'IBM Plex Sans Arabic', sans-serif;
-    min-height:100vh; padding:24px;
-  }
-  header{
-    max-width:720px; margin:0 auto 24px; display:flex; justify-content:space-between; align-items:center;
-  }
-  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
-  button.logout{
-    padding:9px 18px; border-radius:8px; border:1px solid var(--line);
-    background:var(--paper); font-family:'Tajawal'; font-weight:700; cursor:pointer; font-size:14px;
-  }
-  .card{
-    max-width:720px; margin:0 auto;
-    background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:32px;
-    text-align:center;
-  }
-  .card p{ margin-top:10px; color:#5b543f; font-size:15px; }
-  .card .email{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:17px; }
-  .weather-widget{
-    position:fixed; top:90px; left:20px; z-index:10;
-    background:var(--paper); border:1px solid var(--line); border-radius:12px;
-    padding:12px 16px; font-size:13.5px; min-width:150px;
-    box-shadow:0 2px 8px rgba(30,42,27,0.08);
-  }
-  .weather-loading, .weather-error{ color:#8a7f63; }
-  .weather-error{ color:var(--rust); font-size:12.5px; cursor:pointer; }
-  .weather-data{ display:flex; flex-direction:column; gap:2px; }
-  .weather-data .city{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:13px; }
-  .weather-data .temp{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); }
-  .weather-data .humidity{ color:#5b543f; font-size:12.5px; }
-
-  .stats-bar{
-    display:none; max-width:720px; margin:0 auto 20px; gap:12px; flex-wrap:wrap;
-    justify-content:center;
-  }
-  .stats-bar.active{ display:flex; }
-  .stat-card{
-    background:var(--paper); border:1px solid var(--line); border-radius:14px;
-    padding:16px 20px; min-width:120px; text-align:center; flex:1;
-  }
-  .stat-card .label{ font-family:'Tajawal'; font-weight:700; font-size:12.5px; color:var(--leaf-deep); }
-  .stat-card .total{ font-family:'Tajawal'; font-weight:900; font-size:24px; color:var(--leaf-deep); margin-top:6px; }
-  .stat-card .active-count{ font-size:11.5px; color:var(--rust); margin-top:4px; }
-  .stat-card.main{ background:var(--leaf-deep); border-color:var(--leaf-deep); }
-  .stat-card.main .label, .stat-card.main .total{ color:var(--paper); }
-  .stat-card.main .active-count{ color:#CFE0C9; }
-</style>
+<link rel="stylesheet" href="site-assets/theme.css">
+<script src="site-assets/layout.js"></script>
 </head>
 <body>
-  <header>
-    <h1>🌱 AgroNex</h1>
-    <button class="logout" id="logout">تسجيل الخروج</button>
-  </header>
-  <div class="weather-widget" id="weather">
-    <div class="weather-loading">📍 جاري تحديد موقعك...</div>
+
+  <div class="page-title-row">
+    <div>
+      <h1>أهلًا بيك 👋</h1>
+      <div class="sub" id="welcome-email">...</div>
+    </div>
   </div>
-  <div class="stats-bar" id="stats-bar"></div>
-  <div class="card">
-    <p>مرحبًا بك، تم تسجيل الدخول بنجاح كـ</p>
-    <p class="email" id="user-email">...</p>
-    <a href="diagnose.html" style="display:inline-block; margin-top:20px; padding:13px 24px; background:var(--leaf); color:var(--paper); text-decoration:none; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:15px;">🌿 تشخيص أمراض النبات</a>
-    <a href="knowledge-base.html" style="display:inline-block; margin-top:10px; padding:13px 24px; background:var(--paper); border:1px solid var(--line); color:var(--leaf-deep); text-decoration:none; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:15px;">📚 بنك المعرفة</a>
-    <a href="mix-checker.html" style="display:inline-block; margin-top:10px; padding:13px 24px; background:var(--paper); border:1px solid var(--line); color:var(--leaf-deep); text-decoration:none; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:15px;">🧪 خلط المبيدات والأسمدة</a>
-    <a href="substances-directory.html" style="display:inline-block; margin-top:10px; padding:13px 24px; background:var(--paper); border:1px solid var(--line); color:var(--leaf-deep); text-decoration:none; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:15px;">🔍 دليل المواد الفعالة</a>
-    <a href="engineer-profile.html" style="display:inline-block; margin-top:10px; padding:13px 24px; background:var(--paper); border:1px solid var(--line); color:var(--leaf-deep); text-decoration:none; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:15px;">👨‍🌾 بروفايلي</a>
-   <a href="admin-profile.html" id="admin-link" style="display:none; margin-top:10px; padding:13px 24px; background:var(--rust); color:#fff; text-decoration:none; border-radius:9px; font-family:'Tajawal'; font-weight:700; font-size:15px;">🛠️ بروفايل المدير</a>
+
+  <div class="weather-card" id="weather">
+    <div class="w-city">📍 جاري تحديد موقعك...</div>
   </div>
+
+  <div class="stat-tiles" id="admin-stats-bar" style="display:none;"></div>
+
+  <div class="stat-tiles" id="quick-tiles">
+    <a class="stat-tile tile-green" href="diagnose.html">
+      <span class="tile-icon">🌿</span>
+      <div>
+        <div class="tile-label">تشخيص أمراض النبات</div>
+        <div class="tile-sub">صوّر النبات واعرف التشخيص فورًا</div>
+      </div>
+    </a>
+    <a class="stat-tile tile-blue" href="knowledge-base.html">
+      <span class="tile-icon">📚</span>
+      <div>
+        <div class="tile-label">بنك المعرفة</div>
+        <div class="tile-sub">مقالات ومعلومات زراعية موثوقة</div>
+      </div>
+    </a>
+    <a class="stat-tile tile-teal" href="mix-checker.html">
+      <span class="tile-icon">🧪</span>
+      <div>
+        <div class="tile-label">خلط المبيدات والأسمدة</div>
+        <div class="tile-sub">تأكد قبل ما تخلط أي مادتين</div>
+      </div>
+    </a>
+    <a class="stat-tile tile-indigo" href="substances-directory.html">
+      <span class="tile-icon">🔍</span>
+      <div>
+        <div class="tile-label">دليل المواد الفعالة</div>
+        <div class="tile-sub">تصنيف واستخدام كل مادة</div>
+      </div>
+    </a>
+    <a class="stat-tile tile-orange" href="engineer-profile.html">
+      <span class="tile-icon">👤</span>
+      <div>
+        <div class="tile-label">بروفايلي</div>
+        <div class="tile-sub">مزارعك ومحاصيلك وبياناتك</div>
+      </div>
+    </a>
+  </div>
+
+  <div id="admin-entry-tile"></div>
 
 <script>
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
@@ -103,12 +85,13 @@
 
   const ROLE_LABELS = { farmer: 'المزارعين', engineer: 'المهندسين', trader: 'التجار', company: 'الشركات' };
 
-  async function loadStatsBar(){
+  async function loadAdminStats(){
     const { data: profiles, error } = await db.from('profiles').select('role, is_active');
     if(error || !profiles) return;
 
     const total = profiles.length;
     const totalActive = profiles.filter(p => p.is_active !== false).length;
+    const colors = { farmer:'tile-green', engineer:'tile-blue', trader:'tile-orange', company:'tile-indigo' };
 
     const counts = {};
     Object.keys(ROLE_LABELS).forEach(role => {
@@ -116,58 +99,62 @@
       counts[role] = { total: inRole.length, active: inRole.filter(p => p.is_active !== false).length };
     });
 
-    const bar = document.getElementById('stats-bar');
+    const bar = document.getElementById('admin-stats-bar');
     bar.innerHTML = `
-      <div class="stat-card main">
-        <div class="label">إجمالي المستخدمين</div>
-        <div class="total">${total}</div>
-        <div class="active-count">نشط: ${totalActive}</div>
+      <div class="stat-tile tile-red">
+        <span class="tile-icon">👥</span>
+        <div>
+          <div class="tile-label">إجمالي المستخدمين</div>
+          <div class="tile-sub">${totalActive} حساب نشط من ${total}</div>
+        </div>
       </div>
       ${Object.entries(ROLE_LABELS).map(([role, label]) => `
-        <div class="stat-card">
-          <div class="label">${label}</div>
-          <div class="total">${counts[role].total}</div>
-          <div class="active-count">نشط: ${counts[role].active}</div>
+        <div class="stat-tile ${colors[role]}">
+          <span class="tile-icon">📊</span>
+          <div>
+            <div class="tile-label">${label}</div>
+            <div class="tile-sub">${counts[role].active} نشط من ${counts[role].total}</div>
+          </div>
         </div>
       `).join('')}
     `;
-    bar.classList.add('active');
+    bar.style.display = 'grid';
   }
 
   (async () => {
-    const { data: { session } } = await db.auth.getSession();
-    if(!session){
-      window.location.href = 'login.html';
-      return;
-    }
-    document.getElementById('user-email').textContent = session.user.email;
+    const ctx = await AgroNexLayout.init({ active: 'dashboard', db });
+    if(!ctx) return;
 
-    // إظهار زرار الأدمن لو الحساب ده role = admin
-    const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
-    if(profile && profile.role === 'admin'){
-      document.getElementById('admin-link').style.display = 'inline-block';
-      loadStatsBar();
+    document.getElementById('welcome-email').textContent = 'سجّلت الدخول كـ ' + ctx.session.user.email;
+
+    if(ctx.isAdmin){
+      document.getElementById('admin-entry-tile').innerHTML = `
+        <div class="stat-tiles">
+          <a class="stat-tile tile-purple" href="admin-profile.html">
+            <span class="tile-icon">🛠️</span>
+            <div>
+              <div class="tile-label">بروفايل المدير</div>
+              <div class="tile-sub">لوحة تحكم الأدمن الكاملة</div>
+            </div>
+          </a>
+        </div>`;
+      loadAdminStats();
     }
   })();
-
-  document.getElementById('logout').addEventListener('click', async ()=>{
-    await db.auth.signOut();
-    window.location.href = 'login.html';
-  });
 
   // خانة الطقس
   const weatherEl = document.getElementById('weather');
   function showWeatherError(text){
-    weatherEl.innerHTML = `<div class="weather-error" id="retry-weather">⚠️ ${text}<br><span style="text-decoration:underline">إعادة المحاولة</span></div>`;
+    weatherEl.innerHTML = `<div class="w-error" id="retry-weather">⚠️ ${text} — إعادة المحاولة</div>`;
     document.getElementById('retry-weather').addEventListener('click', loadWeather);
   }
   async function loadWeather(){
-    weatherEl.innerHTML = '<div class="weather-loading">📍 جاري تحديد موقعك...</div>';
+    weatherEl.innerHTML = '<div class="w-city">📍 جاري تحديد موقعك...</div>';
     if(!navigator.geolocation){ showWeatherError('المتصفح لا يدعم تحديد الموقع'); return; }
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
       try{
-        weatherEl.innerHTML = '<div class="weather-loading">☁️ جاري جلب بيانات الطقس...</div>';
+        weatherEl.innerHTML = '<div class="w-city">☁️ جاري جلب بيانات الطقس...</div>';
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m`;
         const res = await fetch(url);
         const data = await res.json();
@@ -180,14 +167,12 @@
           if(geoData.results && geoData.results.length){ cityName = geoData.results[0].name; }
         }catch(e){}
         weatherEl.innerHTML = `
-          <div class="weather-data">
-            <div class="city">📍 ${cityName}</div>
-            <div class="temp">${temp}°</div>
-            <div class="humidity">الرطوبة: ${humidity}%</div>
-          </div>`;
+          <div class="w-city">📍 ${cityName}</div>
+          <div class="w-temp">${temp}°</div>
+          <div class="w-humidity">الرطوبة: ${humidity}%</div>`;
       }catch(err){ showWeatherError('تعذر جلب بيانات الطقس'); }
     }, (err) => {
-      showWeatherError(err.code === err.PERMISSION_DENIED ? 'يرجى السماح بالوصول للموقع لعرض الطقس' : 'تعذر تحديد الموقع');
+      showWeatherError(err.code === err.PERMISSION_DENIED ? 'يرجى السماح بالوصول للموقع' : 'تعذر تحديد الموقع');
     });
   }
   loadWeather();
