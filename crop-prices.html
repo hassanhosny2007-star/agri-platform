@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أسعار المحاصيل — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --up-bg:#E8F5E9; --down:#C62828; --down-bg:#FDECEA;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --up-bg:rgba(102,187,106,.12); --down:#EF5350; --down-bg:rgba(239,83,80,.12);
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13.5px; margin-bottom:8px; }
+  .disclaimer{
+    background:#FFF6E0; border:1px solid #E8D190; border-radius:12px; padding:12px 16px;
+    font-size:12px; color:#6b5a24; line-height:1.7; margin-bottom:20px;
+  }
+
+  .admin-refresh{ text-align:center; margin-bottom:20px; }
+  button.refresh-btn{
+    padding:11px 22px; border:none; border-radius:9px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  button.refresh-btn:disabled{ opacity:.6; cursor:not-allowed; }
+  .refresh-status{ font-size:12.5px; margin-top:8px; color:#5b543f; }
+
+  .price-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
+  .price-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  .price-card .name{ font-family:'Tajawal'; font-weight:800; font-size:16px; color:var(--leaf-deep); }
+  .price-card .ticker{ font-size:11px; color:#8a7f63; margin-top:2px; }
+  .price-card .price{ font-family:'Tajawal'; font-weight:900; font-size:26px; margin-top:12px; }
+  .price-card .change{ display:inline-block; margin-top:8px; padding:3px 10px; border-radius:20px; font-size:12.5px; font-weight:700; }
+  .price-card .change.up{ background:var(--up-bg); color:var(--up); }
+  .price-card .change.down{ background:var(--down-bg); color:var(--down); }
+  .price-card .updated{ font-size:11px; color:#8a7f63; margin-top:10px; }
+  .empty{ text-align:center; color:#5b543f; padding:50px 0; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📈 أسعار المحاصيل الزراعية</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">أسعار صناديق مؤشرات القمح والذرة والقطن والصويا والسكر من بورصة نيويورك (بالدولار الأمريكي)</p>
+  <div class="disclaimer">
+    ⚠️ الأسعار دي مش لحظية بالثانية — بتتحدّث يدويًا من الأدمن كل فترة (مش أوتوماتيك كل ثانية) عشان حدود الاستخدام المجاني لمصدر البيانات. اعتبرها مؤشر عام لاتجاه السوق العالمي، مش سعر تداول فوري دقيق للحظة الحالية.
+  </div>
+
+  <div class="admin-refresh" id="admin-refresh" style="display:none;">
+    <button class="refresh-btn" id="refresh-btn">🔄 تحديث الأسعار الآن</button>
+    <div class="refresh-status" id="refresh-status"></div>
+  </div>
+
+  <div class="price-grid" id="price-grid"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  // ⚠️ حط مفتاح Alpha Vantage المجاني بتاعك هنا (سجّل مجانًا من alphavantage.co/support/#api-key)
+  const ALPHA_VANTAGE_KEY = "YOUR_ALPHA_VANTAGE_KEY";
+
+  function fmtTime(d){
+    if(!d) return '—';
+    return new Date(d).toLocaleString('ar-EG', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  async function loadPrices(){
+    const { data: prices, error } = await db.from('crop_prices').select('*').order('name_ar');
+    const grid = document.getElementById('price-grid');
+    if(error || !prices || !prices.length){
+      grid.innerHTML = '<div class="empty">تعذر تحميل الأسعار</div>';
+      return;
+    }
+    grid.innerHTML = prices.map(p => {
+      const hasPrice = p.price !== null && p.price !== undefined;
+      const isUp = (p.change_percent || 0) >= 0;
+      return `
+        <div class="price-card">
+          <div class="name">${p.name_ar}</div>
+          <div class="ticker">${p.ticker} · ${p.currency}</div>
+          <div class="price">${hasPrice ? '$' + Number(p.price).toFixed(2) : '—'}</div>
+          ${hasPrice ? `<div class="change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(p.change_percent || 0).toFixed(2)}%</div>` : ''}
+          <div class="updated">آخر تحديث: ${fmtTime(p.updated_at)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  async function refreshFromAlphaVantage(){
+    const btn = document.getElementById('refresh-btn');
+    const status = document.getElementById('refresh-status');
+
+    if(ALPHA_VANTAGE_KEY === 'YOUR_ALPHA_VANTAGE_KEY'){
+      status.textContent = '⚠️ لازم تحط مفتاح Alpha Vantage الأول في كود الصفحة';
+      return;
+    }
+
+    btn.disabled = true;
+    status.textContent = 'جاري التحديث...';
+
+    const { data: prices } = await db.from('crop_prices').select('*');
+    let updated = 0;
+
+    for(const p of prices){
+      try{
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${p.ticker}&apikey=${ALPHA_VANTAGE_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const quote = data['Global Quote'];
+        if(!quote || !quote['05. price']) continue;
+
+        const price = parseFloat(quote['05. price']);
+        const changePercent = parseFloat((quote['10. change percent'] || '0').replace('%',''));
+
+        await db.from('crop_prices').update({
+          price, change_percent: changePercent, updated_at: new Date().toISOString()
+        }).eq('id', p.id);
+        updated++;
+      }catch(e){ console.error('فشل تحديث', p.ticker, e); }
+    }
+
+    status.textContent = updated > 0 ? `✅ تم تحديث ${updated} من ${prices.length} محاصيل` : '⚠️ حصل خطأ، تأكد من صحة المفتاح';
+    btn.disabled = false;
+    loadPrices();
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(profile && profile.role === 'admin'){
+      document.getElementById('admin-refresh').style.display = 'block';
+      document.getElementById('refresh-btn').addEventListener('click', refreshFromAlphaVantage);
+    }
+
+    loadPrices();
+  })();
+</script>
+</body>
+</html>
