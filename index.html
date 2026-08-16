@@ -1,106 +1,154 @@
-// supabase/functions/check-weather-alerts/index.ts
-// بتفحص طقس كل مستخدم فعّل الإشعارات، ولو فيه حالة خطيرة تبعتله Push Notification
-// المفروض تتشغّل بجدولة زمنية (كل ساعة مثلًا) عن طريق GitHub Actions أو Supabase Cron
-
-import { createClient } from "npm:@supabase/supabase-js@2";
-import webpush from "npm:web-push@3.6.7";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
-
-webpush.setVapidDetails("mailto:admin@agronex.app", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-
-// نفس منطق التنبيهات الموجود في dashboard.html بالظبط (لازم يفضلوا متطابقين)
-function getDangerAlert(temp: number, humidity: number) {
-  if (temp > 32 || temp < 10) {
-    return { type: "spray_danger", title: "⚠️ تحذير: الرش غير مناسب", body: temp > 32 ? "الحرارة مرتفعة جدًا، خطر تبخر سريع للمبيد وحرق الأوراق" : "الحرارة منخفضة جدًا، فعالية المبيد بتقل" };
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>المنصة الزراعية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=Poppins:wght@800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --rust: #A85D28; --line: #CDBF9C; --paper: #FCFAF3;
   }
-  if (humidity >= 75 && temp >= 18 && temp <= 30) {
-    return { type: "fungal_danger", title: "🍄 تحذير: خطر أمراض فطرية مرتفع", body: "رطوبة عالية مع حرارة معتدلة — فكّر في رش وقائي" };
-  }
-  if (temp >= 38) {
-    return { type: "heat_danger", title: "🌡️ تحذير: إجهاد حراري", body: "حرارة شديدة، النبات معرّض للذبول — تجنب أي رش أو تسميد نهارًا" };
-  }
-  if (temp <= 5) {
-    return { type: "cold_danger", title: "❄️ تحذير: خطر برودة", body: "درجة حرارة منخفضة جدًا، احتمال ضرر بردي للمحاصيل الحساسة" };
-  }
-  return null;
+[data-theme="dark"]{
+    --bg: #12181B;
+    --ink: #EDEFEC;
+    --leaf: #6FA568;
+    --leaf-deep: #8FC286;
+    --rust: #D48A52;
+    --line: #2B3438;
+    --paper: #1B2327;
 }
 
-Deno.serve(async (req) => {
-  try {
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .card{
+    max-width:480px; width:100%; text-align:center;
+    background:var(--paper); border:1px solid var(--line); border-radius:18px;
+    padding:48px 32px;
+  }
+  h1{ font-family:'Tajawal', sans-serif; font-weight:900; font-size:28px; color:var(--leaf-deep); }
+  .brand-word{ font-family:'Poppins', sans-serif; font-weight:800; letter-spacing:.3px; font-size:26px; }
+  .brand-word .b-agro{ color:var(--leaf-deep); }
+  .brand-word .b-nex{ color:var(--leaf); }
+  p{ margin-top:14px; color:#5b543f; font-size:15.5px; line-height:1.8; }
+  p.tagline{ margin-top:6px; color:var(--rust); font-family:'Tajawal'; font-weight:700; font-size:14.5px; }
+  .btns{ margin-top:32px; display:flex; flex-direction:column; gap:12px; }
+  a.btn{
+    display:block; text-decoration:none; padding:14px 20px; border-radius:10px;
+    font-family:'Tajawal', sans-serif; font-weight:700; font-size:15.5px;
+  }
+  a.primary{ background:var(--leaf); color:var(--paper); }
+  a.secondary{ background:transparent; color:var(--leaf-deep); border:1px solid var(--line); }
 
-    const { data: profiles, error } = await supabase
-      .from("profiles")
-      .select("id, latitude, longitude, last_alert_type, last_alert_sent_at")
-      .eq("notifications_enabled", true)
-      .not("latitude", "is", null)
-      .not("longitude", "is", null);
+  .weather-widget{
+    position:fixed; top:20px; right:20px; z-index:10;
+    background:var(--paper); border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; font-size:13.5px; min-width:150px;
+    box-shadow:0 2px 8px rgba(30,42,27,0.08);
+  }
+  .weather-loading, .weather-error{ color:#8a7f63; }
+  .weather-error{ color:var(--rust); font-size:12.5px; cursor:pointer; }
+  .weather-data{ display:flex; flex-direction:column; gap:2px; }
+  .weather-data .city{ font-family:'Tajawal'; font-weight:700; color:var(--leaf-deep); font-size:13px; }
+  .weather-data .temp{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); }
+  .weather-data .humidity{ color:#5b543f; font-size:12.5px; }
+  @media (max-width:520px){ .weather-widget{ position:static; margin-bottom:18px; width:100%; } }
 
-    if (error) throw error;
+  #theme-toggle-fixed{
+    position:fixed; top:20px; left:20px; z-index:20;
+    width:42px; height:42px; border-radius:10px; border:1px solid var(--line);
+    background:var(--paper); cursor:pointer; font-size:17px;
+    display:flex; align-items:center; justify-content:center;
+  }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
 
-    let sentCount = 0;
+  <div class="weather-widget" id="weather">
+    <div class="weather-loading">📍 جاري تحديد موقعك...</div>
+  </div>
+  <button id="theme-toggle-fixed" title="تبديل الوضع الليلي/النهاري">🌙</button>
+  <div class="card">
+    <img src="site-assets/logo.png" alt="AgroNex" style="width:120px; height:120px; object-fit:contain; margin:0 auto;" onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='block';">
+    <div class="brand-word" id="logo-fallback" style="display:none;"><span class="b-agro">Agro</span><span class="b-nex">Nex</span></div>
+    <p class="tagline">حينما تلتقي الزراعة بالتكنولوجيا</p>
+    <p>تشخيص أمراض النبات، متابعة المحاصيل، وربط المزارعين بالخبراء — كل ده في مكان واحد.</p>
+    <div class="btns">
+      <a class="btn primary" href="login.html">تسجيل الدخول</a>
+      <a class="btn secondary" href="login.html#signup">إنشاء حساب جديد</a>
+    </div>
+  </div>
 
-    for (const profile of profiles ?? []) {
-      try {
-        const weatherRes = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${profile.latitude}&longitude=${profile.longitude}&current=temperature_2m,relative_humidity_2m`
-        );
-        const weatherData = await weatherRes.json();
-        const temp = weatherData.current.temperature_2m;
-        const humidity = weatherData.current.relative_humidity_2m;
+<script>
+  const themeBtn = document.getElementById('theme-toggle-fixed');
+  themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+  themeBtn.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('agronex-theme', next);
+    themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
 
-        const alert = getDangerAlert(temp, humidity);
-        if (!alert) continue;
+  const weatherEl = document.getElementById('weather');
 
-        // منع الإزعاج: لو نفس نوع التنبيه اتبعت قبل كده بأقل من 6 ساعات، متبعتوش تاني
-        const lastSent = profile.last_alert_sent_at ? new Date(profile.last_alert_sent_at).getTime() : 0;
-        const hoursSinceLastAlert = (Date.now() - lastSent) / (1000 * 60 * 60);
-        if (profile.last_alert_type === alert.type && hoursSinceLastAlert < 6) continue;
+  function showWeatherError(msg){
+    weatherEl.innerHTML = `<div class="weather-error" id="retry-weather">⚠️ ${msg}<br><span style="text-decoration:underline">إعادة المحاولة</span></div>`;
+    document.getElementById('retry-weather').addEventListener('click', loadWeather);
+  }
 
-        const { data: subs } = await supabase
-          .from("push_subscriptions")
-          .select("*")
-          .eq("user_id", profile.id);
-
-        for (const sub of subs ?? []) {
-          const subscription = {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          };
-          try {
-            await webpush.sendNotification(
-              subscription,
-              JSON.stringify({ title: alert.title, body: alert.body, url: "dashboard.html" })
-            );
-            sentCount++;
-          } catch (pushErr: any) {
-            // الاشتراك منتهي أو الجهاز مبقاش موجود، امسحه
-            if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-              await supabase.from("push_subscriptions").delete().eq("id", sub.id);
-            }
-          }
-        }
-
-        await supabase
-          .from("profiles")
-          .update({ last_alert_type: alert.type, last_alert_sent_at: new Date().toISOString() })
-          .eq("id", profile.id);
-      } catch (userErr) {
-        console.error("فشل فحص مستخدم:", profile.id, userErr);
-      }
+  async function loadWeather(){
+    weatherEl.innerHTML = '<div class="weather-loading">📍 جاري تحديد موقعك...</div>';
+    if(!navigator.geolocation){
+      showWeatherError('المتصفح لا يدعم تحديد الموقع');
+      return;
     }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude } = pos.coords;
+      try{
+        weatherEl.innerHTML = '<div class="weather-loading">☁️ جاري جلب بيانات الطقس...</div>';
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const temp = Math.round(data.current.temperature_2m);
+        const humidity = Math.round(data.current.relative_humidity_2m);
 
-    return new Response(JSON.stringify({ success: true, checked: profiles?.length ?? 0, sent: sentCount }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: String(err) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+        let cityName = 'موقعك الحالي';
+        try{
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=ar`);
+          const geoData = await geoRes.json();
+          if(geoData.results && geoData.results.length){
+            cityName = geoData.results[0].name;
+          }
+        }catch(e){ /* الاسم اختياري، لو فشل نسيب القيمة الافتراضية */ }
+
+        weatherEl.innerHTML = `
+          <div class="weather-data">
+            <div class="city">📍 ${cityName}</div>
+            <div class="temp">${temp}°</div>
+            <div class="humidity">الرطوبة: ${humidity}%</div>
+          </div>`;
+      }catch(err){
+        showWeatherError('تعذر جلب بيانات الطقس');
+      }
+    }, (err) => {
+      if(err.code === err.PERMISSION_DENIED){
+        showWeatherError('يرجى السماح بالوصول للموقع لعرض الطقس');
+      } else {
+        showWeatherError('تعذر تحديد الموقع');
+      }
     });
   }
-});
+
+  loadWeather();
+</script>
+</body>
+</html>
