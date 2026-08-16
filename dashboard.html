@@ -129,7 +129,17 @@
     if(!weatherEl) return;
     weatherEl.innerHTML = '<div class="w-city">📍 جاري تحديد موقعك...</div>';
     if(!navigator.geolocation){ showWeatherError('المتصفح لا يدعم تحديد الموقع'); return; }
+
+    // شبكة أمان: لو مفيش رد خالص خلال 12 ثانية، اعرض رسالة بدل ما تفضل معلقة
+    let settled = false;
+    const safetyTimer = setTimeout(() => {
+      if(!settled){ settled = true; showWeatherError('استغرق الطلب وقت طويل'); }
+    }, 12000);
+
     navigator.geolocation.getCurrentPosition(async (pos) => {
+      if(settled) return;
+      clearTimeout(safetyTimer);
+      settled = true;
       const { latitude, longitude } = pos.coords;
       try{
         document.getElementById('weather').innerHTML = '<div class="w-city">☁️ جاري جلب بيانات الطقس...</div>';
@@ -150,7 +160,14 @@
           <div class="w-humidity">الرطوبة: ${humidity}%</div>`;
       }catch(err){ showWeatherError('تعذر جلب بيانات الطقس'); }
     }, (err) => {
+      if(settled) return;
+      clearTimeout(safetyTimer);
+      settled = true;
       showWeatherError(err.code === err.PERMISSION_DENIED ? 'يرجى السماح بالوصول للموقع' : 'تعذر تحديد الموقع');
+    }, {
+      timeout: 10000,
+      maximumAge: 300000,
+      enableHighAccuracy: false
     });
   }
 </script>
