@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/egypt-locations.js"></script>
 <style>
   :root{
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
@@ -71,6 +72,10 @@
   .msg{ margin-top:16px; font-size:14px; text-align:center; display:none; padding:10px; border-radius:8px; }
   .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--error); }
   .msg.success{ display:block; background:rgba(59,91,55,0.1); color:var(--leaf-deep); }
+
+  /* اختيار العنوان */
+  .address-group{ border:1px solid var(--line); border-radius:10px; padding:12px; background:var(--bg); }
+  .address-group label{ display:block; margin-bottom:4px; }
 </style>
 </head>
 <body>
@@ -136,10 +141,24 @@
         <label>الرقم القومي</label>
         <input type="text" id="signup-national-id" required pattern="[0-9]{14}" maxlength="14" placeholder="١٤ رقم">
       </div>
-      <div>
-        <label>العنوان</label>
-        <input type="text" id="signup-address" required placeholder="المحافظة، المركز، القرية/الحي">
+
+      <div class="address-group">
+        <div>
+          <label>المحافظة</label>
+          <select id="signup-governorate" required></select>
+          <input type="text" id="signup-governorate-other" placeholder="اكتب اسم المحافظة" style="display:none; margin-top:8px;">
+        </div>
+        <div style="margin-top:10px;">
+          <label>المركز / الحي</label>
+          <select id="signup-center" required></select>
+          <input type="text" id="signup-center-other" placeholder="اكتب اسم المركز" style="display:none; margin-top:8px;">
+        </div>
+        <div style="margin-top:10px;">
+          <label>العزبة / القرية / الشارع</label>
+          <input type="text" id="signup-village" required placeholder="اكتب اسم العزبة أو القرية أو الشارع">
+        </div>
       </div>
+
       <div>
         <label>أنا بصفتي</label>
         <select id="signup-role" required>
@@ -177,6 +196,14 @@
     removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  // بناء قائمة المحافظات والمراكز
+  AgroNexLocations.buildPicker({
+    govSelectId: 'signup-governorate',
+    centerSelectId: 'signup-center',
+    otherGovInputId: 'signup-governorate-other',
+    otherCenterInputId: 'signup-center-other',
+  });
 
   const tabLogin = document.getElementById('tab-login');
   const tabSignup = document.getElementById('tab-signup');
@@ -258,7 +285,22 @@
     const role = document.getElementById('signup-role').value;
     const phone = document.getElementById('signup-phone').value;
     const nationalId = document.getElementById('signup-national-id').value;
-    const address = document.getElementById('signup-address').value;
+
+    // تجميع العنوان من المحافظة + المركز + العزبة/القرية
+    const { governorate, center } = AgroNexLocations.getPickerValues({
+      govSelectId: 'signup-governorate',
+      centerSelectId: 'signup-center',
+      otherGovInputId: 'signup-governorate-other',
+      otherCenterInputId: 'signup-center-other',
+    });
+    const village = document.getElementById('signup-village').value.trim();
+
+    if(!governorate || !center || !village){
+      showMsg('من فضلك أكمل بيانات العنوان بالكامل (المحافظة، المركز، العزبة/القرية).', 'error');
+      return;
+    }
+    const address = `${governorate} - ${center} - ${village}`;
+
     const { data, error } = await db.auth.signUp({
       email, password,
       options: { data: { role: role, phone: phone, national_id: nationalId, address: address, full_name: fullName } }
