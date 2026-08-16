@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/egypt-locations.js"></script>
 <style>
   :root{
     --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
@@ -152,8 +153,18 @@
         <input type="text" id="farm-name" required>
       </div>
       <div>
-        <label>الموقع</label>
-        <input type="text" id="farm-location" placeholder="المحافظة، المركز، القرية">
+        <label>المحافظة</label>
+        <select id="farm-governorate" required></select>
+        <input type="text" id="farm-governorate-other" placeholder="اكتب اسم المحافظة" style="display:none; margin-top:8px;">
+      </div>
+      <div>
+        <label>المركز / الحي</label>
+        <select id="farm-center" required></select>
+        <input type="text" id="farm-center-other" placeholder="اكتب اسم المركز" style="display:none; margin-top:8px;">
+      </div>
+      <div>
+        <label>العزبة / القرية</label>
+        <input type="text" id="farm-village" placeholder="اكتب اسم العزبة أو القرية">
       </div>
       <div>
         <label>المساحة (بالفدان)</label>
@@ -204,6 +215,14 @@
   let activeFarmId = null;
 
   async function init(){
+    // بناء قائمة المحافظات والمراكز لفورم إضافة المزرعة
+    AgroNexLocations.buildPicker({
+      govSelectId: 'farm-governorate',
+      centerSelectId: 'farm-center',
+      otherGovInputId: 'farm-governorate-other',
+      otherCenterInputId: 'farm-center-other',
+    });
+
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
     currentUser = session.user;
@@ -324,7 +343,16 @@
   document.getElementById('farm-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const farm_name = document.getElementById('farm-name').value;
-    const location_text = document.getElementById('farm-location').value;
+
+    const { governorate, center } = AgroNexLocations.getPickerValues({
+      govSelectId: 'farm-governorate',
+      centerSelectId: 'farm-center',
+      otherGovInputId: 'farm-governorate-other',
+      otherCenterInputId: 'farm-center-other',
+    });
+    const village = document.getElementById('farm-village').value.trim();
+    const location_text = [governorate, center, village].filter(Boolean).join(' - ') || null;
+
     const area_size = document.getElementById('farm-area').value || null;
     const { error } = await db.from('farms').insert({ owner_id: currentUser.id, farm_name, location_text, area_size });
     if(error){ alert('خطأ: ' + error.message); return; }
