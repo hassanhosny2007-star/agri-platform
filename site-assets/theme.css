@@ -97,8 +97,7 @@ body{
   color:var(--ink); text-decoration:none; font-family:'Tajawal'; font-weight:700; font-size:13px;
 }
 #sidebar-toggle-btn{
-  position:fixed; top:14px; z-index:60; right:264px;
-  transition:right .22s ease;
+  position:fixed; top:14px; right:14px; z-index:60;
 }
 
 /* ===== محتوى الصفحة ===== */
