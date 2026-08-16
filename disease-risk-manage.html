@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة مخاطر الأمراض — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --line:#CDBF9C; --paper:#FCFAF3; --rust:#A85D28;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --line: #2B3438; --paper: #1B2327; --rust: #D48A52;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .top{ max-width:720px; margin:0 auto 8px; }
+  a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
+  h1{ max-width:720px; margin:8px auto 20px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+
+  .card{ max-width:720px; margin:0 auto 16px; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .field{ margin-bottom:12px; }
+  .field label{ font-size:12.5px; color:#8a7f63; display:block; margin-bottom:5px; }
+  .field input, .field select, .field textarea{
+    width:100%; padding:11px; border:1px solid var(--line); border-radius:9px; font-family:inherit; font-size:14px; background:#fff;
+  }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; }
+  .switch{ position:relative; width:42px; height:24px; border-radius:20px; border:none; cursor:pointer; background:#cfc7ab; flex-shrink:0; }
+  .switch.on{ background:var(--leaf); }
+  .switch .dot{ position:absolute; top:2px; right:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.2s; }
+  .switch.on .dot{ right:20px; }
+  button.save-btn{ padding:11px 22px; border:none; border-radius:9px; background:var(--leaf-deep); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer; margin-top:6px; }
+
+  .list-row{ max-width:720px; margin:0 auto 8px; background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .list-row .name{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .list-row .meta{ font-size:12px; color:#8a7f63; margin-top:3px; }
+  button.del-btn{ font-size:12px; padding:6px 12px; border-radius:7px; border:1px solid #e3b8b8; background:#fbe9e9; color:#a83232; cursor:pointer; white-space:nowrap; }
+  .denied{ max-width:720px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+  .list-wrap{ max-width:720px; margin:0 auto; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+  <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
+  <h1>🔬 إدارة قواعد مخاطر الأمراض</h1>
+
+  <div id="access-gate">
+    <div class="card">
+      <h3>إضافة قاعدة جديدة</h3>
+      <div class="row2">
+        <div class="field"><label>نوع المحصول</label><input type="text" id="f-crop" placeholder="مثال: طماطم"></div>
+        <div class="field"><label>اسم المرض</label><input type="text" id="f-disease" placeholder="مثال: اللفحة المتأخرة"></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>أقل حرارة °</label><input type="number" id="f-mintemp" value="10"></div>
+        <div class="field"><label>أعلى حرارة °</label><input type="number" id="f-maxtemp" value="25"></div>
+        <div class="field"><label>أقل رطوبة %</label><input type="number" id="f-minhum" value="85"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>أقل عدد ساعات رطوبة عالية</label><input type="number" id="f-wethours" value="8"></div>
+        <div class="field"><label>أقصى سرعة رياح مؤثرة (كم/س، اختياري)</label><input type="number" id="f-wind" placeholder="اتركه فاضي لو مش مؤثر"></div>
+      </div>
+      <div class="toggle-row">
+        <span>يحتاج بلل الأوراق فعليًا؟</span>
+        <button class="switch on" id="f-leafwet"><span class="dot"></span></button>
+      </div>
+      <div class="toggle-row">
+        <span>يؤثر أكتر على النباتات الصغيرة (أقل من 30 يوم)؟</span>
+        <button class="switch" id="f-young"><span class="dot"></span></button>
+      </div>
+      <div class="field"><label>وصف المرض</label><textarea id="f-desc" rows="2"></textarea></div>
+      <div class="field"><label>التوصية عند ظهور الخطر</label><textarea id="f-rec" rows="2"></textarea></div>
+      <button class="save-btn" id="add-btn">إضافة القاعدة</button>
+      <div id="add-msg" style="font-size:12.5px; margin-top:8px; color:var(--rust);"></div>
+    </div>
+
+    <div class="list-wrap" id="rules-list"><div class="denied">جاري التحميل...</div></div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  document.getElementById('f-leafwet').addEventListener('click', function(){ this.classList.toggle('on'); });
+  document.getElementById('f-young').addEventListener('click', function(){ this.classList.toggle('on'); });
+
+  async function loadRules(){
+    const { data: rules } = await db.from('disease_risk_rules').select('*').order('crop_type').order('disease_name_ar');
+    const list = document.getElementById('rules-list');
+    if(!rules || !rules.length){ list.innerHTML = '<div class="denied">مفيش قواعد لسه</div>'; return; }
+    list.innerHTML = rules.map(r => `
+      <div class="list-row">
+        <div>
+          <div class="name">${r.crop_type} — ${r.disease_name_ar}</div>
+          <div class="meta">${r.min_temp}°-${r.max_temp}° · رطوبة ${r.min_humidity}%+ · ${r.min_wet_hours} ساعة${r.needs_leaf_wetness ? ' · محتاج بلل أوراق' : ''}${r.affects_young_plants ? ' · نباتات صغيرة' : ''}</div>
+        </div>
+        <button class="del-btn" data-id="${r.id}">حذف</button>
+      </div>`).join('');
+    document.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('متأكد من حذف القاعدة؟')) return;
+        await db.from('disease_risk_rules').delete().eq('id', btn.getAttribute('data-id'));
+        loadRules();
+      });
+    });
+  }
+
+  document.getElementById('add-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('add-msg');
+    const crop_type = document.getElementById('f-crop').value.trim();
+    const disease_name_ar = document.getElementById('f-disease').value.trim();
+    if(!crop_type || !disease_name_ar){ msg.textContent = 'نوع المحصول واسم المرض مطلوبين'; return; }
+
+    const payload = {
+      crop_type, disease_name_ar,
+      min_temp: parseFloat(document.getElementById('f-mintemp').value) || 0,
+      max_temp: parseFloat(document.getElementById('f-maxtemp').value) || 40,
+      min_humidity: parseFloat(document.getElementById('f-minhum').value) || 0,
+      min_wet_hours: parseFloat(document.getElementById('f-wethours').value) || 0,
+      needs_leaf_wetness: document.getElementById('f-leafwet').classList.contains('on'),
+      affects_young_plants: document.getElementById('f-young').classList.contains('on'),
+      max_wind_kmh: document.getElementById('f-wind').value ? parseFloat(document.getElementById('f-wind').value) : null,
+      description: document.getElementById('f-desc').value.trim() || null,
+      recommendation: document.getElementById('f-rec').value.trim() || null,
+    };
+
+    const { error } = await db.from('disease_risk_rules').insert(payload);
+    if(error){ msg.textContent = 'حصل خطأ: ' + error.message; return; }
+
+    msg.style.color = 'var(--leaf)';
+    msg.textContent = '✅ تم إضافة القاعدة';
+    ['f-crop','f-disease','f-mintemp','f-maxtemp','f-minhum','f-wethours','f-wind','f-desc','f-rec'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-leafwet').classList.add('on');
+    document.getElementById('f-young').classList.remove('on');
+    loadRules();
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+    loadRules();
+  })();
+</script>
+</body>
+</html>
