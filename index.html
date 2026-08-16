@@ -6,7 +6,6 @@
 <title>المنصة الزراعية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
@@ -48,22 +47,6 @@
   .weather-data .temp{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); }
   .weather-data .humidity{ color:#5b543f; font-size:12.5px; }
   @media (max-width:520px){ .weather-widget{ position:static; margin-bottom:18px; width:100%; } }
-
-  .stats-bar{
-    display:none; max-width:960px; margin:0 auto 24px; gap:12px; flex-wrap:wrap;
-    justify-content:center;
-  }
-  .stats-bar.active{ display:flex; }
-  .stat-card{
-    background:var(--paper); border:1px solid var(--line); border-radius:14px;
-    padding:16px 20px; min-width:130px; text-align:center; flex:1;
-  }
-  .stat-card .label{ font-family:'Tajawal'; font-weight:700; font-size:13px; color:var(--leaf-deep); }
-  .stat-card .total{ font-family:'Tajawal'; font-weight:900; font-size:26px; color:var(--leaf-deep); margin-top:6px; }
-  .stat-card .active-count{ font-size:12px; color:var(--rust); margin-top:4px; }
-  .stat-card.main{ background:var(--leaf-deep); border-color:var(--leaf-deep); }
-  .stat-card.main .label, .stat-card.main .total{ color:var(--paper); }
-  .stat-card.main .active-count{ color:#CFE0C9; }
 </style>
 </head>
 <body>
@@ -71,7 +54,7 @@
     <div class="weather-loading">📍 جاري تحديد موقعك...</div>
   </div>
   <div class="card">
-    <h1>🌱 AgroNex</h1>
+    <img src="site-assets/logo.png" alt="AgroNex" style="width:120px; height:120px; object-fit:contain; margin:0 auto;">
     <p class="tagline">حينما تلتقي الزراعة بالتكنولوجيا</p>
     <p>تشخيص أمراض النبات، متابعة المحاصيل، وربط المزارعين بالخبراء — كل ده في مكان واحد.</p>
     <div class="btns">
