@@ -53,12 +53,14 @@ const AgroNexLayout = (() => {
     const name = (profile && profile.full_name) || email || '...';
     const avatar = (profile && profile.avatar_url) || '';
     return `
-      <button class="icon-btn" id="mobile-menu-btn">☰</button>
-      <div class="user-block">
-        <img src="${avatar}" onerror="this.style.visibility='hidden'">
-        <div>
-          <div class="u-name">${name}</div>
-          <div class="u-email">${email || ''}</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="icon-btn" id="sidebar-toggle-btn" title="إظهار/إخفاء القائمة الجانبية">☰</button>
+        <div class="user-block">
+          <img src="${avatar}" onerror="this.style.visibility='hidden'">
+          <div>
+            <div class="u-name">${name}</div>
+            <div class="u-email">${email || ''}</div>
+          </div>
         </div>
       </div>
       <div class="top-actions">
@@ -106,9 +108,20 @@ const AgroNexLayout = (() => {
       window.location.href = 'login.html';
     });
 
-    // زرار القائمة على الموبايل
-    document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-      document.getElementById('app-sidebar').classList.toggle('open');
+    // استرجاع حالة الطي المحفوظة (سطح المكتب بس)
+    const sidebarEl = document.getElementById('app-sidebar');
+    if(window.innerWidth > 860 && localStorage.getItem('agronex-sidebar-collapsed') === 'true'){
+      sidebarEl.classList.add('collapsed');
+    }
+
+    // زرار إظهار/إخفاء السايدبار (شغال على الموبايل وسطح المكتب)
+    document.getElementById('sidebar-toggle-btn').addEventListener('click', () => {
+      if(window.innerWidth <= 860){
+        sidebarEl.classList.toggle('open');
+      } else {
+        sidebarEl.classList.toggle('collapsed');
+        localStorage.setItem('agronex-sidebar-collapsed', sidebarEl.classList.contains('collapsed') ? 'true' : 'false');
+      }
     });
 
     return { session, profile, isAdmin };
