@@ -96,7 +96,10 @@ body{
   padding:9px 16px; border-radius:9px; border:1px solid var(--line); background:var(--surface);
   color:var(--ink); text-decoration:none; font-family:'Tajawal'; font-weight:700; font-size:13px;
 }
-#sidebar-toggle-btn{ display:flex; }
+#sidebar-toggle-btn{
+  position:fixed; top:14px; z-index:60; right:264px;
+  transition:right .22s ease;
+}
 
 /* ===== محتوى الصفحة ===== */
 #page-content{ padding:24px; max-width:1100px; width:100%; margin:0 auto; }
