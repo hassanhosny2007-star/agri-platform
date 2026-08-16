@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>المنصة الزراعية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=Poppins:wght@800&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
@@ -24,6 +24,9 @@
     padding:48px 32px;
   }
   h1{ font-family:'Tajawal', sans-serif; font-weight:900; font-size:28px; color:var(--leaf-deep); }
+  .brand-word{ font-family:'Poppins', sans-serif; font-weight:800; letter-spacing:.3px; font-size:26px; }
+  .brand-word .b-agro{ color:var(--leaf-deep); }
+  .brand-word .b-nex{ color:var(--leaf); }
   p{ margin-top:14px; color:#5b543f; font-size:15.5px; line-height:1.8; }
   p.tagline{ margin-top:6px; color:var(--rust); font-family:'Tajawal'; font-weight:700; font-size:14.5px; }
   .btns{ margin-top:32px; display:flex; flex-direction:column; gap:12px; }
@@ -54,7 +57,8 @@
     <div class="weather-loading">📍 جاري تحديد موقعك...</div>
   </div>
   <div class="card">
-    <img src="site-assets/logo.png" alt="AgroNex" style="width:120px; height:120px; object-fit:contain; margin:0 auto;">
+    <img src="site-assets/logo.png" alt="AgroNex" style="width:120px; height:120px; object-fit:contain; margin:0 auto;" onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='block';">
+    <div class="brand-word" id="logo-fallback" style="display:none;"><span class="b-agro">Agro</span><span class="b-nex">Nex</span></div>
     <p class="tagline">حينما تلتقي الزراعة بالتكنولوجيا</p>
     <p>تشخيص أمراض النبات، متابعة المحاصيل، وربط المزارعين بالخبراء — كل ده في مكان واحد.</p>
     <div class="btns">
