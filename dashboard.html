@@ -115,18 +115,9 @@
     const name = ctx.profile?.full_name || '';
     document.getElementById('welcome-title').textContent = `أهلًا بيك 👋 ${roleLabel} ${name}`.trim();
 
-    const quickTiles = document.getElementById('quick-tiles');
-    AgroNexLayout.arrangeTiles(quickTiles);
-
     if(ctx.isAdmin){
       await loadAdminTiles();
-      AgroNexLayout.arrangeTiles(document.getElementById('admin-tiles'));
     }
-
-    window.addEventListener('resize', () => {
-      AgroNexLayout.arrangeTiles(quickTiles);
-      AgroNexLayout.arrangeTiles(document.getElementById('admin-tiles'));
-    });
   })();
 
   // خانة الطقس
