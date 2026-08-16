@@ -83,7 +83,7 @@ body{
   padding:10px 20px; display:flex; align-items:center; justify-content:space-between;
   position:sticky; top:0; z-index:20; box-shadow:var(--shadow);
 }
-#app-topbar .user-block{ display:flex; align-items:center; gap:10px; }
+#app-topbar .user-block{ display:flex; align-items:center; gap:10px; color:inherit; }
 #app-topbar .user-block img{ width:38px; height:38px; border-radius:50%; object-fit:cover; background:#ddd; }
 #app-topbar .user-block .u-name{ font-family:'Tajawal'; font-weight:700; font-size:13.5px; color:var(--ink); }
 #app-topbar .user-block .u-email{ font-size:11px; color:var(--ink-soft); }
