@@ -10,7 +10,7 @@ const AgroNexLayout = (() => {
     ar: {
       nav: {
         dashboard: 'الرئيسية', diagnose: 'تشخيص أمراض النبات', knowledge: 'بنك المعرفة',
-        'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'crop-prices': 'أسعار المحاصيل', 'disease-risk': 'تحليل مخاطر الأمراض', 'my-profile': 'بروفايلي',
+        'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'crop-prices': 'أسعار المحاصيل', 'disease-risk': 'تحليل مخاطر الأمراض', 'weather-history': 'سجل الطقس', 'my-profile': 'بروفايلي',
         'admin-section': 'إدارة المنصة', 'admin-dashboard': 'لوحة تحكم الأدمن', 'admin-profile': 'بروفايل المدير',
         'admin-diagnoses': 'سجل التشخيصات', 'knowledge-manage': 'إدارة بنك المعرفة', 'mix-manage': 'إدارة جدول الخلط',
       },
@@ -20,7 +20,7 @@ const AgroNexLayout = (() => {
     en: {
       nav: {
         dashboard: 'Home', diagnose: 'Plant Disease Diagnosis', knowledge: 'Knowledge Base',
-        'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'crop-prices': 'Crop Prices', 'disease-risk': 'Disease Risk Analysis', 'my-profile': 'My Profile',
+        'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'crop-prices': 'Crop Prices', 'disease-risk': 'Disease Risk Analysis', 'weather-history': 'Weather History', 'my-profile': 'My Profile',
         'admin-section': 'Platform Management', 'admin-dashboard': 'Admin Dashboard', 'admin-profile': 'Admin Profile',
         'admin-diagnoses': 'Diagnoses Log', 'knowledge-manage': 'Manage Knowledge Base', 'mix-manage': 'Manage Mixing Table',
       },
@@ -37,6 +37,7 @@ const AgroNexLayout = (() => {
     { key: 'substances', href: 'substances-directory.html', icon: '🔍', roles: 'all' },
     { key: 'crop-prices', href: 'crop-prices.html', icon: '📈', roles: 'all' },
     { key: 'disease-risk', href: 'disease-risk.html', icon: '🔬', roles: 'all' },
+    { key: 'weather-history', href: 'weather-history.html', icon: '📊', roles: 'all' },
     { key: 'my-profile', href: 'engineer-profile.html', icon: '👤', roles: 'all' },
 
     { key: 'admin-section', roles: ['admin'], isSection: true },
