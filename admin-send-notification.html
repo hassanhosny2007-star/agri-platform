@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إرسال إشعار — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --line:#CDBF9C; --paper:#FCFAF3; --rust:#A85D28;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --line: #2B3438; --paper: #1B2327; --rust: #D48A52;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .top{ max-width:640px; margin:0 auto 8px; }
+  a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
+  h1{ max-width:640px; margin:8px auto 20px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+
+  .card{ max-width:640px; margin:0 auto 16px; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; }
+  .field{ margin-bottom:14px; }
+  .field label{ font-size:13px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  select, input, textarea{
+    width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-size:14.5px; font-family:inherit;
+  }
+
+  .target-tabs{ display:flex; gap:8px; margin-bottom:16px; }
+  .t-tab{ flex:1; text-align:center; padding:11px; border-radius:9px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
+  .t-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .target-panel{ display:none; margin-bottom:16px; }
+  .target-panel.active{ display:block; }
+
+  .preview-box{ background:var(--bg); border-radius:10px; padding:14px; margin-bottom:14px; }
+  .preview-box .p-title{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .preview-box .p-body{ font-size:12.5px; color:#5b543f; margin-top:4px; }
+  .preview-box .p-empty{ font-size:12.5px; color:#8a7f63; text-align:center; }
+
+  button.send-btn{
+    width:100%; padding:13px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  button.send-btn:disabled{ opacity:.6; cursor:not-allowed; }
+  #send-msg{ font-size:12.5px; margin-top:10px; text-align:center; }
+
+  .recent-item{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:8px; }
+  .recent-item .r-title{ font-family:'Tajawal'; font-weight:700; font-size:13.5px; }
+  .recent-item .r-meta{ font-size:11.5px; color:#8a7f63; margin-top:3px; }
+  .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+  .list-wrap{ max-width:640px; margin:0 auto; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+  <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
+  <h1>📢 إرسال إشعار للمستخدمين</h1>
+
+  <div id="access-gate">
+    <div class="card">
+      <div class="target-tabs">
+        <div class="t-tab active" data-target="all">كل المستخدمين</div>
+        <div class="t-tab" data-target="role">فئة معينة</div>
+        <div class="t-tab" data-target="user">مستخدم واحد</div>
+      </div>
+
+      <div class="target-panel active" id="panel-all">
+        <p style="font-size:12.5px; color:#5b543f;">هيوصل الإشعار ده لكل المستخدمين المسجّلين على المنصة بدون استثناء.</p>
+      </div>
+
+      <div class="target-panel" id="panel-role">
+        <div class="field">
+          <label>اختار الفئة</label>
+          <select id="role-select">
+            <option value="farmer">المزارعين</option>
+            <option value="engineer">المهندسين الزراعيين</option>
+            <option value="trader">التجار</option>
+            <option value="company">الشركات</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="target-panel" id="panel-user">
+        <div class="field">
+          <label>اختار المستخدم</label>
+          <select id="user-select"><option value="">جاري تحميل المستخدمين...</option></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>عنوان الإشعار</label>
+        <input type="text" id="notif-title" placeholder="مثال: تحديث مهم في المنصة">
+      </div>
+      <div class="field">
+        <label>نص الإشعار</label>
+        <textarea id="notif-body" rows="3" placeholder="تفاصيل الإشعار..."></textarea>
+      </div>
+      <div class="field">
+        <label>رابط عند الضغط على الإشعار (اختياري)</label>
+        <input type="text" id="notif-url" placeholder="dashboard.html">
+      </div>
+
+      <div class="preview-box" id="preview-box">
+        <div class="p-empty">هيظهر شكل الإشعار هنا وانت بتكتب</div>
+      </div>
+
+      <button class="send-btn" id="send-btn">📤 إرسال الإشعار</button>
+      <div id="send-msg"></div>
+    </div>
+
+    <div class="list-wrap">
+      <h3 style="font-family:'Tajawal'; font-weight:700; font-size:14px; color:var(--leaf-deep); margin-bottom:10px;">آخر الإشعارات المُرسلة</h3>
+      <div id="recent-list"><div class="denied">جاري التحميل...</div></div>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const ROLE_LABELS = { farmer:'مزارع', engineer:'مهندس زراعي', trader:'تاجر', company:'شركة' };
+  let currentTarget = 'all';
+
+  document.querySelectorAll('.t-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.t-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.target-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      currentTarget = tab.getAttribute('data-target');
+      document.getElementById('panel-' + currentTarget).classList.add('active');
+    });
+  });
+
+  function updatePreview(){
+    const title = document.getElementById('notif-title').value.trim();
+    const body = document.getElementById('notif-body').value.trim();
+    const box = document.getElementById('preview-box');
+    if(!title){
+      box.innerHTML = '<div class="p-empty">هيظهر شكل الإشعار هنا وانت بتكتب</div>';
+      return;
+    }
+    box.innerHTML = `<div class="p-title">🔔 ${title}</div><div class="p-body">${body}</div>`;
+  }
+  document.getElementById('notif-title').addEventListener('input', updatePreview);
+  document.getElementById('notif-body').addEventListener('input', updatePreview);
+
+  async function loadUsersDropdown(){
+    const { data: users } = await db.from('profiles').select('id, full_name, email, role').order('full_name');
+    const sel = document.getElementById('user-select');
+    sel.innerHTML = '<option value="">اختار مستخدم...</option>' +
+      (users || []).map(u => `<option value="${u.id}">${u.full_name || u.email} (${ROLE_LABELS[u.role] || u.role})</option>`).join('');
+  }
+
+  async function loadRecentNotifications(){
+    // بنعرض آخر الإشعارات المتشابهة (نفس العنوان مبعوت لأكتر من مستخدم في وقت متقارب) كملخص
+    const { data: recent } = await db.from('notifications').select('title, body, created_at').order('created_at', { ascending: false }).limit(50);
+    const list = document.getElementById('recent-list');
+    if(!recent || !recent.length){ list.innerHTML = '<div class="denied">مفيش إشعارات اتبعتت لسه</div>'; return; }
+
+    // تجميع الإشعارات المتطابقة (نفس العنوان والنص في نفس الدقيقة تقريبًا) كإرسال واحد
+    const grouped = {};
+    recent.forEach(n => {
+      const key = n.title + '|' + n.body + '|' + n.created_at.slice(0,16);
+      if(!grouped[key]){ grouped[key] = { ...n, count: 0 }; }
+      grouped[key].count++;
+    });
+
+    list.innerHTML = Object.values(grouped).slice(0, 15).map(n => `
+      <div class="recent-item">
+        <div class="r-title">${n.title}</div>
+        <div class="r-meta">${n.body || ''} · اتبعت لـ ${n.count} مستخدم · ${new Date(n.created_at).toLocaleString('ar-EG')}</div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('send-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('send-msg');
+    const title = document.getElementById('notif-title').value.trim();
+    const body = document.getElementById('notif-body').value.trim();
+    const url = document.getElementById('notif-url').value.trim() || 'dashboard.html';
+
+    if(!title){ msg.style.color = 'var(--rust)'; msg.textContent = 'العنوان مطلوب'; return; }
+
+    let targetUserIds = [];
+
+    if(currentTarget === 'all'){
+      const { data: users } = await db.from('profiles').select('id');
+      targetUserIds = (users || []).map(u => u.id);
+    } else if(currentTarget === 'role'){
+      const role = document.getElementById('role-select').value;
+      const { data: users } = await db.from('profiles').select('id').eq('role', role);
+      targetUserIds = (users || []).map(u => u.id);
+    } else if(currentTarget === 'user'){
+      const userId = document.getElementById('user-select').value;
+      if(!userId){ msg.style.color = 'var(--rust)'; msg.textContent = 'اختار مستخدم الأول'; return; }
+      targetUserIds = [userId];
+    }
+
+    if(!targetUserIds.length){
+      msg.style.color = 'var(--rust)';
+      msg.textContent = 'مفيش مستخدمين في النطاق ده';
+      return;
+    }
+
+    const btn = document.getElementById('send-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الإرسال...';
+
+    const rows = targetUserIds.map(uid => ({ user_id: uid, title, body, url }));
+    const { error } = await db.from('notifications').insert(rows);
+
+    btn.disabled = false;
+    btn.textContent = '📤 إرسال الإشعار';
+
+    if(error){
+      msg.style.color = 'var(--rust)';
+      msg.textContent = 'حصل خطأ: ' + error.message;
+      return;
+    }
+
+    msg.style.color = 'var(--leaf)';
+    msg.textContent = `✅ تم إرسال الإشعار لـ ${targetUserIds.length} مستخدم`;
+    document.getElementById('notif-title').value = '';
+    document.getElementById('notif-body').value = '';
+    document.getElementById('notif-url').value = '';
+    updatePreview();
+    loadRecentNotifications();
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+    loadUsersDropdown();
+    loadRecentNotifications();
+  })();
+</script>
+</body>
+</html>
