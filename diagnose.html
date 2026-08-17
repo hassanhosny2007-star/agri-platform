@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
 <style>
   :root{
     --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
@@ -190,6 +191,8 @@
   (async () => {
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
+    const _hasPerm = await AgroNexPermissions.check(db, session.user.id, 'can_use_ai_diagnosis');
+    if(!_hasPerm){ AgroNexPermissions.showDenied(); return; }
     currentSession = session;
   })();
 
