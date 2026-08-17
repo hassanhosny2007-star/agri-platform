@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سجل الطقس (24 ساعة) — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:800px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:20px; }
+
+  .snapshot-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .snap-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+  .snap-header h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; color:var(--leaf-deep); }
+  select{ padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:#fff; font-family:inherit; font-size:13.5px; }
+  .snap-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr)); gap:10px; }
+  .snap-box{ background:var(--bg); border-radius:10px; padding:12px; text-align:center; }
+  .snap-box .v{ font-family:'Tajawal'; font-weight:900; font-size:18px; color:var(--leaf-deep); }
+  .snap-box .l{ font-size:10.5px; color:#8a7f63; margin-top:3px; }
+
+  .chart-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
+  .chart-card h3{ font-family:'Tajawal'; font-weight:700; font-size:13.5px; color:var(--leaf-deep); margin-bottom:10px; }
+  .chart-wrap{ height:200px; }
+
+  button.report-btn{
+    width:100%; padding:13px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
+    font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer; margin:6px 0 16px;
+  }
+  .report-box{ display:none; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px; }
+  .report-box.active{ display:block; }
+  .report-box h3{ font-family:'Tajawal'; font-weight:800; font-size:16px; color:var(--leaf-deep); margin-bottom:14px; }
+  .report-box .r-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bg); font-size:13.5px; }
+  .report-box .r-row:last-child{ border-bottom:none; }
+  .report-box .r-row .rk{ color:#5b543f; }
+  .report-box .r-row .rv{ font-weight:700; }
+  button.print-btn{ margin-top:14px; padding:10px 18px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
+
+  .empty{ text-align:center; color:#5b543f; padding:40px 0; }
+
+  @media print{
+    #app-sidebar, #app-topbar, #sidebar-toggle-btn, .snapshot-card, .chart-card, button, header{ display:none !important; }
+    .report-box{ display:block !important; border:none; }
+  }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+
+  <header>
+    <h1>📊 سجل الطقس (آخر 24 ساعة)</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">بيانات حية من أرشيف الطقس لمنطقتك الحالية (الحرارة، الرطوبة، الرياح، الأمطار، ونقطة الندى)</p>
+
+  <div class="snapshot-card" id="snapshot-card">
+    <div class="empty" id="loading-msg">📍 جاري تحديد موقعك وجلب بيانات آخر 24 ساعة...</div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let hourlyData = null;
+
+  async function loadWeatherHistory(){
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+    });
+    const { latitude, longitude } = pos.coords;
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+      `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,dew_point_2m` +
+      `&past_days=1&forecast_days=1&timezone=auto`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // ناخد آخر 24 ساعة (من دلوقتي لورا)
+    const times = data.hourly.time;
+    const nowIndex = times.findIndex(t => new Date(t) > new Date());
+    const endIdx = nowIndex > 0 ? nowIndex : times.length;
+    const startIdx = Math.max(0, endIdx - 24);
+
+    hourlyData = {
+      time: times.slice(startIdx, endIdx),
+      temp: data.hourly.temperature_2m.slice(startIdx, endIdx),
+      humidity: data.hourly.relative_humidity_2m.slice(startIdx, endIdx),
+      wind: data.hourly.wind_speed_10m.slice(startIdx, endIdx),
+      precip: data.hourly.precipitation.slice(startIdx, endIdx),
+      dew: data.hourly.dew_point_2m.slice(startIdx, endIdx),
+    };
+
+    buildSnapshotUI();
+    buildCharts();
+  }
+
+  function fmtHour(iso){
+    const d = new Date(iso);
+    return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function buildSnapshotUI(){
+    const card = document.getElementById('snapshot-card');
+    const lastIdx = hourlyData.time.length - 1;
+    card.innerHTML = `
+      <div class="snap-header">
+        <h3>لقطة لحظة معينة</h3>
+        <select id="hour-select"></select>
+      </div>
+      <div class="snap-grid" id="snap-grid"></div>
+    `;
+    const sel = document.getElementById('hour-select');
+    sel.innerHTML = hourlyData.time.map((t, i) => `<option value="${i}">${fmtHour(t)}</option>`).join('');
+    sel.value = lastIdx;
+    sel.addEventListener('change', () => renderSnapshot(parseInt(sel.value)));
+    renderSnapshot(lastIdx);
+  }
+
+  function renderSnapshot(idx){
+    document.getElementById('snap-grid').innerHTML = `
+      <div class="snap-box"><div class="v">${Math.round(hourlyData.temp[idx])}°</div><div class="l">الحرارة</div></div>
+      <div class="snap-box"><div class="v">${Math.round(hourlyData.humidity[idx])}%</div><div class="l">الرطوبة</div></div>
+      <div class="snap-box"><div class="v">${Math.round(hourlyData.wind[idx])} كم/س</div><div class="l">الرياح</div></div>
+      <div class="snap-box"><div class="v">${hourlyData.precip[idx].toFixed(1)} مم</div><div class="l">الأمطار</div></div>
+      <div class="snap-box"><div class="v">${Math.round(hourlyData.dew[idx])}°</div><div class="l">نقطة الندى</div></div>
+    `;
+  }
+
+  function buildCharts(){
+    const labels = hourlyData.time.map(fmtHour);
+    const chartsWrap = document.createElement('div');
+    chartsWrap.innerHTML = `
+      <div class="chart-card"><h3>🌡️ الحرارة (°C)</h3><div class="chart-wrap"><canvas id="chart-temp"></canvas></div></div>
+      <div class="chart-card"><h3>💧 الرطوبة (%)</h3><div class="chart-wrap"><canvas id="chart-humidity"></canvas></div></div>
+      <div class="chart-card"><h3>🍃 سرعة الرياح (كم/س)</h3><div class="chart-wrap"><canvas id="chart-wind"></canvas></div></div>
+      <div class="chart-card"><h3>🌧️ الأمطار (مم)</h3><div class="chart-wrap"><canvas id="chart-precip"></canvas></div></div>
+      <button class="report-btn" id="report-btn">📄 توليد تقرير آخر 24 ساعة</button>
+      <div class="report-box" id="report-box"></div>
+    `;
+    document.body.querySelector('#snapshot-card').insertAdjacentElement('afterend', chartsWrap);
+
+    const commonOpts = {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ ticks:{ maxTicksLimit:6, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } }
+    };
+
+    new Chart(document.getElementById('chart-temp'), {
+      type:'line', data:{ labels, datasets:[{ data: hourlyData.temp, borderColor:'#C62828', backgroundColor:'rgba(198,40,40,.1)', fill:true, tension:.3, pointRadius:0 }] },
+      options: commonOpts
+    });
+    new Chart(document.getElementById('chart-humidity'), {
+      type:'line', data:{ labels, datasets:[{ data: hourlyData.humidity, borderColor:'#2563EB', backgroundColor:'rgba(37,99,235,.1)', fill:true, tension:.3, pointRadius:0 }] },
+      options: commonOpts
+    });
+    new Chart(document.getElementById('chart-wind'), {
+      type:'line', data:{ labels, datasets:[{ data: hourlyData.wind, borderColor:'#0F766E', backgroundColor:'rgba(15,118,110,.1)', fill:true, tension:.3, pointRadius:0 }] },
+      options: commonOpts
+    });
+    new Chart(document.getElementById('chart-precip'), {
+      type:'bar', data:{ labels, datasets:[{ data: hourlyData.precip, backgroundColor:'#3B82F6' }] },
+      options: commonOpts
+    });
+
+    document.getElementById('report-btn').addEventListener('click', buildReport);
+  }
+
+  function buildReport(){
+    const box = document.getElementById('report-box');
+    const avg = arr => (arr.reduce((a,b) => a+b, 0) / arr.length);
+    const maxOf = arr => Math.max(...arr);
+    const minOf = arr => Math.min(...arr);
+    const wetHours = hourlyData.humidity.filter(h => h >= 85).length;
+    const totalRain = hourlyData.precip.reduce((a,b) => a+b, 0);
+
+    box.innerHTML = `
+      <h3>📄 تقرير طقس آخر 24 ساعة</h3>
+      <div class="r-row"><span class="rk">الفترة</span><span class="rv">${fmtHour(hourlyData.time[0])} — ${fmtHour(hourlyData.time[hourlyData.time.length-1])}</span></div>
+      <div class="r-row"><span class="rk">متوسط الحرارة</span><span class="rv">${avg(hourlyData.temp).toFixed(1)}°</span></div>
+      <div class="r-row"><span class="rk">أعلى / أقل حرارة</span><span class="rv">${maxOf(hourlyData.temp).toFixed(1)}° / ${minOf(hourlyData.temp).toFixed(1)}°</span></div>
+      <div class="r-row"><span class="rk">متوسط الرطوبة</span><span class="rv">${avg(hourlyData.humidity).toFixed(0)}%</span></div>
+      <div class="r-row"><span class="rk">عدد ساعات الرطوبة العالية (85%+)</span><span class="rv">${wetHours} ساعة</span></div>
+      <div class="r-row"><span class="rk">أعلى سرعة رياح</span><span class="rv">${maxOf(hourlyData.wind).toFixed(0)} كم/س</span></div>
+      <div class="r-row"><span class="rk">إجمالي الأمطار</span><span class="rv">${totalRain.toFixed(1)} مم</span></div>
+      <button class="print-btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+    `;
+    box.classList.add('active');
+    box.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    try{
+      await loadWeatherHistory();
+    }catch(err){
+      document.getElementById('loading-msg').textContent = '⚠️ تعذر جلب البيانات، تأكد من إذن الموقع الجغرافي وحاول تاني';
+    }
+  })();
+</script>
+</body>
+</html>
