@@ -1,100 +1,114 @@
-// supabase/functions/diagnose-plant/index.ts
-// محرك التشخيص الحقيقي - بيستخدم Claude (Anthropic) لتحليل صورة النبات فعليًا
+// supabase/functions/check-weather-alerts/index.ts
+// بتفحص طقس كل مستخدم فعّل الإشعارات، ولو فيه حالة خطيرة تبعتله Push Notification
+// المفروض تتشغّل بجدولة زمنية (كل ساعة مثلًا) عن طريق GitHub Actions أو Supabase Cron
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
 
-const SYSTEM_PROMPT = `أنت خبير أمراض نبات زراعي محترف. هتشوف صورة نبات وبيانات إضافية عنه (عمر النبات، آخر معاملة، آخر ريّة، نوع الأرض)، ومطلوب منك:
+webpush.setVapidDetails("mailto:admin@agronex.app", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
-1. تحدد اسم النبات في الصورة
-2. تشخّص هل فيه مرض أو آفة ظاهرة، وإيه اسمه بالظبط (بالعربي)
-3. توصف الأعراض الظاهرة في الصورة بالتفصيل
-4. تقترح حل عملي وواضح (علاج كيميائي أو عضوي أو إجراء زراعي)
-5. تحدد مستوى ثقتك في التشخيص: "عالية" لو الأعراض واضحة جدًا، "متوسطة" لو محتمل لكن مش قاطع، "منخفضة" لو الصورة مش واضحة كفاية أو الأعراض غامضة
-
-مهم جدًا: لو الصورة مش واضحة، أو مفيش نبات ظاهر فيها أصلًا، أو مستحيل تحدد حاجة بثقة، قول كده بصراحة في الحقول بدل ما تختلق تشخيص.
-
-رد بصيغة JSON فقط بالضبط بالشكل ده، من غير أي نص زيادة قبله أو بعده:
-{
-  "plant_name": "اسم النبات",
-  "disease_name": "اسم المرض أو (سليم - لا توجد إصابة ظاهرة)",
-  "symptoms": "وصف الأعراض بالتفصيل",
-  "treatment": "الحل المقترح بالتفصيل",
-  "confidence": "عالية أو متوسطة أو منخفضة"
-}`;
+// نفس منطق التنبيهات الموجود في dashboard.html بالظبط (لازم يفضلوا متطابقين)
+function getDangerAlert(temp: number, humidity: number) {
+  if (temp > 32 || temp < 10) {
+    return { type: "spray_danger", title: "⚠️ تحذير: الرش غير مناسب", body: temp > 32 ? "الحرارة مرتفعة جدًا، خطر تبخر سريع للمبيد وحرق الأوراق" : "الحرارة منخفضة جدًا، فعالية المبيد بتقل" };
+  }
+  if (humidity >= 75 && temp >= 18 && temp <= 30) {
+    return { type: "fungal_danger", title: "🍄 تحذير: خطر أمراض فطرية مرتفع", body: "رطوبة عالية مع حرارة معتدلة — فكّر في رش وقائي" };
+  }
+  if (temp >= 38) {
+    return { type: "heat_danger", title: "🌡️ تحذير: إجهاد حراري", body: "حرارة شديدة، النبات معرّض للذبول — تجنب أي رش أو تسميد نهارًا" };
+  }
+  if (temp <= 5) {
+    return { type: "cold_danger", title: "❄️ تحذير: خطر برودة", body: "درجة حرارة منخفضة جدًا، احتمال ضرر بردي للمحاصيل الحساسة" };
+  }
+  return null;
+}
 
 Deno.serve(async (req) => {
   try {
-    // التأكد إن الطلب جاي من مستخدم مسجل دخول فعليًا
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "غير مصرّح" }), { status: 401 });
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id, latitude, longitude, last_alert_type, last_alert_sent_at")
+      .eq("notifications_enabled", true)
+      .not("latitude", "is", null)
+      .not("longitude", "is", null);
+
+    if (error) throw error;
+
+    let sentCount = 0;
+
+    for (const profile of profiles ?? []) {
+      try {
+        const weatherRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${profile.latitude}&longitude=${profile.longitude}&current=temperature_2m,relative_humidity_2m`
+        );
+        const weatherData = await weatherRes.json();
+        const temp = weatherData.current.temperature_2m;
+        const humidity = weatherData.current.relative_humidity_2m;
+
+        const alert = getDangerAlert(temp, humidity);
+        if (!alert) continue;
+
+        // منع الإزعاج: لو نفس نوع التنبيه اتبعت قبل كده بأقل من 6 ساعات، متبعتوش تاني
+        const lastSent = profile.last_alert_sent_at ? new Date(profile.last_alert_sent_at).getTime() : 0;
+        const hoursSinceLastAlert = (Date.now() - lastSent) / (1000 * 60 * 60);
+        if (profile.last_alert_type === alert.type && hoursSinceLastAlert < 6) continue;
+
+        // تسجيل الإشعار في الجدول (يظهر في جرس الإشعارات جوا الموقع، بغض النظر عن Push)
+        await supabase.from("notifications").insert({
+          user_id: profile.id,
+          title: alert.title,
+          body: alert.body,
+          url: "dashboard.html",
+        });
+
+        const { data: subs } = await supabase
+          .from("push_subscriptions")
+          .select("*")
+          .eq("user_id", profile.id);
+
+        for (const sub of subs ?? []) {
+          const subscription = {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          };
+          try {
+            await webpush.sendNotification(
+              subscription,
+              JSON.stringify({ title: alert.title, body: alert.body, url: "dashboard.html" })
+            );
+            sentCount++;
+          } catch (pushErr: any) {
+            // الاشتراك منتهي أو الجهاز مبقاش موجود، امسحه
+            if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+              await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+            }
+          }
+        }
+
+        await supabase
+          .from("profiles")
+          .update({ last_alert_type: alert.type, last_alert_sent_at: new Date().toISOString() })
+          .eq("id", profile.id);
+      } catch (userErr) {
+        console.error("فشل فحص مستخدم:", profile.id, userErr);
+      }
     }
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "غير مصرّح" }), { status: 401 });
-    }
 
-    const body = await req.json();
-    const { image, media_type, plant_age, last_treatment, last_watering, soil_type } = body;
-
-    if (!image) {
-      return new Response(JSON.stringify({ error: "الصورة مطلوبة" }), { status: 400 });
-    }
-
-    const userContext = `بيانات إضافية عن النبات:
-- عمر النبات: ${plant_age || 'غير محدد'} يوم
-- آخر معاملة (سماد/مبيد): ${last_treatment || 'غير محدد'}
-- آخر ريّة: ${last_watering || 'غير محدد'}
-- نوع الأرض: ${soil_type || 'غير محدد'}`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: media_type || "image/jpeg", data: image } },
-              { type: "text", text: userContext },
-            ],
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Anthropic API error:", errText);
-      return new Response(JSON.stringify({ error: "تعذر الوصول لمحرك التحليل" }), { status: 502 });
-    }
-
-    const data = await response.json();
-    const textContent = data.content.find((c: any) => c.type === "text")?.text || "{}";
-
-    // تنظيف الرد لو جه ملفوف بعلامات كود ```json
-    const cleaned = textContent.replace(/```json|```/g, "").trim();
-    const result = JSON.parse(cleaned);
-
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ success: true, checked: profiles?.length ?? 0, sent: sentCount }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: "حصل خطأ غير متوقع في التحليل" }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: String(err) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
