@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/png" href="site-assets/logo.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>إدارة الصلاحيات الجماعية — لوحة الأدمن</title>
+<title>إدارة الصلاحيات — لوحة الأدمن</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -19,85 +19,51 @@
 }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
-  .top{ max-width:640px; margin:0 auto 8px; }
+  .top{ max-width:680px; margin:0 auto 8px; }
   a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
-  h1{ max-width:640px; margin:8px auto 6px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
-  .subtitle{ max-width:640px; margin:0 auto 20px; color:#5b543f; font-size:13px; }
+  h1{ max-width:680px; margin:8px auto 6px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .subtitle{ max-width:680px; margin:0 auto 20px; color:#5b543f; font-size:13px; }
 
-  .card{ max-width:640px; margin:0 auto 16px; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; }
-  .field{ margin-bottom:16px; }
-  .field label{ font-size:13px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
-  select{
-    width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line);
-    background:#fff; font-size:14.5px; font-family:inherit;
-  }
+  .list-wrap{ max-width:680px; margin:0 auto; }
+  .perm-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; }
+  .perm-header{ padding:16px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .perm-header .p-name{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; }
+  .perm-header .p-arrow{ font-size:13px; color:#8a7f63; transition:transform .2s; }
+  .perm-header.open .p-arrow{ transform:rotate(180deg); }
 
-  .scope-tabs{ display:flex; gap:8px; margin-bottom:16px; }
-  .s-tab{ flex:1; text-align:center; padding:11px; border-radius:9px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
+  .perm-body{ display:none; padding:0 18px 18px; border-top:1px solid var(--bg); }
+  .perm-body.open{ display:block; padding-top:16px; }
+
+  .scope-tabs{ display:flex; gap:6px; margin-bottom:12px; }
+  .s-tab{ flex:1; text-align:center; padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:12px; }
   .s-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
-  .scope-panel{ display:none; margin-bottom:16px; }
-  .scope-panel.active{ display:block; }
-
-  .value-tabs{ display:flex; gap:8px; margin-bottom:18px; }
-  .v-tab{ flex:1; text-align:center; padding:11px; border-radius:9px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
-  .v-tab.on.active{ background:#2E7D32; color:#fff; border-color:#2E7D32; }
-  .v-tab.off.active{ background:#C62828; color:#fff; border-color:#C62828; }
-
-  .warn-box{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:12px 14px; font-size:12.5px; color:#6b5a24; margin-bottom:16px; line-height:1.7; }
-
-  button.apply-btn{
-    width:100%; padding:13px; border:none; border-radius:10px; background:var(--leaf); color:#fff;
-    font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer;
+  .scope-sub{ display:none; margin-bottom:12px; }
+  .scope-sub.active{ display:block; }
+  select{
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    background:#fff; font-size:13.5px; font-family:inherit;
   }
-  button.apply-btn:disabled{ opacity:.6; cursor:not-allowed; }
-  #apply-msg{ font-size:12.5px; margin-top:10px; text-align:center; }
-  .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+
+  .action-row{ display:flex; gap:8px; }
+  .action-btn{ flex:1; padding:11px; border:none; border-radius:9px; cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
+  .action-btn.enable{ background:#E8F5E9; color:#2E7D32; }
+  .action-btn.enable:hover{ background:#2E7D32; color:#fff; }
+  .action-btn.disable{ background:#FDECEA; color:#C62828; }
+  .action-btn.disable:hover{ background:#C62828; color:#fff; }
+  .action-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .result-msg{ font-size:12px; margin-top:10px; text-align:center; min-height:16px; }
+  .denied{ max-width:680px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
 </style>
 </head>
 <body>
 <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
   <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
-  <h1>🔐 إدارة الصلاحيات الجماعية</h1>
-  <p class="subtitle">فعّل أو عطّل أي صلاحية لفئة كاملة أو لكل المستخدمين دفعة واحدة. لتعديل مستخدم واحد بس، روح لصفحته من قائمة الفئات.</p>
+  <h1>🔐 إدارة الصلاحيات</h1>
+  <p class="subtitle">دوس على أي صلاحية عشان تختار تفعّلها أو تقفلها — لمستخدم واحد، لفئة كاملة، أو لكل المستخدمين</p>
 
   <div id="access-gate">
-    <div class="card">
-      <div class="field">
-        <label>اختار الصلاحية</label>
-        <select id="perm-select"></select>
-      </div>
-
-      <div class="field">
-        <label>النطاق</label>
-        <div class="scope-tabs">
-          <div class="s-tab active" data-scope="role">فئة معينة</div>
-          <div class="s-tab" data-scope="all">كل المستخدمين</div>
-        </div>
-        <div class="scope-panel active" id="panel-role">
-          <select id="role-select">
-            <option value="farmer">المزارعين</option>
-            <option value="engineer">المهندسين الزراعيين</option>
-            <option value="trader">التجار</option>
-            <option value="company">الشركات</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>الإجراء</label>
-        <div class="value-tabs">
-          <div class="v-tab on active" data-value="true">✅ تفعيل</div>
-          <div class="v-tab off" data-value="false">⛔ تعطيل</div>
-        </div>
-      </div>
-
-      <div class="warn-box" id="warn-box">
-        هيتفعّل الصلاحية دي لكل المستخدمين اللي في الفئة المختارة، ومش هيأثر على باقي الفئات أو الصلاحيات التانية.
-      </div>
-
-      <button class="apply-btn" id="apply-btn">تطبيق التعديل</button>
-      <div id="apply-msg"></div>
-    </div>
+    <div class="list-wrap" id="perm-list"></div>
   </div>
 
 <script>
@@ -132,76 +98,131 @@
   ];
   const ROLE_LABELS = { farmer:'المزارعين', engineer:'المهندسين الزراعيين', trader:'التجار', company:'الشركات' };
 
-  document.getElementById('perm-select').innerHTML = PERMISSIONS_CONFIG.map(p => `<option value="${p.key}">${p.label}</option>`).join('');
+  let allUsers = [];
 
-  let currentScope = 'role';
-  let currentValue = true;
-
-  function updateWarnBox(){
-    const permLabel = PERMISSIONS_CONFIG.find(p => p.key === document.getElementById('perm-select').value)?.label;
-    const actionText = currentValue ? 'تفعيل' : 'تعطيل';
-    const scopeText = currentScope === 'all' ? 'كل المستخدمين على المنصة' : `كل المستخدمين في فئة "${ROLE_LABELS[document.getElementById('role-select').value]}"`;
-    document.getElementById('warn-box').textContent = `هيتم ${actionText} صلاحية "${permLabel}" لـ ${scopeText}.`;
+  function buildPermCard(perm){
+    return `
+      <div class="perm-card">
+        <div class="perm-header" data-key="${perm.key}">
+          <span class="p-name">${perm.label}</span>
+          <span class="p-arrow">▾</span>
+        </div>
+        <div class="perm-body" id="body-${perm.key}">
+          <div class="scope-tabs" data-key="${perm.key}">
+            <div class="s-tab active" data-scope="all">الكل</div>
+            <div class="s-tab" data-scope="role">فئة معينة</div>
+            <div class="s-tab" data-scope="user">مستخدم واحد</div>
+          </div>
+          <div class="scope-sub" id="sub-role-${perm.key}">
+            <select id="role-select-${perm.key}">
+              <option value="farmer">المزارعين</option>
+              <option value="engineer">المهندسين الزراعيين</option>
+              <option value="trader">التجار</option>
+              <option value="company">الشركات</option>
+            </select>
+          </div>
+          <div class="scope-sub" id="sub-user-${perm.key}">
+            <select id="user-select-${perm.key}">
+              <option value="">اختار مستخدم...</option>
+              ${allUsers.map(u => `<option value="${u.id}">${u.full_name || u.email} (${ROLE_LABELS[u.role] || u.role})</option>`).join('')}
+            </select>
+          </div>
+          <div class="action-row">
+            <button class="action-btn enable" data-key="${perm.key}" data-value="true">✅ تفعيل</button>
+            <button class="action-btn disable" data-key="${perm.key}" data-value="false">⛔ تعطيل</button>
+          </div>
+          <div class="result-msg" id="msg-${perm.key}"></div>
+        </div>
+      </div>`;
   }
 
-  document.querySelectorAll('.s-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.scope-panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      currentScope = tab.getAttribute('data-scope');
-      if(currentScope === 'role') document.getElementById('panel-role').classList.add('active');
-      updateWarnBox();
-    });
-  });
+  function getScope(key){
+    return document.querySelector(`.scope-tabs[data-key="${key}"] .s-tab.active`).getAttribute('data-scope');
+  }
 
-  document.querySelectorAll('.v-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.v-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentValue = tab.getAttribute('data-value') === 'true';
-      updateWarnBox();
-    });
-  });
+  async function applyPermission(key, value){
+    const scope = getScope(key);
+    const msg = document.getElementById(`msg-${key}`);
+    const label = PERMISSIONS_CONFIG.find(p => p.key === key).label;
 
-  document.getElementById('perm-select').addEventListener('change', updateWarnBox);
-  document.getElementById('role-select').addEventListener('change', updateWarnBox);
-  updateWarnBox();
+    let confirmText, targetUserIds = [];
 
-  document.getElementById('apply-btn').addEventListener('click', async () => {
-    const msg = document.getElementById('apply-msg');
-    const btn = document.getElementById('apply-btn');
-    const permKey = document.getElementById('perm-select').value;
-    const role = document.getElementById('role-select').value;
-
-    const confirmText = currentScope === 'all'
-      ? `متأكد إنك عايز تطبّق ده على كل المستخدمين؟`
-      : `متأكد إنك عايز تطبّق ده على فئة "${ROLE_LABELS[role]}" كاملة؟`;
-    if(!confirm(confirmText)) return;
-
-    btn.disabled = true;
-    btn.textContent = 'جاري التطبيق...';
-    msg.textContent = '';
-
-    const { data, error } = await db.rpc('bulk_set_permission', {
-      target_scope: currentScope,
-      target_role: currentScope === 'role' ? role : null,
-      perm_key: permKey,
-      perm_value: currentValue,
-    });
-
-    btn.disabled = false;
-    btn.textContent = 'تطبيق التعديل';
-
-    if(error){
-      msg.style.color = 'var(--rust)';
-      msg.textContent = 'حصل خطأ: ' + error.message;
-      return;
+    if(scope === 'all'){
+      confirmText = `متأكد إنك عايز ${value ? 'تفعّل' : 'تقفل'} "${label}" لكل المستخدمين؟`;
+    } else if(scope === 'role'){
+      const role = document.getElementById(`role-select-${key}`).value;
+      confirmText = `متأكد إنك عايز ${value ? 'تفعّل' : 'تقفل'} "${label}" لفئة "${ROLE_LABELS[role]}" كاملة؟`;
+    } else {
+      const userId = document.getElementById(`user-select-${key}`).value;
+      if(!userId){ msg.style.color = 'var(--rust)'; msg.textContent = 'اختار مستخدم الأول'; return; }
+      const u = allUsers.find(u => u.id === userId);
+      confirmText = `متأكد إنك عايز ${value ? 'تفعّل' : 'تقفل'} "${label}" لـ ${u.full_name || u.email}؟`;
     }
 
-    msg.style.color = 'var(--leaf)';
-    msg.textContent = `✅ تم التعديل على ${data} حساب`;
-  });
+    if(!confirm(confirmText)) return;
+
+    document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = true);
+    msg.style.color = '#5b543f';
+    msg.textContent = 'جاري التطبيق...';
+
+    if(scope === 'user'){
+      const userId = document.getElementById(`user-select-${key}`).value;
+      const { data: profile } = await db.from('profiles').select('permissions').eq('id', userId).single();
+      const newPermissions = { ...(profile?.permissions || {}), [key]: value };
+      const { error } = await db.from('profiles').update({ permissions: newPermissions }).eq('id', userId);
+
+      document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = false);
+      if(error){ msg.style.color = 'var(--rust)'; msg.textContent = 'حصل خطأ: ' + error.message; return; }
+      msg.style.color = 'var(--leaf)';
+      msg.textContent = '✅ تم التعديل للمستخدم المختار';
+    } else {
+      const role = scope === 'role' ? document.getElementById(`role-select-${key}`).value : null;
+      const { data, error } = await db.rpc('bulk_set_permission', {
+        target_scope: scope, target_role: role, perm_key: key, perm_value: value,
+      });
+
+      document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = false);
+      if(error){ msg.style.color = 'var(--rust)'; msg.textContent = 'حصل خطأ: ' + error.message; return; }
+      msg.style.color = 'var(--leaf)';
+      msg.textContent = `✅ تم التعديل على ${data} حساب`;
+    }
+  }
+
+  function attachCardEvents(){
+    document.querySelectorAll('.perm-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const key = header.getAttribute('data-key');
+        const body = document.getElementById(`body-${key}`);
+        const isOpen = body.classList.contains('open');
+        document.querySelectorAll('.perm-body.open').forEach(b => b.classList.remove('open'));
+        document.querySelectorAll('.perm-header.open').forEach(h => h.classList.remove('open'));
+        if(!isOpen){
+          body.classList.add('open');
+          header.classList.add('open');
+        }
+      });
+    });
+
+    document.querySelectorAll('.s-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = tab.closest('.scope-tabs').getAttribute('data-key');
+        tab.closest('.scope-tabs').querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const scope = tab.getAttribute('data-scope');
+        document.querySelectorAll(`.scope-sub[id^="sub-"][id$="-${key}"]`).forEach(s => s.classList.remove('active'));
+        if(scope === 'role') document.getElementById(`sub-role-${key}`).classList.add('active');
+        if(scope === 'user') document.getElementById(`sub-user-${key}`).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.action-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyPermission(btn.getAttribute('data-key'), btn.getAttribute('data-value') === 'true');
+      });
+    });
+  }
 
   (async () => {
     const { data: { session } } = await db.auth.getSession();
@@ -211,6 +232,12 @@
       document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
       return;
     }
+
+    const { data: users } = await db.from('profiles').select('id, full_name, email, role').neq('role', 'admin').order('full_name');
+    allUsers = users || [];
+
+    document.getElementById('perm-list').innerHTML = PERMISSIONS_CONFIG.map(buildPermCard).join('');
+    attachCardEvents();
   })();
 </script>
 </body>
