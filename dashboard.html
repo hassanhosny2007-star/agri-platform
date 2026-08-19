@@ -160,8 +160,15 @@
       });
     }
 
-    // كارت "منتجاتي" يظهر بس للتجار والشركات (والأدمن)
-    if(['trader', 'company', 'admin'].includes(ctx.profile?.role)){
+    // كارت "منتجاتي" يظهر لو معاه صلاحية بيع صريحة في أي فئة، أو دوره تاجر/شركة/أدمن بشكل افتراضي
+    const sellPerms = ctx.profile?.permissions || {};
+    const defaultSeller = ['trader', 'company', 'admin'].includes(ctx.profile?.role);
+    const canSellAny = ['fertilizer', 'seeds', 'pesticides'].some(cat => {
+      const key = 'can_sell_' + cat;
+      return sellPerms[key] !== undefined ? sellPerms[key] === true : defaultSeller;
+    });
+
+    if(canSellAny){
       document.getElementById('quick-tiles').insertAdjacentHTML('beforeend', `
         <a class="stat-tile tile-orange" href="my-products.html">
           <span class="tile-icon">📦</span>
