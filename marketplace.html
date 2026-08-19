@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>السوق الأونلاين — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:900px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .header-btns{ display:flex; gap:8px; }
+  .hbtn{ padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--paper); font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; text-decoration:none; color:var(--ink); position:relative; }
+  .cart-badge{ position:absolute; top:-6px; left:-6px; background:var(--rust); color:#fff; font-size:10px; font-weight:800; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+
+  .cat-tabs{ display:flex; gap:8px; margin-bottom:18px; overflow-x:auto; padding-bottom:4px; }
+  .cat-tab{ flex-shrink:0; padding:10px 18px; border-radius:20px; border:1px solid var(--line); background:var(--paper); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
+  .cat-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .search-box{ margin-bottom:18px; }
+  .search-box input{ width:100%; padding:12px 16px; border-radius:10px; border:1px solid var(--line); background:var(--paper); font-family:inherit; font-size:14px; }
+
+  .prod-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:16px; }
+  .prod-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .prod-card img{ width:100%; height:130px; object-fit:cover; background:#e7e0cb; }
+  .prod-body{ padding:14px; }
+  .prod-name{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .prod-seller{ font-size:11px; color:#8a7f63; margin-top:2px; }
+  .prod-price{ font-family:'Tajawal'; font-weight:900; font-size:17px; color:var(--leaf-deep); margin-top:8px; }
+  .prod-unit{ font-size:11px; color:#8a7f63; }
+  .payment-badge{ display:inline-block; font-size:10px; padding:2px 8px; border-radius:10px; margin-top:6px; }
+  .payment-badge.full_online{ background:#E3F2FD; color:#1565C0; }
+  .payment-badge.deposit_cod{ background:#FFF6E0; color:var(--gold); }
+  .payment-badge.full_cod{ background:#E8F5E9; color:#2E7D32; }
+  .add-cart-btn{ width:100%; margin-top:10px; padding:9px; border:none; border-radius:8px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .add-cart-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .empty{ text-align:center; color:#5b543f; padding:50px 0; grid-column:1/-1; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🛒 السوق الأونلاين</h1>
+    <div class="header-btns">
+      <a class="hbtn" href="cart.html">🛍️ العربة<span class="cart-badge" id="cart-badge" style="display:none;">0</span></a>
+      <a class="hbtn" href="my-orders.html">📦 طلباتي</a>
+      <a class="hbtn" href="dashboard.html">الرئيسية</a>
+    </div>
+  </header>
+
+  <div class="search-box">
+    <input type="text" id="search-input" placeholder="ابحث عن منتج...">
+  </div>
+
+  <div class="cat-tabs">
+    <div class="cat-tab active" data-cat="">الكل</div>
+    <div class="cat-tab" data-cat="fertilizer">🌾 أسمدة</div>
+    <div class="cat-tab" data-cat="seeds">🌱 بذور</div>
+    <div class="cat-tab" data-cat="pesticides">🧪 مبيدات</div>
+    <div class="cat-tab" data-cat="seed_stock">🌿 تقاوي</div>
+  </div>
+
+  <div class="prod-grid" id="prod-grid"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const PAYMENT_LABELS = { full_online: '💳 دفع أونلاين كامل', deposit_cod: '💳 دفعة مقدمة + استلام', full_cod: '💵 دفع عند الاستلام' };
+  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات', seed_stock:'تقاوي' };
+
+  let allProducts = [];
+  let currentCat = '';
+  let currentUserId = null;
+
+  async function loadProducts(){
+    const { data, error } = await db.from('products').select('*, seller:seller_id(full_name)').eq('is_active', true).order('created_at', { ascending: false });
+    if(error){ document.getElementById('prod-grid').innerHTML = '<div class="empty">تعذر تحميل المنتجات</div>'; return; }
+    allProducts = data || [];
+    renderProducts();
+  }
+
+  async function updateCartBadge(){
+    const { data } = await db.from('cart_items').select('quantity').eq('user_id', currentUserId);
+    const total = (data || []).reduce((sum, i) => sum + Number(i.quantity), 0);
+    const badge = document.getElementById('cart-badge');
+    if(total > 0){ badge.textContent = total; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+  }
+
+  function renderProducts(){
+    const search = document.getElementById('search-input').value.trim().toLowerCase();
+    let list = allProducts;
+    if(currentCat) list = list.filter(p => p.category === currentCat);
+    if(search) list = list.filter(p => p.name.toLowerCase().includes(search));
+
+    const grid = document.getElementById('prod-grid');
+    if(!list.length){ grid.innerHTML = '<div class="empty">مفيش منتجات مطابقة</div>'; return; }
+
+    grid.innerHTML = list.map(p => `
+      <div class="prod-card">
+        <img src="${p.image_url || ''}" onerror="this.style.display='none'">
+        <div class="prod-body">
+          <div class="prod-name">${p.name}</div>
+          <div class="prod-seller">البائع: ${p.seller?.full_name || '—'} · ${CAT_LABELS[p.category]}</div>
+          <div class="prod-price">${p.price} ج.م <span class="prod-unit">/ ${p.unit}</span></div>
+          <span class="payment-badge ${p.payment_type}">${PAYMENT_LABELS[p.payment_type]}</span>
+          <button class="add-cart-btn" data-id="${p.id}" ${p.stock_quantity <= 0 ? 'disabled' : ''}>
+            ${p.stock_quantity <= 0 ? 'نفذت الكمية' : '+ أضف للعربة'}
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.add-cart-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const productId = btn.getAttribute('data-id');
+        btn.disabled = true;
+        btn.textContent = 'جاري الإضافة...';
+
+        const { data: existing } = await db.from('cart_items').select('*').eq('user_id', currentUserId).eq('product_id', productId).maybeSingle();
+        if(existing){
+          await db.from('cart_items').update({ quantity: existing.quantity + 1 }).eq('id', existing.id);
+        } else {
+          await db.from('cart_items').insert({ user_id: currentUserId, product_id: productId, quantity: 1 });
+        }
+
+        btn.disabled = false;
+        btn.textContent = '✅ اتضافت';
+        setTimeout(() => { btn.textContent = '+ أضف للعربة'; }, 1500);
+        updateCartBadge();
+      });
+    });
+  }
+
+  document.querySelectorAll('.cat-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentCat = tab.getAttribute('data-cat');
+      renderProducts();
+    });
+  });
+  document.getElementById('search-input').addEventListener('input', renderProducts);
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    loadProducts();
+    updateCartBadge();
+  })();
+</script>
+</body>
+</html>
