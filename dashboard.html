@@ -30,49 +30,49 @@
   <div class="advice-grid" id="weather-advice"></div>
 
   <div class="stat-tiles" id="quick-tiles">
-    <a class="stat-tile tile-green" href="diagnose.html">
+    <a class="stat-tile tile-green" href="diagnose.html" data-perm="can_use_ai_diagnosis">
       <span class="tile-icon">🌿</span>
       <div>
         <div class="tile-label">تشخيص أمراض النبات</div>
         <div class="tile-sub">صوّر النبات واعرف التشخيص فورًا</div>
       </div>
     </a>
-    <a class="stat-tile tile-blue" href="knowledge-base.html">
+    <a class="stat-tile tile-blue" href="knowledge-base.html" data-perm="can_view_knowledge_base">
       <span class="tile-icon">📚</span>
       <div>
         <div class="tile-label">بنك المعرفة</div>
         <div class="tile-sub">مقالات ومعلومات زراعية موثوقة</div>
       </div>
     </a>
-    <a class="stat-tile tile-teal" href="mix-checker.html">
+    <a class="stat-tile tile-teal" href="mix-checker.html" data-perm="can_use_mix_checker">
       <span class="tile-icon">🧪</span>
       <div>
         <div class="tile-label">خلط المبيدات والأسمدة</div>
         <div class="tile-sub">تأكد قبل ما تخلط أي مادتين</div>
       </div>
     </a>
-    <a class="stat-tile tile-indigo" href="substances-directory.html">
+    <a class="stat-tile tile-indigo" href="substances-directory.html" data-perm="can_view_substances">
       <span class="tile-icon">🔍</span>
       <div>
         <div class="tile-label">دليل المواد الفعالة</div>
         <div class="tile-sub">تصنيف واستخدام كل مادة</div>
       </div>
     </a>
-    <a class="stat-tile tile-teal" href="crop-prices.html">
+    <a class="stat-tile tile-teal" href="crop-prices.html" data-perm="can_view_crop_prices">
       <span class="tile-icon">📈</span>
       <div>
         <div class="tile-label">أسعار المحاصيل</div>
         <div class="tile-sub">القمح، الذرة، القطن، والمزيد</div>
       </div>
     </a>
-    <a class="stat-tile tile-red" href="disease-risk.html">
+    <a class="stat-tile tile-red" href="disease-risk.html" data-perm="can_use_disease_risk">
       <span class="tile-icon">🔬</span>
       <div>
         <div class="tile-label">تحليل مخاطر الأمراض</div>
         <div class="tile-sub">حسب محصولك وعمره والطقس التفصيلي</div>
       </div>
     </a>
-    <a class="stat-tile tile-indigo" href="weather-history.html">
+    <a class="stat-tile tile-indigo" href="weather-history.html" data-perm="can_view_weather_history">
       <span class="tile-icon">📊</span>
       <div>
         <div class="tile-label">سجل الطقس</div>
@@ -143,6 +143,15 @@
     const welcomeText = `أهلًا بيك 👋 ${roleLabel} ${name}`.replace(/\s+/g, ' ').trim();
     document.getElementById('welcome-title').innerHTML =
       welcomeText + ' في <span class="brand-word"><span class="b-agro">Agro</span><span class="b-nex">Nex</span></span>';
+
+    // إخفاء الكروت اللي المستخدم مالوش صلاحية عليها (الأدمن يشوف كل حاجة دايمًا)
+    if(!ctx.isAdmin){
+      const perms = ctx.profile?.permissions || {};
+      document.querySelectorAll('[data-perm]').forEach(tile => {
+        const key = tile.getAttribute('data-perm');
+        if(perms[key] === false) tile.remove();
+      });
+    }
 
     if(ctx.isAdmin){
       await loadAdminTiles();
