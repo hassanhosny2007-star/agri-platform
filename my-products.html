@@ -110,11 +110,22 @@
   let currentUserId = null;
   let sellPerms = {};
 
-  function applySellPermissions(isAdmin){
-    const catSelect = document.getElementById('f-category');
-    if(isAdmin) return; // الأدمن يقدر يبيع في كل الفئات
+  function getAllowedSellCategories(role){
+    const defaultSeller = ['trader', 'company', 'admin'].includes(role);
+    return ['fertilizer', 'seeds', 'pesticides'].filter(cat => {
+      const key = 'can_sell_' + cat;
+      return sellPerms[key] !== undefined ? sellPerms[key] === true : defaultSeller;
+    });
+  }
 
-    const allowedCats = ['fertilizer', 'seeds', 'pesticides'].filter(cat => sellPerms['can_sell_' + cat] !== false);
+  function applySellPermissions(role){
+    const catSelect = document.getElementById('f-category');
+    if(role === 'admin'){
+      catSelect.innerHTML = ['fertilizer','seeds','pesticides'].map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
+      return;
+    }
+
+    const allowedCats = getAllowedSellCategories(role);
 
     if(allowedCats.length === 0){
       document.getElementById('toggle-form-btn').style.display = 'none';
@@ -181,15 +192,17 @@
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
     const { data: profile } = await db.from('profiles').select('role, permissions').eq('id', session.user.id).single();
+    sellPerms = (profile && profile.permissions) || {};
 
-    if(!profile || !['trader', 'company', 'admin'].includes(profile.role)){
-      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 البيع في السوق متاح للتجار والشركات بس حاليًا</div>';
+    const allowedCats = profile ? getAllowedSellCategories(profile.role) : [];
+
+    if(!profile || allowedCats.length === 0){
+      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 مفيش صلاحية بيع في أي فئة حاليًا، تواصل مع الأدمن</div>';
       return;
     }
 
     currentUserId = session.user.id;
-    sellPerms = profile.permissions || {};
-    applySellPermissions(profile.role === 'admin');
+    applySellPermissions(profile.role);
     loadProducts();
   })();
 </script>
