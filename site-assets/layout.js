@@ -10,7 +10,7 @@ const AgroNexLayout = (() => {
     ar: {
       nav: {
         dashboard: 'الرئيسية', diagnose: 'تشخيص أمراض النبات', knowledge: 'بنك المعرفة',
-        'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'crop-prices': 'أسعار المحاصيل', 'disease-risk': 'تحليل مخاطر الأمراض', 'weather-history': 'سجل الطقس', marketplace: 'السوق الأونلاين', 'my-products': 'منتجاتي', 'my-profile': 'بروفايلي',
+        'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'crop-prices': 'أسعار المحاصيل', 'disease-risk': 'تحليل مخاطر الأمراض', 'weather-history': 'سجل الطقس', 'disease-map': 'خريطة الأمراض', 'crops-map': 'خريطة المحاصيل', marketplace: 'السوق الأونلاين', 'my-products': 'منتجاتي', 'my-profile': 'بروفايلي',
         'admin-section': 'إدارة المنصة', 'admin-dashboard': 'لوحة تحكم الأدمن', 'admin-profile': 'بروفايل المدير',
         'admin-diagnoses': 'سجل التشخيصات', 'knowledge-manage': 'إدارة بنك المعرفة', 'mix-manage': 'إدارة جدول الخلط',
       },
