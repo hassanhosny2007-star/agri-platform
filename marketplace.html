@@ -67,12 +67,11 @@
     <input type="text" id="search-input" placeholder="ابحث عن منتج...">
   </div>
 
-  <div class="cat-tabs">
+  <div class="cat-tabs" id="cat-tabs">
     <div class="cat-tab active" data-cat="">الكل</div>
-    <div class="cat-tab" data-cat="fertilizer">🌾 أسمدة</div>
-    <div class="cat-tab" data-cat="seeds">🌱 بذور</div>
-    <div class="cat-tab" data-cat="pesticides">🧪 مبيدات</div>
-    <div class="cat-tab" data-cat="seed_stock">🌿 تقاوي</div>
+    <div class="cat-tab" data-cat="fertilizer" id="tab-fertilizer">🌾 أسمدة</div>
+    <div class="cat-tab" data-cat="seeds" id="tab-seeds">🌱 بذور</div>
+    <div class="cat-tab" data-cat="pesticides" id="tab-pesticides">🧪 مبيدات</div>
   </div>
 
   <div class="prod-grid" id="prod-grid"><div class="empty">جاري التحميل...</div></div>
@@ -97,16 +96,28 @@
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
   const PAYMENT_LABELS = { full_online: '💳 دفع أونلاين كامل', deposit_cod: '💳 دفعة مقدمة + استلام', full_cod: '💵 دفع عند الاستلام' };
-  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات', seed_stock:'تقاوي' };
+  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات' };
 
   let allProducts = [];
   let currentCat = '';
   let currentUserId = null;
+  let buyPerms = {}; // { fertilizer: true/false, seeds: true/false, pesticides: true/false }
+
+  function applyBuyPermissions(isAdmin){
+    if(isAdmin) return; // الأدمن يشوف كل حاجة
+    ['fertilizer', 'seeds', 'pesticides'].forEach(cat => {
+      if(buyPerms['can_buy_' + cat] === false){
+        const tab = document.getElementById('tab-' + cat);
+        if(tab) tab.remove();
+      }
+    });
+  }
 
   async function loadProducts(){
     const { data, error } = await db.from('products').select('*, seller:seller_id(full_name)').eq('is_active', true).order('created_at', { ascending: false });
     if(error){ document.getElementById('prod-grid').innerHTML = '<div class="empty">تعذر تحميل المنتجات</div>'; return; }
-    allProducts = data || [];
+    // استبعاد المنتجات في الفئات اللي المستخدم مالوش صلاحية شراء فيها
+    allProducts = (data || []).filter(p => buyPerms['can_buy_' + p.category] !== false);
     renderProducts();
   }
 
@@ -177,6 +188,12 @@
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
     currentUserId = session.user.id;
+
+    const { data: profile } = await db.from('profiles').select('role, permissions').eq('id', currentUserId).single();
+    const isAdmin = profile && profile.role === 'admin';
+    buyPerms = (profile && profile.permissions) || {};
+    applyBuyPermissions(isAdmin);
+
     loadProducts();
     updateCartBadge();
   })();
