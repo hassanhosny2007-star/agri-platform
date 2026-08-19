@@ -31,13 +31,13 @@ const AgroNexLayout = (() => {
 
   const NAV_ITEMS = [
     { key: 'dashboard', href: 'dashboard.html', icon: '🏠', roles: 'all' },
-    { key: 'diagnose', href: 'diagnose.html', icon: '🌿', roles: 'all' },
-    { key: 'knowledge', href: 'knowledge-base.html', icon: '📚', roles: 'all' },
-    { key: 'mix-checker', href: 'mix-checker.html', icon: '🧪', roles: 'all' },
-    { key: 'substances', href: 'substances-directory.html', icon: '🔍', roles: 'all' },
-    { key: 'crop-prices', href: 'crop-prices.html', icon: '📈', roles: 'all' },
-    { key: 'disease-risk', href: 'disease-risk.html', icon: '🔬', roles: 'all' },
-    { key: 'weather-history', href: 'weather-history.html', icon: '📊', roles: 'all' },
+    { key: 'diagnose', href: 'diagnose.html', icon: '🌿', roles: 'all', permKey: 'can_use_ai_diagnosis' },
+    { key: 'knowledge', href: 'knowledge-base.html', icon: '📚', roles: 'all', permKey: 'can_view_knowledge_base' },
+    { key: 'mix-checker', href: 'mix-checker.html', icon: '🧪', roles: 'all', permKey: 'can_use_mix_checker' },
+    { key: 'substances', href: 'substances-directory.html', icon: '🔍', roles: 'all', permKey: 'can_view_substances' },
+    { key: 'crop-prices', href: 'crop-prices.html', icon: '📈', roles: 'all', permKey: 'can_view_crop_prices' },
+    { key: 'disease-risk', href: 'disease-risk.html', icon: '🔬', roles: 'all', permKey: 'can_use_disease_risk' },
+    { key: 'weather-history', href: 'weather-history.html', icon: '📊', roles: 'all', permKey: 'can_view_weather_history' },
     { key: 'my-profile', href: 'engineer-profile.html', icon: '👤', roles: 'all' },
 
     { key: 'admin-section', roles: ['admin'], isSection: true },
@@ -66,9 +66,14 @@ const AgroNexLayout = (() => {
     container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   }
 
-  function buildSidebar(activeKey, isAdmin, lang){
+  function buildSidebar(activeKey, isAdmin, lang, permissions){
     const t = I18N[lang];
-    const items = NAV_ITEMS.filter(i => i.roles === 'all' || (isAdmin && i.roles.includes('admin')));
+    const perms = permissions || {};
+    const items = NAV_ITEMS.filter(i => {
+      if(!(i.roles === 'all' || (isAdmin && i.roles.includes('admin')))) return false;
+      if(!isAdmin && i.permKey && perms[i.permKey] === false) return false; // الأدمن يشوف كل حاجة دايمًا
+      return true;
+    });
     const linksHtml = items.map(i => {
       if(i.isSection){
         return `<div class="side-section-title">${t.nav[i.key]}</div>`;
@@ -129,7 +134,7 @@ const AgroNexLayout = (() => {
     document.body.innerHTML = `
       <button class="icon-btn" id="sidebar-toggle-btn" title="إظهار/إخفاء القائمة الجانبية">☰</button>
       <div id="app-shell">
-        <aside id="app-sidebar">${buildSidebar(active, isAdmin, currentLang)}</aside>
+        <aside id="app-sidebar">${buildSidebar(active, isAdmin, currentLang, profile && profile.permissions)}</aside>
         <div id="app-main">
           <header id="app-topbar">${buildTopbar(profile, session.user.email, isAdmin, currentLang)}</header>
           <main id="page-content">${existingContent}</main>
@@ -214,7 +219,7 @@ const AgroNexLayout = (() => {
       document.getElementById('lang-toggle-btn').addEventListener('click', () => {
         currentLang = currentLang === 'ar' ? 'en' : 'ar';
         localStorage.setItem('agronex-lang', currentLang);
-        document.getElementById('app-sidebar').innerHTML = buildSidebar(active, isAdmin, currentLang);
+        document.getElementById('app-sidebar').innerHTML = buildSidebar(active, isAdmin, currentLang, profile && profile.permissions);
         document.getElementById('app-topbar').innerHTML = buildTopbar(profile, session.user.email, isAdmin, currentLang);
         attachTopbarEvents();
         loadNotifBadge();
