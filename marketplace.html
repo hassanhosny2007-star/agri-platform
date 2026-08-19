@@ -49,6 +49,32 @@
   .add-cart-btn{ width:100%; margin-top:10px; padding:9px; border:none; border-radius:8px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:12.5px; cursor:pointer; }
   .add-cart-btn:disabled{ opacity:.5; cursor:not-allowed; }
   .empty{ text-align:center; color:#5b543f; padding:50px 0; grid-column:1/-1; }
+
+  /* نافذة تفاصيل المنتج */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; padding:16px; z-index:100; }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{ background:var(--paper); border-radius:18px; max-width:480px; width:100%; max-height:92vh; overflow-y:auto; position:relative; padding:22px; }
+  .modal-close{ position:absolute; top:14px; left:14px; width:32px; height:32px; border-radius:50%; border:none; background:var(--bg); cursor:pointer; font-size:15px; z-index:2; }
+  .gallery-main{ width:100%; height:220px; border-radius:14px; overflow:hidden; background:#e7e0cb; cursor:zoom-in; }
+  .gallery-main img{ width:100%; height:100%; object-fit:cover; }
+  .gallery-thumbs{ display:flex; gap:8px; margin-top:8px; overflow-x:auto; }
+  .gallery-thumbs img{ width:56px; height:56px; border-radius:8px; object-fit:cover; cursor:pointer; border:2px solid transparent; flex-shrink:0; }
+  .gallery-thumbs img.active{ border-color:var(--leaf); }
+  .modal-name{ font-family:'Tajawal'; font-weight:800; font-size:18px; margin-top:16px; }
+  .modal-seller{ font-size:12.5px; color:#8a7f63; margin-top:3px; }
+  .modal-desc{ font-size:13.5px; color:#5b543f; margin-top:10px; line-height:1.7; }
+  .modal-price{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); margin-top:14px; }
+  .modal-stock{ font-size:12px; color:#8a7f63; margin-top:2px; }
+  .qty-row{ display:flex; align-items:center; gap:12px; margin-top:16px; }
+  .qty-row .qbtn{ width:36px; height:36px; border-radius:9px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-size:17px; }
+  .qty-row .qval{ font-family:'Tajawal'; font-weight:800; font-size:17px; min-width:32px; text-align:center; }
+  .modal-add-btn{ width:100%; margin-top:18px; padding:13px; border:none; border-radius:10px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer; }
+  .modal-add-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* تكبير الصورة (Lightbox) */
+  .lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:200; padding:20px; }
+  .lightbox.open{ display:flex; }
+  .lightbox img{ max-width:100%; max-height:100%; border-radius:8px; }
 </style>
 </head>
 <body>
@@ -75,6 +101,18 @@
   </div>
 
   <div class="prod-grid" id="prod-grid"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<!-- نافذة تفاصيل المنتج -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close-btn">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <img id="lightbox-img" src="">
 </div>
 
 <script>
@@ -139,40 +177,111 @@
     if(!list.length){ grid.innerHTML = '<div class="empty">مفيش منتجات مطابقة</div>'; return; }
 
     grid.innerHTML = list.map(p => `
-      <div class="prod-card">
-        <img src="${p.image_url || ''}" onerror="this.style.display='none'">
+      <div class="prod-card" data-open-id="${p.id}">
+        <img src="${(p.image_urls && p.image_urls[0]) || p.image_url || ''}" onerror="this.style.display='none'">
         <div class="prod-body">
           <div class="prod-name">${p.name}</div>
           <div class="prod-seller">البائع: ${p.seller?.full_name || '—'} · ${CAT_LABELS[p.category]}</div>
           <div class="prod-price">${p.price} ج.م <span class="prod-unit">/ ${p.unit}</span></div>
           <span class="payment-badge ${p.payment_type}">${PAYMENT_LABELS[p.payment_type]}</span>
-          <button class="add-cart-btn" data-id="${p.id}" ${p.stock_quantity <= 0 ? 'disabled' : ''}>
-            ${p.stock_quantity <= 0 ? 'نفذت الكمية' : '+ أضف للعربة'}
+          <button class="add-cart-btn" data-open-id="${p.id}" ${p.stock_quantity <= 0 ? 'disabled' : ''}>
+            ${p.stock_quantity <= 0 ? 'نفذت الكمية' : '👁️ عرض التفاصيل والشراء'}
           </button>
         </div>
       </div>
     `).join('');
 
-    grid.querySelectorAll('.add-cart-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const productId = btn.getAttribute('data-id');
+    grid.querySelectorAll('[data-open-id]').forEach(el => {
+      el.addEventListener('click', () => openProductDetail(el.getAttribute('data-open-id')));
+    });
+  }
+
+  function openProductDetail(productId){
+    const p = allProducts.find(x => x.id === productId);
+    if(!p) return;
+
+    const images = (p.image_urls && p.image_urls.length) ? p.image_urls : (p.image_url ? [p.image_url] : []);
+    let currentImgIdx = 0;
+    let qty = 1;
+
+    function renderModal(){
+      document.getElementById('modal-body').innerHTML = `
+        <div class="gallery-main" id="gallery-main">
+          ${images[currentImgIdx] ? `<img src="${images[currentImgIdx]}">` : ''}
+        </div>
+        ${images.length > 1 ? `
+          <div class="gallery-thumbs">
+            ${images.map((img, i) => `<img src="${img}" class="${i === currentImgIdx ? 'active' : ''}" data-idx="${i}">`).join('')}
+          </div>` : ''}
+        <div class="modal-name">${p.name}</div>
+        <div class="modal-seller">البائع: ${p.seller?.full_name || '—'} · ${CAT_LABELS[p.category]}</div>
+        ${p.description ? `<div class="modal-desc">${p.description}</div>` : ''}
+        <div class="modal-price">${p.price} ج.م / ${p.unit}</div>
+        <div class="modal-stock">الكمية المتاحة: ${p.stock_quantity}</div>
+        <span class="payment-badge ${p.payment_type}" style="margin-top:8px;">${PAYMENT_LABELS[p.payment_type]}</span>
+
+        <div class="qty-row">
+          <button class="qbtn" id="qty-minus">−</button>
+          <span class="qval" id="qty-val">${qty}</span>
+          <button class="qbtn" id="qty-plus">+</button>
+          <span style="font-size:12.5px; color:#8a7f63;">${p.unit}</span>
+        </div>
+
+        <button class="modal-add-btn" id="modal-add-btn" ${p.stock_quantity <= 0 ? 'disabled' : ''}>
+          + أضف ${qty} ${p.unit} للعربة
+        </button>
+      `;
+
+      document.getElementById('gallery-main').addEventListener('click', () => {
+        if(images[currentImgIdx]) openLightbox(images[currentImgIdx]);
+      });
+      document.querySelectorAll('.gallery-thumbs img').forEach(thumb => {
+        thumb.addEventListener('click', () => {
+          currentImgIdx = parseInt(thumb.getAttribute('data-idx'));
+          renderModal();
+        });
+      });
+      document.getElementById('qty-minus').addEventListener('click', () => {
+        if(qty > 1){ qty--; renderModal(); }
+      });
+      document.getElementById('qty-plus').addEventListener('click', () => {
+        if(qty < p.stock_quantity){ qty++; renderModal(); }
+      });
+      document.getElementById('modal-add-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('modal-add-btn');
         btn.disabled = true;
         btn.textContent = 'جاري الإضافة...';
 
-        const { data: existing } = await db.from('cart_items').select('*').eq('user_id', currentUserId).eq('product_id', productId).maybeSingle();
+        const { data: existing } = await db.from('cart_items').select('*').eq('user_id', currentUserId).eq('product_id', p.id).maybeSingle();
         if(existing){
-          await db.from('cart_items').update({ quantity: existing.quantity + 1 }).eq('id', existing.id);
+          await db.from('cart_items').update({ quantity: existing.quantity + qty }).eq('id', existing.id);
         } else {
-          await db.from('cart_items').insert({ user_id: currentUserId, product_id: productId, quantity: 1 });
+          await db.from('cart_items').insert({ user_id: currentUserId, product_id: p.id, quantity: qty });
         }
 
-        btn.disabled = false;
-        btn.textContent = '✅ اتضافت';
-        setTimeout(() => { btn.textContent = '+ أضف للعربة'; }, 1500);
+        btn.textContent = '✅ اتضافت للعربة';
         updateCartBadge();
+        setTimeout(() => { closeModal(); }, 900);
       });
-    });
+    }
+
+    renderModal();
+    document.getElementById('detail-modal').classList.add('open');
   }
+
+  function closeModal(){ document.getElementById('detail-modal').classList.remove('open'); }
+  document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+  document.getElementById('detail-modal').addEventListener('click', (e) => {
+    if(e.target.id === 'detail-modal') closeModal();
+  });
+
+  function openLightbox(src){
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
+  }
+  document.getElementById('lightbox').addEventListener('click', () => {
+    document.getElementById('lightbox').classList.remove('open');
+  });
 
   document.querySelectorAll('.cat-tab').forEach(tab => {
     tab.addEventListener('click', () => {
