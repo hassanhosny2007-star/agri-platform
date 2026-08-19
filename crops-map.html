@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خريطة توزيع المحاصيل — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:20px; }
+  .wrap{ max-width:1000px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:12.5px; margin-bottom:6px; }
+  .disclaimer{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:10px 14px; font-size:11.5px; color:#6b5a24; margin-bottom:18px; line-height:1.6; }
+
+  #map{ width:100%; height:360px; border-radius:16px; border:1px solid var(--line); margin-bottom:18px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:12px; color:var(--leaf-deep); }
+  .chart-wrap{ height:230px; }
+  select{ width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:#fff; font-family:inherit; font-size:13.5px; margin-bottom:12px; }
+
+  .region-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bg); font-size:13px; }
+  .region-row:last-child{ border-bottom:none; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🗺️ خريطة توزيع المحاصيل</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">بناءً على المزارع والمحاصيل المسجّلة من كل المستخدمين</p>
+  <div class="disclaimer">
+    ⚠️ النقط على الخريطة تمثّل <b>مركز المحافظة تقريبيًا</b>، مش موقع كل مزرعة بالظبط — لأن المنصة حاليًا بتسجّل المحافظة/المركز كنص، مش إحداثيات دقيقة لكل مزرعة.
+  </div>
+
+  <div id="map"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>📊 نسب المحاصيل بين بعضها</h3>
+      <div class="chart-wrap"><canvas id="crop-pie"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>📈 معدل الزيادة/النقص لمحصول معيّن</h3>
+      <select id="crop-select"></select>
+      <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📍 توزيع المحاصيل حسب المحافظة</h3>
+    <div id="region-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const PIE_COLORS = ['#22C55E','#3B82F6','#F97316','#A855F7','#14B8A6','#EAB308','#EC4899','#6366F1','#EF4444','#8a7f63'];
+
+  // إحداثيات تقريبية لمركز كل محافظة مصرية
+  const GOV_COORDS = {
+    'القاهرة': [30.0444, 31.2357], 'الجيزة': [30.0131, 31.2089], 'الإسكندرية': [31.2001, 29.9187],
+    'الدقهلية': [31.0409, 31.3785], 'الغربية': [30.7865, 31.0004], 'القليوبية': [30.4667, 31.2000],
+    'الشرقية': [30.5877, 31.5020], 'المنوفية': [30.5972, 30.9876], 'البحيرة': [31.0409, 30.4696],
+    'كفر الشيخ': [31.1107, 30.9388], 'دمياط': [31.4165, 31.8133], 'بورسعيد': [31.2653, 32.3019],
+    'الإسماعيلية': [30.5965, 32.2715], 'السويس': [29.9668, 32.5498], 'شمال سيناء': [31.1315, 33.7996],
+    'جنوب سيناء': [28.2400, 33.6144], 'بني سويف': [29.0661, 31.0994], 'الفيوم': [29.3084, 30.8441],
+    'المنيا': [28.0871, 30.7618], 'أسيوط': [27.1809, 31.1837], 'سوهاج': [26.5569, 31.6948],
+    'قنا': [26.1551, 32.7160], 'الأقصر': [25.6872, 32.6396], 'أسوان': [24.0889, 32.8998],
+    'البحر الأحمر': [27.2579, 33.8116], 'الوادي الجديد': [25.4477, 30.5486], 'مطروح': [31.3543, 27.2373],
+  };
+
+  function extractGovernorate(locationText){
+    if(!locationText) return null;
+    const first = locationText.split(' - ')[0].trim();
+    return GOV_COORDS[first] ? first : null;
+  }
+
+  async function loadData(){
+    const { data: farms } = await db.from('farms').select('id, location_text');
+    const farmGovMap = {};
+    (farms || []).forEach(f => { farmGovMap[f.id] = extractGovernorate(f.location_text); });
+
+    const farmIds = (farms || []).map(f => f.id);
+    const { data: crops } = farmIds.length
+      ? await db.from('crops').select('crop_type, farm_id, created_at').in('farm_id', farmIds)
+      : { data: [] };
+
+    const cropsWithGov = (crops || []).map(c => ({ ...c, governorate: farmGovMap[c.farm_id] })).filter(c => c.crop_type);
+
+    // 1) الخريطة - نقطة لكل محافظة فيها محاصيل، حجمها حسب العدد
+    const map = L.map('map').setView([26.8, 30.8], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+    const govCounts = {};
+    const govCropBreakdown = {};
+    cropsWithGov.forEach(c => {
+      if(!c.governorate) return;
+      govCounts[c.governorate] = (govCounts[c.governorate] || 0) + 1;
+      if(!govCropBreakdown[c.governorate]) govCropBreakdown[c.governorate] = {};
+      govCropBreakdown[c.governorate][c.crop_type] = (govCropBreakdown[c.governorate][c.crop_type] || 0) + 1;
+    });
+
+    Object.entries(govCounts).forEach(([gov, count]) => {
+      const coords = GOV_COORDS[gov];
+      if(!coords) return;
+      const topCrops = Object.entries(govCropBreakdown[gov]).sort((a,b) => b[1]-a[1]).slice(0,3)
+        .map(([crop, n]) => `${crop} (${n})`).join('، ');
+      L.circleMarker(coords, { radius: Math.min(8 + count * 1.5, 30), color:'#2E7D32', fillColor:'#4CAF50', fillOpacity:.6 })
+        .addTo(map)
+        .bindPopup(`<b>${gov}</b><br>إجمالي: ${count} محصول<br>أكتر محاصيل: ${topCrops}`);
+    });
+
+    // 2) نسب المحاصيل بين بعضها
+    const cropCounts = {};
+    cropsWithGov.forEach(c => { cropCounts[c.crop_type] = (cropCounts[c.crop_type] || 0) + 1; });
+    const sortedCrops = Object.entries(cropCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+    new Chart(document.getElementById('crop-pie'), {
+      type: 'doughnut',
+      data: { labels: sortedCrops.map(c => c[0]), datasets: [{ data: sortedCrops.map(c => c[1]), backgroundColor: PIE_COLORS }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } } }
+    });
+
+    // 3) اتجاه محصول معيّن بمرور الوقت
+    const cropSelect = document.getElementById('crop-select');
+    cropSelect.innerHTML = sortedCrops.map(c => `<option value="${c[0]}">${c[0]}</option>`).join('');
+
+    function renderTrend(cropType){
+      const records = cropsWithGov.filter(c => c.crop_type === cropType);
+      const monthly = {};
+      records.forEach(c => {
+        const m = new Date(c.created_at).toLocaleDateString('ar-EG', { year:'numeric', month:'short' });
+        monthly[m] = (monthly[m] || 0) + 1;
+      });
+      const labels = Object.keys(monthly).reverse();
+      const values = Object.values(monthly).reverse();
+
+      if(window.trendChartInstance) window.trendChartInstance.destroy();
+      window.trendChartInstance = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: values, borderColor:'#2E7D32', backgroundColor:'rgba(46,125,50,.1)', fill:true, tension:.3 }] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+      });
+    }
+
+    if(sortedCrops.length) renderTrend(sortedCrops[0][0]);
+    cropSelect.addEventListener('change', () => renderTrend(cropSelect.value));
+
+    // 4) توزيع حسب المحافظة
+    const sortedGovs = Object.entries(govCounts).sort((a,b) => b[1]-a[1]);
+    document.getElementById('region-list').innerHTML = sortedGovs.length
+      ? sortedGovs.map(([gov, count]) => `<div class="region-row"><span>📍 ${gov}</span><span><b>${count}</b> محصول</span></div>`).join('')
+      : '<div class="empty">مفيش بيانات كافية لسه (لازم المزارع تكون مسجّلة بمحافظة صحيحة)</div>';
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    loadData();
+  })();
+</script>
+</body>
+</html>
