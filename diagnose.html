@@ -192,7 +192,7 @@
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
     const _hasPerm = await AgroNexPermissions.check(db, session.user.id, 'can_use_ai_diagnosis');
-    if(!_hasPerm){ AgroNexPermissions.showDenied(); return; }
+    if(!_hasPerm){ AgroNexPermissions.redirectSilently(); return; }
     currentSession = session;
   })();
 
