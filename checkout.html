@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إتمام الطلب — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/egypt-locations.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .field{ margin-bottom:12px; }
+  .field label{ font-size:13px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  input, select{ width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:14px; font-family:inherit; }
+
+  .items-list{ font-size:13px; }
+  .item-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bg); }
+  .sum-row{ display:flex; justify-content:space-between; padding:8px 0; font-size:14px; }
+  .sum-row.total{ border-top:1px solid var(--bg); margin-top:8px; padding-top:14px; font-family:'Tajawal'; font-weight:900; font-size:16px; }
+
+  button.pay-btn{ width:100%; padding:14px; border:none; border-radius:10px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:15.5px; cursor:pointer; margin-top:6px; }
+  button.pay-btn:disabled{ opacity:.6; cursor:not-allowed; }
+  #status-msg{ font-size:13px; text-align:center; margin-top:10px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>✅ إتمام الطلب</h1>
+    <a class="back" href="cart.html">← رجوع للعربة</a>
+  </header>
+
+  <div class="card">
+    <h3>بيانات التوصيل</h3>
+    <div class="field"><label>الاسم بالكامل</label><input type="text" id="delivery-name"></div>
+    <div class="field"><label>رقم الموبايل</label><input type="tel" id="delivery-phone" placeholder="01xxxxxxxxx"></div>
+    <div class="field">
+      <label>المحافظة</label>
+      <select id="gov-select"></select>
+    </div>
+    <div class="field">
+      <label>المركز / الحي</label>
+      <select id="center-select"></select>
+    </div>
+    <div class="field"><label>العزبة / القرية / الشارع</label><input type="text" id="village-input"></div>
+  </div>
+
+  <div class="card">
+    <h3>ملخص الطلب</h3>
+    <div class="items-list" id="items-list"></div>
+    <div class="sum-row"><span>💳 هيتدفع أونلاين دلوقتي</span><span id="sum-online">0 ج.م</span></div>
+    <div class="sum-row"><span>💵 هيتدفع عند الاستلام</span><span id="sum-cod">0 ج.م</span></div>
+    <div class="sum-row total"><span>الإجمالي</span><span id="sum-total">0 ج.م</span></div>
+  </div>
+
+  <button class="pay-btn" id="confirm-btn">تأكيد الطلب</button>
+  <div id="status-msg"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUserId = null;
+  let cartData = [];
+  let totals = { total: 0, online: 0, cod: 0 };
+
+  AgroNexLocations.buildPicker({
+    govSelectId: 'gov-select', centerSelectId: 'center-select',
+  });
+
+  async function loadCartSummary(){
+    const { data: items } = await db.from('cart_items')
+      .select('*, product:product_id(id, name, price, unit, payment_type, deposit_percent)')
+      .eq('user_id', currentUserId);
+
+    if(!items || !items.length){
+      document.getElementById('items-list').innerHTML = '<p>العربة فاضية</p>';
+      document.getElementById('confirm-btn').disabled = true;
+      return;
+    }
+    cartData = items;
+
+    let total = 0, online = 0, cod = 0;
+    document.getElementById('items-list').innerHTML = items.map(i => {
+      const lineTotal = i.product.price * i.quantity;
+      total += lineTotal;
+      if(i.product.payment_type === 'full_online'){ online += lineTotal; }
+      else if(i.product.payment_type === 'deposit_cod'){
+        const dep = lineTotal * (i.product.deposit_percent / 100);
+        online += dep; cod += (lineTotal - dep);
+      } else { cod += lineTotal; }
+      return `<div class="item-row"><span>${i.product.name} × ${i.quantity}</span><span>${lineTotal.toFixed(2)} ج.م</span></div>`;
+    }).join('');
+
+    totals = { total, online, cod };
+    document.getElementById('sum-online').textContent = online.toFixed(2) + ' ج.م';
+    document.getElementById('sum-cod').textContent = cod.toFixed(2) + ' ج.م';
+    document.getElementById('sum-total').textContent = total.toFixed(2) + ' ج.م';
+  }
+
+  document.getElementById('confirm-btn').addEventListener('click', async () => {
+    const status = document.getElementById('status-msg');
+    const name = document.getElementById('delivery-name').value.trim();
+    const phone = document.getElementById('delivery-phone').value.trim();
+    const { governorate, center } = AgroNexLocations.getPickerValues({ govSelectId: 'gov-select', centerSelectId: 'center-select' });
+    const village = document.getElementById('village-input').value.trim();
+
+    if(!name || !phone || !governorate || !center || !village){
+      status.style.color = 'var(--rust)';
+      status.textContent = 'من فضلك أكمل كل بيانات التوصيل';
+      return;
+    }
+
+    const btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري إنشاء الطلب...';
+
+    // إنشاء الطلب
+    const specialRef = 'AGX-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+    const { data: order, error: orderErr } = await db.from('orders').insert({
+      buyer_id: currentUserId,
+      total_amount: totals.total,
+      online_amount: totals.online,
+      cod_amount: totals.cod,
+      delivery_name: name,
+      delivery_phone: phone,
+      delivery_governorate: governorate,
+      delivery_center: center,
+      delivery_village: village,
+      paymob_special_reference: specialRef,
+      status: totals.online > 0 ? 'pending_payment' : 'processing',
+    }).select('id').single();
+
+    if(orderErr){
+      status.style.color = 'var(--rust)';
+      status.textContent = 'حصل خطأ: ' + orderErr.message;
+      btn.disabled = false; btn.textContent = 'تأكيد الطلب';
+      return;
+    }
+
+    // إضافة عناصر الطلب
+    const orderItems = cartData.map(i => ({
+      order_id: order.id, product_id: i.product.id, seller_id: i.product.seller_id || null,
+      product_name: i.product.name, unit_price: i.product.price, quantity: i.quantity,
+      payment_type: i.product.payment_type, subtotal: i.product.price * i.quantity,
+    }));
+    await db.from('order_items').insert(orderItems);
+
+    // تفريغ العربة
+    await db.from('cart_items').delete().eq('user_id', currentUserId);
+
+    if(totals.online > 0){
+      // لازم دفع أونلاين - هيتحول لبوابة الدفع (يتفعّل بعد ربط PayMob)
+      status.style.color = 'var(--leaf)';
+      status.innerHTML = `تم إنشاء الطلب ✅ محتاج تدفع ${totals.online.toFixed(2)} ج.م أونلاين — بوابة الدفع هتتفعّل قريبًا. رقم طلبك: <b>${specialRef}</b>`;
+    } else {
+      status.style.color = 'var(--leaf)';
+      status.textContent = '✅ تم تأكيد طلبك بنجاح، هيتم التواصل معاك لتأكيد التوصيل والدفع عند الاستلام';
+      setTimeout(() => window.location.href = 'my-orders.html', 2500);
+    }
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    loadCartSummary();
+  })();
+</script>
+</body>
+</html>
