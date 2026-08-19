@@ -79,6 +79,13 @@
         <div class="tile-sub">رسوم بيانية وتقرير آخر 24 ساعة</div>
       </div>
     </a>
+    <a class="stat-tile tile-gold" href="marketplace.html" data-perm="can_use_marketplace">
+      <span class="tile-icon">🛒</span>
+      <div>
+        <div class="tile-label">السوق الأونلاين</div>
+        <div class="tile-sub">أسمدة، بذور، مبيدات، تقاوي</div>
+      </div>
+    </a>
     <a class="stat-tile tile-orange" href="engineer-profile.html">
       <span class="tile-icon">👤</span>
       <div>
@@ -151,6 +158,19 @@
         const key = tile.getAttribute('data-perm');
         if(perms[key] === false) tile.remove();
       });
+    }
+
+    // كارت "منتجاتي" يظهر بس للتجار والشركات (والأدمن)
+    if(['trader', 'company', 'admin'].includes(ctx.profile?.role)){
+      document.getElementById('quick-tiles').insertAdjacentHTML('beforeend', `
+        <a class="stat-tile tile-orange" href="my-products.html">
+          <span class="tile-icon">📦</span>
+          <div>
+            <div class="tile-label">منتجاتي في السوق</div>
+            <div class="tile-sub">أضف وتابع منتجاتك للبيع</div>
+          </div>
+        </a>
+      `);
     }
 
     if(ctx.isAdmin){
