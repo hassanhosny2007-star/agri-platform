@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>طلباتي — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:700px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .order-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
+  .order-head{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  .order-ref{ font-family:'Tajawal'; font-weight:700; font-size:13px; color:#8a7f63; }
+  .order-status{ font-size:11.5px; font-weight:700; padding:4px 12px; border-radius:20px; }
+  .status-pending_payment{ background:#FDECEA; color:#C62828; }
+  .status-deposit_paid, .status-fully_paid, .status-processing{ background:#FFF6E0; color:#C9A227; }
+  .status-shipped{ background:#E3F2FD; color:#1565C0; }
+  .status-delivered{ background:#E8F5E9; color:#2E7D32; }
+  .status-cancelled{ background:#eee; color:#666; }
+  .order-items{ font-size:13px; margin-top:10px; }
+  .order-item-row{ padding:6px 0; border-bottom:1px solid var(--bg); display:flex; justify-content:space-between; }
+  .order-total{ font-family:'Tajawal'; font-weight:900; margin-top:10px; text-align:left; font-size:14px; }
+  .empty{ text-align:center; color:#5b543f; padding:50px 0; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📦 طلباتي</h1>
+    <a class="back" href="marketplace.html">← رجوع للسوق</a>
+  </header>
+  <div id="orders-list"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const STATUS_LABELS = {
+    pending_payment: 'بانتظار الدفع', deposit_paid: 'اتدفعت الدفعة المقدمة', fully_paid: 'اتدفع بالكامل',
+    processing: 'جاري التجهيز', shipped: 'في الطريق', delivered: 'تم التسليم', cancelled: 'ملغي',
+  };
+
+  async function loadOrders(userId){
+    const { data: orders, error } = await db.from('orders').select('*, items:order_items(*)').eq('buyer_id', userId).order('created_at', { ascending: false });
+    const list = document.getElementById('orders-list');
+    if(error || !orders || !orders.length){ list.innerHTML = '<div class="empty">لسه معملتش أي طلب</div>'; return; }
+
+    list.innerHTML = orders.map(o => `
+      <div class="order-card">
+        <div class="order-head">
+          <span class="order-ref">${o.paymob_special_reference || o.id.slice(0,8)}</span>
+          <span class="order-status status-${o.status}">${STATUS_LABELS[o.status] || o.status}</span>
+        </div>
+        <div class="order-items">
+          ${(o.items || []).map(it => `<div class="order-item-row"><span>${it.product_name} × ${it.quantity}</span><span>${it.subtotal} ج.م</span></div>`).join('')}
+        </div>
+        <div class="order-total">الإجمالي: ${o.total_amount} ج.م ${o.cod_amount > 0 ? `(منها ${o.cod_amount} ج.م عند الاستلام)` : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    loadOrders(session.user.id);
+  })();
+</script>
+</body>
+</html>
