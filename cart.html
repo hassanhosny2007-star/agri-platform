@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عربة الشراء — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:700px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .cart-item{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; display:flex; gap:12px; align-items:center; }
+  .cart-item img{ width:60px; height:60px; border-radius:10px; object-fit:cover; background:#e7e0cb; flex-shrink:0; }
+  .ci-info{ flex:1; min-width:0; }
+  .ci-name{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .ci-price{ font-size:12.5px; color:#5b543f; margin-top:2px; }
+  .qty-controls{ display:flex; align-items:center; gap:8px; }
+  .qty-btn{ width:28px; height:28px; border-radius:6px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-size:14px; }
+  .qty-val{ font-family:'Tajawal'; font-weight:700; min-width:20px; text-align:center; }
+  .remove-btn{ font-size:11.5px; color:var(--rust); background:none; border:none; cursor:pointer; margin-top:4px; }
+
+  .summary-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-top:16px; }
+  .sum-row{ display:flex; justify-content:space-between; padding:8px 0; font-size:14px; }
+  .sum-row.total{ border-top:1px solid var(--bg); margin-top:8px; padding-top:14px; font-family:'Tajawal'; font-weight:900; font-size:16px; }
+  .checkout-btn{ width:100%; margin-top:14px; padding:13px; border:none; border-radius:10px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:15px; cursor:pointer; }
+  .checkout-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .empty{ text-align:center; color:#5b543f; padding:50px 0; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🛍️ عربة الشراء</h1>
+    <a class="back" href="marketplace.html">← رجوع للسوق</a>
+  </header>
+
+  <div id="cart-list"><div class="empty">جاري التحميل...</div></div>
+  <div class="summary-card" id="summary-card" style="display:none;"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+  let currentUserId = null;
+
+  async function loadCart(){
+    const { data: items, error } = await db.from('cart_items')
+      .select('*, product:product_id(id, name, price, unit, image_url, payment_type, deposit_percent, stock_quantity)')
+      .eq('user_id', currentUserId);
+
+    const list = document.getElementById('cart-list');
+    const summary = document.getElementById('summary-card');
+
+    if(error || !items || !items.length){
+      list.innerHTML = '<div class="empty">العربة فاضية — روح <a href="marketplace.html">السوق</a> واختار منتجات</div>';
+      summary.style.display = 'none';
+      return;
+    }
+
+    list.innerHTML = items.map(i => `
+      <div class="cart-item">
+        <img src="${i.product.image_url || ''}" onerror="this.style.display='none'">
+        <div class="ci-info">
+          <div class="ci-name">${i.product.name}</div>
+          <div class="ci-price">${i.product.price} ج.م / ${i.product.unit}</div>
+          <button class="remove-btn" data-cart-id="${i.id}">🗑️ حذف</button>
+        </div>
+        <div class="qty-controls">
+          <button class="qty-btn minus" data-cart-id="${i.id}" data-qty="${i.quantity}">−</button>
+          <span class="qty-val">${i.quantity}</span>
+          <button class="qty-btn plus" data-cart-id="${i.id}" data-qty="${i.quantity}">+</button>
+        </div>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.qty-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const cartId = btn.getAttribute('data-cart-id');
+        const current = parseFloat(btn.getAttribute('data-qty'));
+        const isPlus = btn.classList.contains('plus');
+        const newQty = isPlus ? current + 1 : current - 1;
+        if(newQty <= 0){
+          await db.from('cart_items').delete().eq('id', cartId);
+        } else {
+          await db.from('cart_items').update({ quantity: newQty }).eq('id', cartId);
+        }
+        loadCart();
+      });
+    });
+    list.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await db.from('cart_items').delete().eq('id', btn.getAttribute('data-cart-id'));
+        loadCart();
+      });
+    });
+
+    // حساب الملخص: كام هيتدفع أونلاين دلوقتي، وكام عند الاستلام
+    let onlineAmount = 0, codAmount = 0, total = 0;
+    items.forEach(i => {
+      const lineTotal = i.product.price * i.quantity;
+      total += lineTotal;
+      if(i.product.payment_type === 'full_online'){
+        onlineAmount += lineTotal;
+      } else if(i.product.payment_type === 'deposit_cod'){
+        const deposit = lineTotal * (i.product.deposit_percent / 100);
+        onlineAmount += deposit;
+        codAmount += (lineTotal - deposit);
+      } else {
+        codAmount += lineTotal;
+      }
+    });
+
+    summary.style.display = 'block';
+    summary.innerHTML = `
+      <div class="sum-row"><span>إجمالي المنتجات</span><span>${total.toFixed(2)} ج.م</span></div>
+      <div class="sum-row"><span>💳 هيتدفع أونلاين دلوقتي</span><span>${onlineAmount.toFixed(2)} ج.م</span></div>
+      <div class="sum-row"><span>💵 هيتدفع عند الاستلام</span><span>${codAmount.toFixed(2)} ج.م</span></div>
+      <div class="sum-row total"><span>الإجمالي الكلي</span><span>${total.toFixed(2)} ج.م</span></div>
+      <button class="checkout-btn" onclick="window.location.href='checkout.html'">إتمام الطلب</button>
+    `;
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    loadCart();
+  })();
+</script>
+</body>
+</html>
