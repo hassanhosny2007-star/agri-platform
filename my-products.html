@@ -61,7 +61,6 @@
               <option value="fertilizer">أسمدة</option>
               <option value="seeds">بذور</option>
               <option value="pesticides">مبيدات</option>
-              <option value="seed_stock">تقاوي</option>
             </select>
           </div>
           <div class="field"><label>الوحدة</label><input type="text" id="f-unit" placeholder="كيلو، شكارة، لتر..." required></div>
@@ -106,9 +105,26 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
-  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات', seed_stock:'تقاوي' };
+  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات' };
   const PAY_LABELS = { full_online:'دفع أونلاين كامل', deposit_cod:'دفعة مقدمة + استلام', full_cod:'دفع عند الاستلام' };
   let currentUserId = null;
+  let sellPerms = {};
+
+  function applySellPermissions(isAdmin){
+    const catSelect = document.getElementById('f-category');
+    if(isAdmin) return; // الأدمن يقدر يبيع في كل الفئات
+
+    const allowedCats = ['fertilizer', 'seeds', 'pesticides'].filter(cat => sellPerms['can_sell_' + cat] !== false);
+
+    if(allowedCats.length === 0){
+      document.getElementById('toggle-form-btn').style.display = 'none';
+      document.getElementById('access-gate').insertAdjacentHTML('afterbegin',
+        '<div class="denied">🚫 مفيش صلاحية بيع في أي فئة حاليًا</div>');
+      return;
+    }
+
+    catSelect.innerHTML = allowedCats.map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
+  }
 
   document.getElementById('toggle-form-btn').addEventListener('click', () => {
     document.getElementById('product-form').classList.toggle('active');
@@ -164,7 +180,7 @@
   (async () => {
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
-    const { data: profile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    const { data: profile } = await db.from('profiles').select('role, permissions').eq('id', session.user.id).single();
 
     if(!profile || !['trader', 'company', 'admin'].includes(profile.role)){
       document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 البيع في السوق متاح للتجار والشركات بس حاليًا</div>';
@@ -172,6 +188,8 @@
     }
 
     currentUserId = session.user.id;
+    sellPerms = profile.permissions || {};
+    applySellPermissions(profile.role === 'admin');
     loadProducts();
   })();
 </script>
