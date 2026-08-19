@@ -42,6 +42,10 @@
   .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
   .img-preview-item{ width:60px; height:60px; border-radius:8px; overflow:hidden; position:relative; }
   .img-preview-item img{ width:100%; height:100%; object-fit:cover; }
+  .del-preview-btn{
+    position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; border:none;
+    background:rgba(198,40,40,.9); color:#fff; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
   .edit-btn{ font-size:12px; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; }
 
   /* نافذة التعديل */
@@ -165,16 +169,28 @@
     catSelect.innerHTML = allowedCats.map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
   }
 
-  document.getElementById('f-images').addEventListener('change', (e) => {
+  let pendingNewFiles = [];
+
+  function renderNewImagePreview(){
     const preview = document.getElementById('image-preview');
-    preview.innerHTML = '';
-    Array.from(e.target.files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        preview.insertAdjacentHTML('beforeend', `<div class="img-preview-item"><img src="${ev.target.result}"></div>`);
-      };
-      reader.readAsDataURL(file);
+    preview.innerHTML = pendingNewFiles.map((file, i) => `
+      <div class="img-preview-item">
+        <img src="${URL.createObjectURL(file)}">
+        <button class="del-preview-btn" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+
+    preview.querySelectorAll('.del-preview-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingNewFiles.splice(parseInt(btn.getAttribute('data-idx')), 1);
+        renderNewImagePreview();
+      });
     });
+  }
+
+  document.getElementById('f-images').addEventListener('change', (e) => {
+    pendingNewFiles = Array.from(e.target.files);
+    renderNewImagePreview();
   });
 
   document.getElementById('toggle-form-btn').addEventListener('click', () => {
@@ -187,12 +203,31 @@
 
   let editingProduct = null;
   let editingImages = []; // نسخة قابلة للتعديل من مصفوفة الصور الحالية
+  let pendingEditFiles = []; // الصور الجديدة المختارة في نافذة التعديل (قبل الحفظ)
+
+  function renderEditNewPreview(){
+    const preview = document.getElementById('edit-new-preview');
+    preview.innerHTML = pendingEditFiles.map((file, i) => `
+      <div class="img-preview-item">
+        <img src="${URL.createObjectURL(file)}">
+        <button class="del-preview-btn" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+
+    preview.querySelectorAll('.del-preview-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingEditFiles.splice(parseInt(btn.getAttribute('data-idx')), 1);
+        renderEditNewPreview();
+      });
+    });
+  }
 
   async function openEditModal(productId){
     const { data: p } = await db.from('products').select('*').eq('id', productId).single();
     if(!p) return;
     editingProduct = p;
     editingImages = [...(p.image_urls || (p.image_url ? [p.image_url] : []))];
+    pendingEditFiles = [];
 
     renderEditModal();
     document.getElementById('edit-overlay').classList.add('open');
@@ -244,15 +279,8 @@
     });
 
     document.getElementById('edit-new-images').addEventListener('change', (e) => {
-      const preview = document.getElementById('edit-new-preview');
-      preview.innerHTML = '';
-      Array.from(e.target.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          preview.insertAdjacentHTML('beforeend', `<div class="img-preview-item"><img src="${ev.target.result}"></div>`);
-        };
-        reader.readAsDataURL(file);
-      });
+      pendingEditFiles = Array.from(e.target.files);
+      renderEditNewPreview();
     });
 
     document.getElementById('edit-save-btn').addEventListener('click', saveEdit);
@@ -261,9 +289,8 @@
   async function saveEdit(){
     const msg = document.getElementById('edit-msg');
     const saveBtn = document.getElementById('edit-save-btn');
-    const newFiles = document.getElementById('edit-new-images').files;
 
-    if(editingImages.length === 0 && (!newFiles || newFiles.length === 0)){
+    if(editingImages.length === 0 && pendingEditFiles.length === 0){
       msg.style.color = 'var(--rust)';
       msg.textContent = 'لازم يفضل صورة واحدة على الأقل للمنتج';
       return;
@@ -272,11 +299,11 @@
     saveBtn.disabled = true;
     saveBtn.textContent = 'جاري الحفظ...';
 
-    // رفع أي صور جديدة اتضافت
+    // رفع أي صور جديدة اتضافت (بعد أي حذف عمله المستخدم من المعاينة)
     let finalImages = [...editingImages];
-    if(newFiles && newFiles.length){
-      for(let i = 0; i < newFiles.length; i++){
-        const file = newFiles[i];
+    if(pendingEditFiles.length){
+      for(let i = 0; i < pendingEditFiles.length; i++){
+        const file = pendingEditFiles[i];
         const ext = file.name.split('.').pop();
         const path = `${currentUserId}/${Date.now()}-${i}.${ext}`;
         const { error: uploadError } = await db.storage.from('product-images').upload(path, file);
@@ -352,9 +379,8 @@
   document.getElementById('product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const saveBtn = document.getElementById('save-product-btn');
-    const files = document.getElementById('f-images').files;
 
-    if(!files || files.length === 0){
+    if(!pendingNewFiles || pendingNewFiles.length === 0){
       alert('لازم ترفع صورة واحدة على الأقل للمنتج');
       return;
     }
@@ -362,10 +388,10 @@
     saveBtn.disabled = true;
     saveBtn.textContent = 'جاري رفع الصور...';
 
-    // رفع كل الصور المختارة لمخزن product-images
+    // رفع كل الصور المختارة (بعد أي حذف عمله المستخدم) لمخزن product-images
     const imageUrls = [];
-    for(let i = 0; i < files.length; i++){
-      const file = files[i];
+    for(let i = 0; i < pendingNewFiles.length; i++){
+      const file = pendingNewFiles[i];
       const ext = file.name.split('.').pop();
       const path = `${currentUserId}/${Date.now()}-${i}.${ext}`;
       const { error: uploadError } = await db.storage.from('product-images').upload(path, file);
@@ -401,6 +427,7 @@
 
     if(error){ alert('خطأ: ' + error.message); return; }
     e.target.reset();
+    pendingNewFiles = [];
     document.getElementById('image-preview').innerHTML = '';
     e.target.classList.remove('active');
     loadProducts();
