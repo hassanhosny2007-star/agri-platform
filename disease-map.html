@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خريطة انتشار الأمراض — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:20px; }
+  .wrap{ max-width:1000px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:12.5px; margin-bottom:18px; }
+
+  #map{ width:100%; height:360px; border-radius:16px; border:1px solid var(--line); margin-bottom:18px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:12px; color:var(--leaf-deep); }
+  .chart-wrap{ height:230px; }
+  select{ width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:#fff; font-family:inherit; font-size:13.5px; margin-bottom:12px; }
+
+  .region-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bg); font-size:13px; }
+  .region-row:last-child{ border-bottom:none; }
+  .trend-badge{ font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .trend-up{ background:#FDECEA; color:#C62828; }
+  .trend-down{ background:#E8F5E9; color:#2E7D32; }
+  .trend-flat{ background:#eee; color:#666; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🗺️ خريطة انتشار الأمراض</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">بناءً على سجل التشخيصات الفعلي لكل المستخدمين، بمواقعهم الحقيقية وقت التصوير</p>
+
+  <div id="map"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>📊 نسب انتشار الأمراض بين بعضها</h3>
+      <div class="chart-wrap"><canvas id="disease-pie"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>📈 معدل الزيادة/النقص لمرض معيّن</h3>
+      <select id="disease-select"></select>
+      <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📍 توزيع الإصابات حسب المنطقة</h3>
+    <div id="region-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const PIE_COLORS = ['#3B82F6','#EF4444','#22C55E','#F97316','#A855F7','#14B8A6','#EAB308','#EC4899','#6366F1','#8a7f63'];
+
+  function isHealthy(diseaseName){
+    return !diseaseName || diseaseName.includes('سليم') || diseaseName.includes('لا توجد');
+  }
+
+  async function loadData(){
+    const { data: diagnoses, error } = await db.from('diagnoses').select('disease_name, plant_name, location_text, latitude, longitude, created_at').order('created_at', { ascending: false });
+    if(error || !diagnoses){ return; }
+
+    // 1) الخريطة - نقاط حقيقية للتشخيصات اللي فيها إحداثيات
+    const map = L.map('map').setView([26.8, 30.8], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+    const withCoords = diagnoses.filter(d => d.latitude && d.longitude && !isHealthy(d.disease_name));
+    withCoords.forEach(d => {
+      L.circleMarker([d.latitude, d.longitude], { radius: 6, color: '#C62828', fillColor: '#EF4444', fillOpacity: .7 })
+        .addTo(map)
+        .bindPopup(`<b>${d.disease_name}</b><br>${d.plant_name || ''}<br>${d.location_text || ''}<br>${new Date(d.created_at).toLocaleDateString('ar-EG')}`);
+    });
+
+    // 2) نسب انتشار الأمراض (استبعاد الحالات السليمة)
+    const diseased = diagnoses.filter(d => !isHealthy(d.disease_name));
+    const diseaseCounts = {};
+    diseased.forEach(d => { diseaseCounts[d.disease_name] = (diseaseCounts[d.disease_name] || 0) + 1; });
+    const sortedDiseases = Object.entries(diseaseCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+    new Chart(document.getElementById('disease-pie'), {
+      type: 'doughnut',
+      data: {
+        labels: sortedDiseases.map(d => d[0]),
+        datasets: [{ data: sortedDiseases.map(d => d[1]), backgroundColor: PIE_COLORS }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } } }
+    });
+
+    // 3) قائمة اختيار المرض لمخطط الاتجاه
+    const diseaseSelect = document.getElementById('disease-select');
+    diseaseSelect.innerHTML = sortedDiseases.map(d => `<option value="${d[0]}">${d[0]}</option>`).join('');
+
+    function renderTrend(diseaseName){
+      const records = diseased.filter(d => d.disease_name === diseaseName);
+      // تجميع حسب الشهر
+      const monthly = {};
+      records.forEach(d => {
+        const m = new Date(d.created_at).toLocaleDateString('ar-EG', { year:'numeric', month:'short' });
+        monthly[m] = (monthly[m] || 0) + 1;
+      });
+      const labels = Object.keys(monthly).reverse();
+      const values = Object.values(monthly).reverse();
+
+      if(window.trendChartInstance) window.trendChartInstance.destroy();
+      window.trendChartInstance = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: values, borderColor:'#C62828', backgroundColor:'rgba(198,40,40,.1)', fill:true, tension:.3 }] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+      });
+    }
+
+    if(sortedDiseases.length) renderTrend(sortedDiseases[0][0]);
+    diseaseSelect.addEventListener('change', () => renderTrend(diseaseSelect.value));
+
+    // 4) توزيع حسب المنطقة (النص الخام اللي اتسجل وقت التشخيص)
+    const regionCounts = {};
+    diseased.forEach(d => {
+      const region = d.location_text || 'غير محدد';
+      regionCounts[region] = (regionCounts[region] || 0) + 1;
+    });
+    const sortedRegions = Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+
+    document.getElementById('region-list').innerHTML = sortedRegions.length
+      ? sortedRegions.map(([region, count]) => `<div class="region-row"><span>📍 ${region}</span><span><b>${count}</b> حالة</span></div>`).join('')
+      : '<div class="empty">مفيش بيانات مواقع كافية لسه</div>';
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    loadData();
+  })();
+</script>
+</body>
+</html>
