@@ -1,29 +1,263 @@
--- ============================================
--- 029_product_images.sql
--- شغّله كامل في Supabase SQL Editor
--- ============================================
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منتجاتي — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:700px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
 
--- 1) عمود لتخزين مصفوفة روابط الصور (بدل رابط واحد بس)
-alter table public.products add column if not exists image_urls text[];
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .toggle-btn{ padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; margin-bottom:12px; }
+  form{ display:none; flex-direction:column; gap:10px; }
+  form.active{ display:flex; }
+  .field label{ font-size:12.5px; color:#8a7f63; display:block; margin-bottom:5px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  input, select, textarea{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); font-family:inherit; font-size:14px; background:#fff; }
+  button.save-btn{ padding:11px 22px; border:none; border-radius:9px; background:var(--leaf-deep); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer; margin-top:4px; }
 
--- 2) مخزن (bucket) خاص بصور المنتجات
-insert into storage.buckets (id, name, public)
-values ('product-images', 'product-images', true)
-on conflict (id) do nothing;
+  .prod-row{ display:flex; justify-content:space-between; align-items:center; background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:8px; }
+  .prod-row .p-name{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .prod-row .p-meta{ font-size:12px; color:#8a7f63; margin-top:2px; }
+  .del-btn{ font-size:12px; padding:6px 12px; border-radius:7px; border:1px solid #e3b8b8; background:#fbe9e9; color:#a83232; cursor:pointer; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; }
+  .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+  .img-preview-item{ width:60px; height:60px; border-radius:8px; overflow:hidden; position:relative; }
+  .img-preview-item img{ width:100%; height:100%; object-fit:cover; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📦 منتجاتي في السوق</h1>
+    <a class="back" href="dashboard.html">الرئيسية</a>
+  </header>
 
-drop policy if exists "Sellers can upload product images" on storage.objects;
-create policy "Sellers can upload product images"
-  on storage.objects for insert
-  with check (bucket_id = 'product-images' and auth.role() = 'authenticated');
+  <div id="access-gate">
+    <div class="card">
+      <button class="toggle-btn" id="toggle-form-btn">+ إضافة منتج جديد</button>
+      <form id="product-form">
+        <div class="field"><label>اسم المنتج</label><input type="text" id="f-name" required></div>
+        <div class="row2">
+          <div class="field"><label>التصنيف</label>
+            <select id="f-category">
+              <option value="fertilizer">أسمدة</option>
+              <option value="seeds">بذور</option>
+              <option value="pesticides">مبيدات</option>
+            </select>
+          </div>
+          <div class="field"><label>الوحدة</label><input type="text" id="f-unit" placeholder="كيلو، شكارة، لتر..." required></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>السعر (ج.م)</label><input type="number" id="f-price" step="0.01" required></div>
+          <div class="field"><label>الكمية المتاحة</label><input type="number" id="f-stock" required></div>
+        </div>
+        <div class="field"><label>صور المنتج (لازم صورة واحدة على الأقل) *</label>
+          <input type="file" id="f-images" accept="image/*" multiple required>
+          <div id="image-preview" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;"></div>
+        </div>
+        <div class="field"><label>وصف المنتج</label><textarea id="f-desc" rows="2"></textarea></div>
+        <div class="field"><label>طريقة الدفع</label>
+          <select id="f-payment">
+            <option value="full_cod">دفع كامل عند الاستلام</option>
+            <option value="deposit_cod">دفعة مقدمة أونلاين + الباقي عند الاستلام</option>
+            <option value="full_online">دفع كامل أونلاين</option>
+          </select>
+        </div>
+        <div class="field" id="deposit-field"><label>نسبة الدفعة المقدمة %</label><input type="number" id="f-deposit" value="20"></div>
+        <button class="save-btn" id="save-product-btn" type="submit">حفظ المنتج</button>
+      </form>
+    </div>
 
-drop policy if exists "Anyone can view product images" on storage.objects;
-create policy "Anyone can view product images"
-  on storage.objects for select
-  using (bucket_id = 'product-images');
+    <div id="products-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
 
-drop policy if exists "Sellers can delete own product images" on storage.objects;
-create policy "Sellers can delete own product images"
-  on storage.objects for delete
-  using (bucket_id = 'product-images' and auth.role() = 'authenticated');
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
-notify pgrst, 'reload schema';
+  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات' };
+  const PAY_LABELS = { full_online:'دفع أونلاين كامل', deposit_cod:'دفعة مقدمة + استلام', full_cod:'دفع عند الاستلام' };
+  let currentUserId = null;
+  let sellPerms = {};
+
+  function getAllowedSellCategories(role){
+    const defaultSeller = ['trader', 'company', 'admin'].includes(role);
+    return ['fertilizer', 'seeds', 'pesticides'].filter(cat => {
+      const key = 'can_sell_' + cat;
+      return sellPerms[key] !== undefined ? sellPerms[key] === true : defaultSeller;
+    });
+  }
+
+  function applySellPermissions(role){
+    const catSelect = document.getElementById('f-category');
+    if(role === 'admin'){
+      catSelect.innerHTML = ['fertilizer','seeds','pesticides'].map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
+      return;
+    }
+
+    const allowedCats = getAllowedSellCategories(role);
+
+    if(allowedCats.length === 0){
+      document.getElementById('toggle-form-btn').style.display = 'none';
+      document.getElementById('access-gate').insertAdjacentHTML('afterbegin',
+        '<div class="denied">🚫 مفيش صلاحية بيع في أي فئة حاليًا</div>');
+      return;
+    }
+
+    catSelect.innerHTML = allowedCats.map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
+  }
+
+  document.getElementById('f-images').addEventListener('change', (e) => {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = '';
+    Array.from(e.target.files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        preview.insertAdjacentHTML('beforeend', `<div class="img-preview-item"><img src="${ev.target.result}"></div>`);
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  document.getElementById('toggle-form-btn').addEventListener('click', () => {
+    document.getElementById('product-form').classList.toggle('active');
+  });
+  document.getElementById('f-payment').addEventListener('change', (e) => {
+    document.getElementById('deposit-field').style.display = e.target.value === 'deposit_cod' ? 'block' : 'none';
+  });
+  document.getElementById('deposit-field').style.display = 'none';
+
+  async function loadProducts(){
+    const { data: products } = await db.from('products').select('*').eq('seller_id', currentUserId).order('created_at', { ascending: false });
+    const list = document.getElementById('products-list');
+    if(!products || !products.length){ list.innerHTML = '<div class="empty">لسه معملتش أي منتج</div>'; return; }
+    list.innerHTML = products.map(p => `
+      <div class="prod-row">
+        <div>
+          <div class="p-name">${p.name} ${!p.is_active ? '(مخفي)' : ''}</div>
+          <div class="p-meta">${CAT_LABELS[p.category]} · ${p.price} ج.م/${p.unit} · متاح: ${p.stock_quantity} · ${PAY_LABELS[p.payment_type]}</div>
+        </div>
+        <button class="del-btn" data-id="${p.id}">حذف</button>
+      </div>`).join('');
+
+    list.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('متأكد من حذف المنتج؟')) return;
+        await db.from('products').delete().eq('id', btn.getAttribute('data-id'));
+        loadProducts();
+      });
+    });
+  }
+
+  document.getElementById('product-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('save-product-btn');
+    const files = document.getElementById('f-images').files;
+
+    if(!files || files.length === 0){
+      alert('لازم ترفع صورة واحدة على الأقل للمنتج');
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري رفع الصور...';
+
+    // رفع كل الصور المختارة لمخزن product-images
+    const imageUrls = [];
+    for(let i = 0; i < files.length; i++){
+      const file = files[i];
+      const ext = file.name.split('.').pop();
+      const path = `${currentUserId}/${Date.now()}-${i}.${ext}`;
+      const { error: uploadError } = await db.storage.from('product-images').upload(path, file);
+      if(uploadError){
+        alert('حصل خطأ في رفع صورة: ' + uploadError.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'حفظ المنتج';
+        return;
+      }
+      const { data: urlData } = db.storage.from('product-images').getPublicUrl(path);
+      imageUrls.push(urlData.publicUrl);
+    }
+
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    const payload = {
+      seller_id: currentUserId,
+      name: document.getElementById('f-name').value.trim(),
+      category: document.getElementById('f-category').value,
+      unit: document.getElementById('f-unit').value.trim(),
+      price: parseFloat(document.getElementById('f-price').value),
+      stock_quantity: parseFloat(document.getElementById('f-stock').value),
+      image_url: imageUrls[0],
+      image_urls: imageUrls,
+      description: document.getElementById('f-desc').value.trim() || null,
+      payment_type: document.getElementById('f-payment').value,
+      deposit_percent: parseFloat(document.getElementById('f-deposit').value) || 20,
+    };
+    const { error } = await db.from('products').insert(payload);
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ المنتج';
+
+    if(error){ alert('خطأ: ' + error.message); return; }
+    e.target.reset();
+    document.getElementById('image-preview').innerHTML = '';
+    e.target.classList.remove('active');
+    loadProducts();
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const { data: profile } = await db.from('profiles').select('role, permissions').eq('id', session.user.id).single();
+    sellPerms = (profile && profile.permissions) || {};
+
+    const allowedCats = profile ? getAllowedSellCategories(profile.role) : [];
+
+    if(!profile || allowedCats.length === 0){
+      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 مفيش صلاحية بيع في أي فئة حاليًا، تواصل مع الأدمن</div>';
+      return;
+    }
+
+    currentUserId = session.user.id;
+    applySellPermissions(profile.role);
+    loadProducts();
+  })();
+</script>
+</body>
+</html>
