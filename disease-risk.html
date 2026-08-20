@@ -66,6 +66,21 @@
   .risk-card .r-desc{ font-size:12.5px; color:#5b543f; margin-top:6px; line-height:1.7; }
   .risk-card .r-rec{ font-size:12.5px; margin-top:8px; background:rgba(255,255,255,.5); padding:8px 10px; border-radius:8px; }
   .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:14px; }
+
+  .forecast-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-top:16px; }
+  .forecast-card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; color:var(--leaf-deep); margin-bottom:6px; }
+  .score-disclaimer{ font-size:11px; color:var(--rust); margin-bottom:14px; line-height:1.6; }
+  .score-ring{ display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+  .score-num{ font-family:'Tajawal'; font-weight:900; font-size:32px; }
+  .score-num.high{ color:var(--down); }
+  .score-num.medium{ color:var(--mid); }
+  .score-num.low{ color:var(--up); }
+  .score-label{ font-size:13px; color:#5b543f; }
+  .day-strip{ display:flex; gap:6px; margin-top:10px; }
+  .day-box{ flex:1; text-align:center; padding:8px 4px; border-radius:8px; font-size:10.5px; }
+  .day-box.hit{ background:var(--down-bg); color:var(--down); font-weight:700; }
+  .day-box.safe{ background:var(--up-bg); color:var(--up); }
+  .cascade-msg{ font-size:12px; margin-top:12px; padding:10px 12px; border-radius:9px; background:var(--bg); color:#5b543f; line-height:1.7; }
 </style>
 </head>
 <body>
@@ -155,7 +170,7 @@
 
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
       `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation` +
-      `&hourly=relative_humidity_2m,precipitation&past_days=1&forecast_days=1`;
+      `&hourly=relative_humidity_2m,precipitation,temperature_2m&past_days=1&forecast_days=6`;
     const res = await fetch(url);
     const data = await res.json();
 
@@ -164,13 +179,41 @@
     const windSpeed = data.current.wind_speed_10m;
     const currentPrecip = data.current.precipitation;
 
-    // حساب عدد الساعات اللي كانت فيها الرطوبة 85%+ في آخر 24 ساعة
-    const humidityArr = data.hourly.relative_humidity_2m.slice(-24);
-    const precipArr = data.hourly.precipitation.slice(-24);
-    const wetHours = humidityArr.filter(h => h >= 85).length;
-    const totalPrecip24h = precipArr.reduce((a,b) => a + (b || 0), 0);
+    // آخر 24 ساعة (للحالة الحالية)
+    const past24Humidity = data.hourly.relative_humidity_2m.slice(0, 24);
+    const past24Precip = data.hourly.precipitation.slice(0, 24);
+    const wetHours = past24Humidity.filter(h => h >= 85).length;
+    const totalPrecip24h = past24Precip.reduce((a,b) => a + (b || 0), 0);
 
-    return { currentTemp, currentHumidity, windSpeed, currentPrecip, wetHours, totalPrecip24h };
+    // الأيام الخمسة الجاية (كل يوم = 24 ساعة بعد أول 24 ساعة اللي هي الماضي)
+    const forecastDays = [];
+    for(let d = 0; d < 5; d++){
+      const startIdx = 24 + (d * 24);
+      const dayHumidity = data.hourly.relative_humidity_2m.slice(startIdx, startIdx + 24);
+      const dayTemp = data.hourly.temperature_2m.slice(startIdx, startIdx + 24);
+      if(!dayHumidity.length) continue;
+      forecastDays.push({
+        avgTemp: dayTemp.reduce((a,b)=>a+b,0) / dayTemp.length,
+        maxTemp: Math.max(...dayTemp),
+        minTemp: Math.min(...dayTemp),
+        wetHours: dayHumidity.filter(h => h >= 85).length,
+        avgHumidity: dayHumidity.reduce((a,b)=>a+b,0) / dayHumidity.length,
+      });
+    }
+
+    return { currentTemp, currentHumidity, windSpeed, currentPrecip, wetHours, totalPrecip24h, forecastDays };
+  }
+
+  // مؤشر تقديري (مش احتمالية حقيقية مبنية على تعلّم آلي) لعدد الأيام الجاية اللي شروط المرض متحققة فيها
+  function computeForwardScore(rule, forecastDays){
+    const hits = forecastDays.map(day => {
+      const tempOk = day.avgTemp >= rule.min_temp && day.avgTemp <= rule.max_temp;
+      const humidityOk = day.avgHumidity >= rule.min_humidity;
+      const durationOk = day.wetHours >= rule.min_wet_hours;
+      return tempOk && humidityOk && durationOk;
+    });
+    const score = Math.round((hits.filter(Boolean).length / (forecastDays.length || 1)) * 100);
+    return { score, hits };
   }
 
   function evaluateRisk(rules, env, plantAge, leafWet){
@@ -243,6 +286,34 @@
           ${r.level !== 'low' ? `<div class="r-rec">💡 <b>التوصية:</b> ${r.recommendation || ''}</div>` : ''}
         </div>
       `).join('');
+
+      // قسم التوقع المستقبلي (للمرض الأعلى خطورة بس، لو فيه توقعات جوية كافية)
+      const topRule = evaluated[0];
+      if(topRule && env.forecastDays && env.forecastDays.length){
+        const { score, hits } = computeForwardScore(topRule, env.forecastDays);
+        const scoreLevel = score >= 60 ? 'high' : (score >= 30 ? 'medium' : 'low');
+        const dayLabels = ['غدًا', 'بعد غد', 'يوم 3', 'يوم 4', 'يوم 5'];
+
+        results.innerHTML += `
+          <div class="forecast-card">
+            <h3>📅 مؤشر تقديري لخطر "${topRule.disease_name_ar}" خلال الأيام الجاية</h3>
+            <div class="score-disclaimer">⚠️ ده مؤشر تقديري مبني على قواعد بيئية معروفة (مش تنبؤ ذكاء اصطناعي مُدرَّب على بيانات تاريخية فعلية) — استرشادي بس</div>
+            <div class="score-ring">
+              <div class="score-num ${scoreLevel}">${score}%</div>
+              <div class="score-label">من الأيام الخمسة الجاية متوقع تكون الظروف مناسبة لظهور المرض ده</div>
+            </div>
+            <div class="day-strip">
+              ${hits.map((hit, i) => `<div class="day-box ${hit ? 'hit' : 'safe'}">${dayLabels[i] || 'يوم ' + (i+1)}<br>${hit ? '⚠️' : '✅'}</div>`).join('')}
+            </div>
+            <div id="cascade-status"></div>
+          </div>
+        `;
+
+        // لو المؤشر عالي، شغّل الإشعار التلقائي المتتابع لباقي الأطراف
+        if(scoreLevel === 'high'){
+          triggerCascadeNotification(crop, topRule, score);
+        }
+      }
     }catch(err){
       console.error(err);
       results.innerHTML = '<div class="empty">تعذر جلب بيانات الطقس، تأكد من إذن الموقع وحاول تاني</div>';
@@ -251,6 +322,66 @@
     btn.disabled = false;
     btn.textContent = '🔍 حلّل المخاطر دلوقتي';
   });
+
+  // الإشعار التلقائي المتتابع: المزارع (تنبيه فوري)، الأدمن (ملخص)، والتجار/الشركات في نفس المحافظة (فرصة سوقية)
+  async function triggerCascadeNotification(crop, rule, score){
+    const statusEl = document.getElementById('cascade-status');
+    try{
+      const { data: farm } = await db.from('farms').select('location_text, farm_name').eq('id', crop.farm_id).single();
+      const governorate = farm?.location_text ? farm.location_text.split(' - ')[0].trim() : null;
+
+      let notifiedGroups = [];
+
+      // 1) إشعار للمزارع نفسه (صاحب المزرعة)
+      const { data: { session } } = await db.auth.getSession();
+      await db.from('notifications').insert({
+        user_id: session.user.id,
+        title: `⚠️ خطر مرتفع: ${rule.disease_name_ar}`,
+        body: `مؤشر ${score}% لظهور المرض في "${farm?.farm_name || 'مزرعتك'}" خلال 5 أيام. افحص المحصول دلوقتي.`,
+        url: 'disease-risk.html',
+      });
+      notifiedGroups.push('نفسك');
+
+      // 2) إشعار ملخص للأدمن
+      const { data: admins } = await db.from('profiles').select('id').eq('role', 'admin');
+      if(admins && admins.length){
+        await db.from('notifications').insert(admins.map(a => ({
+          user_id: a.id,
+          title: `📊 توقع طلب مرتفع: ${rule.disease_name_ar}`,
+          body: `مؤشر ${score}% في ${governorate || 'منطقة غير محددة'} — احتمال زيادة الطلب على المبيدات المناسبة`,
+          url: 'admin-diagnoses.html',
+        })));
+        notifiedGroups.push('الأدمن');
+      }
+
+      // 3) إشعار فرصة سوقية للتجار/الشركات في نفس المحافظة (اللي معاهم صلاحية بيع مبيدات)
+      if(governorate){
+        const { data: sellers } = await db.from('profiles')
+          .select('id, address, permissions, role')
+          .in('role', ['trader', 'company'])
+          .ilike('address', governorate + '%');
+
+        const relevantSellers = (sellers || []).filter(s => {
+          const perms = s.permissions || {};
+          return perms['can_sell_pesticides'] !== false;
+        });
+
+        if(relevantSellers.length){
+          await db.from('notifications').insert(relevantSellers.map(s => ({
+            user_id: s.id,
+            title: `🏪 فرصة سوقية في ${governorate}`,
+            body: `مؤشر مرتفع (${score}%) لظهور "${rule.disease_name_ar}" في منطقتك — احتمال زيادة الطلب على المبيدات المناسبة قريبًا`,
+            url: 'my-products.html',
+          })));
+          notifiedGroups.push(`${relevantSellers.length} تاجر/شركة في ${governorate}`);
+        }
+      }
+
+      statusEl.innerHTML = `<div class="cascade-msg">🔔 تم إرسال إشعارات تلقائية لـ: ${notifiedGroups.join('، ')}</div>`;
+    }catch(err){
+      console.error('فشل الإشعار المتتابع:', err);
+    }
+  }
 
   (async () => {
     const { data: { session } } = await db.auth.getSession();
