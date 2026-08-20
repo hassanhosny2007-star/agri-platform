@@ -171,6 +171,25 @@
         <label>المساحة (بالفدان)</label>
         <input type="number" id="farm-area" step="0.1">
       </div>
+      <div>
+        <label>نوع التربة</label>
+        <select id="farm-soil">
+          <option value="">غير محدد</option>
+          <option value="طينية">طينية</option>
+          <option value="رملية">رملية</option>
+          <option value="طميية">طميية</option>
+          <option value="ملحية">ملحية</option>
+        </select>
+      </div>
+      <div>
+        <label>نظام الري</label>
+        <select id="farm-irrigation">
+          <option value="">غير محدد</option>
+          <option value="تنقيط">تنقيط</option>
+          <option value="رش">رش</option>
+          <option value="غمر">غمر</option>
+        </select>
+      </div>
       <button class="save" type="submit">حفظ المزرعة</button>
     </form>
     <div id="farms-list"><div class="empty-hint">جاري التحميل...</div></div>
@@ -355,7 +374,9 @@
     const location_text = [governorate, center, village].filter(Boolean).join(' - ') || null;
 
     const area_size = document.getElementById('farm-area').value || null;
-    const { error } = await db.from('farms').insert({ owner_id: currentUser.id, farm_name, location_text, area_size });
+    const soil_type = document.getElementById('farm-soil').value || null;
+    const irrigation_type = document.getElementById('farm-irrigation').value || null;
+    const { error } = await db.from('farms').insert({ owner_id: currentUser.id, farm_name, location_text, area_size, soil_type, irrigation_type });
     if(error){ alert('خطأ: ' + error.message); return; }
     e.target.reset();
     e.target.classList.remove('active');
