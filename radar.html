@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroNex Radar — الرادار الزراعي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --mid:#C9A227; --down:#C62828;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --mid:#E0B84D; --down:#EF5350;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:960px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:16px; }
+
+  .layers-panel{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:16px; }
+  .layers-title{ font-family:'Tajawal'; font-weight:700; font-size:13.5px; margin-bottom:10px; color:var(--leaf-deep); }
+  .layer-chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .layer-chip{ padding:8px 14px; border-radius:20px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-size:12.5px; font-weight:700; user-select:none; }
+  .layer-chip.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+  .layer-chip.disabled{ opacity:.45; cursor:not-allowed; text-decoration:line-through; }
+
+  .unavailable-note{ font-size:11px; color:var(--rust); margin-top:10px; line-height:1.7; }
+
+  #map{ height:440px; border-radius:16px; border:1px solid var(--line); margin-bottom:16px; }
+
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; font-size:12px; }
+  .legend-item{ display:flex; align-items:center; gap:6px; }
+  .legend-dot{ width:12px; height:12px; border-radius:50%; }
+  .empty{ text-align:center; color:#5b543f; padding:20px 0; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📡 AgroNex Radar</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">رادار زراعي حي — دوس على أي طبقة عشان تظهرها أو تخفيها فوق الخريطة</p>
+
+  <div class="layers-panel">
+    <div class="layers-title">الطبقات المتاحة</div>
+    <div class="layer-chips">
+      <div class="layer-chip active" data-layer="diseases">🦠 مراكز خطر الأمراض</div>
+      <div class="layer-chip active" data-layer="crops">🌾 توزيع المحاصيل</div>
+      <div class="layer-chip" data-layer="engineers">👨‍🔬 المهندسين</div>
+      <div class="layer-chip" data-layer="traders">🏪 التجار</div>
+      <div class="layer-chip" data-layer="companies">🏢 الشركات</div>
+      <div class="layer-chip" data-layer="supply">📦 المعروض في السوق</div>
+      <div class="layer-chip disabled" title="محتاجة نموذج تنبؤ إنتاجية حقيقي غير متاح حاليًا">📈 الإنتاج المتوقع</div>
+      <div class="layer-chip disabled" title="عندنا مؤشر عالمي واحد بس، مش سعر محلي لكل محافظة">💰 أسعار إقليمية</div>
+      <div class="layer-chip disabled" title="تغطية مستمرة لكل مصر غير عملية لحظيًا — شوفها لموقعك من سجل الطقس">💧 الرطوبة/الحرارة</div>
+    </div>
+    <div class="unavailable-note">⚠️ الطبقات المشطوبة مش متاحة حاليًا لأسباب واقعية (بيانات مش موجودة أو غير عملية لحظيًا) — مش هنعرضلك أرقام وهمية.</div>
+  </div>
+
+  <div id="map"></div>
+  <div class="legend" id="legend"></div>
+  <div id="side-info"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  // إحداثيات تقريبية لعاصمة كل محافظة (نقطة مركزية تمثيلية، مش حدود دقيقة)
+  const GOV_COORDS = {
+    'القاهرة':[30.0444,31.2357], 'الجيزة':[30.0131,31.2089], 'الإسكندرية':[31.2001,29.9187],
+    'الدقهلية':[31.0409,31.3785], 'الغربية':[30.7865,31.0004], 'القليوبية':[30.4667,31.2000],
+    'الشرقية':[30.5877,31.5020], 'المنوفية':[30.5972,30.9876], 'البحيرة':[31.0409,30.4696],
+    'كفر الشيخ':[31.1107,30.9388], 'دمياط':[31.4165,31.8133], 'بورسعيد':[31.2653,32.3019],
+    'الإسماعيلية':[30.6043,32.2723], 'السويس':[29.9668,32.5498], 'شمال سيناء':[31.1315,33.7998],
+    'جنوب سيناء':[28.2400,33.6144], 'بني سويف':[29.0661,31.0994], 'الفيوم':[29.3084,30.8441],
+    'المنيا':[28.0871,30.7618], 'أسيوط':[27.1809,31.1837], 'سوهاج':[26.5569,31.6948],
+    'قنا':[26.1551,32.7160], 'الأقصر':[25.6872,32.6396], 'أسوان':[24.0889,32.8998],
+    'البحر الأحمر':[27.2579,33.8116], 'الوادي الجديد':[25.4514,30.5467], 'مطروح':[31.3543,27.2373],
+  };
+
+  const RISK_COLORS = { high: '#C62828', medium: '#C9A227', low: '#2E7D32' };
+  let map, layerGroups = {};
+
+  function extractGovernorate(text){
+    if(!text) return null;
+    return text.split(' - ')[0].trim();
+  }
+
+  // === طبقة 1: مراكز خطر الأمراض (تجميع التشخيصات القريبة من بعض في آخر 30 يوم) ===
+  function distanceKm(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180, dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function loadDiseaseLayer(){
+    const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+    const { data: cases } = await db.from('diagnoses_map_view').select('*')
+      .not('disease_name', 'ilike', '%سليم%').gte('created_at', thirtyDaysAgo);
+
+    const group = L.layerGroup();
+    if(!cases || !cases.length){ layerGroups.diseases = group; return; }
+
+    // تجميع بسيط: نفس المرض + قرب جغرافي (أقل من 10 كم) = مركز واحد
+    const clusters = [];
+    cases.forEach(c => {
+      let matched = clusters.find(cl => cl.disease === c.disease_name &&
+        distanceKm(cl.lat, cl.lng, c.latitude, c.longitude) <= 10);
+      if(matched){
+        matched.points.push(c);
+        matched.lat = matched.points.reduce((s,p)=>s+p.latitude,0) / matched.points.length;
+        matched.lng = matched.points.reduce((s,p)=>s+p.longitude,0) / matched.points.length;
+      } else {
+        clusters.push({ disease: c.disease_name, lat: c.latitude, lng: c.longitude, points: [c] });
+      }
+    });
+
+    clusters.forEach(cl => {
+      const count = cl.points.length;
+      const level = count >= 6 ? 'high' : (count >= 3 ? 'medium' : 'low');
+      const radiusKm = Math.max(...cl.points.map(p => distanceKm(cl.lat, cl.lng, p.latitude, p.longitude)), 1);
+
+      L.circle([cl.lat, cl.lng], {
+        radius: radiusKm * 1000, color: RISK_COLORS[level], fillColor: RISK_COLORS[level], fillOpacity: 0.25, weight: 2,
+      }).bindPopup(`
+        <b>${level === 'high' ? '🔴' : level === 'medium' ? '🟡' : '🟢'} مركز خطر: ${cl.disease}</b><br>
+        عدد الحالات المسجّلة: ${count}<br>
+        نطاق التجمّع: ${radiusKm.toFixed(1)} كم<br>
+        <small>آخر 30 يوم — بيانات مجهّلة الهوية لحماية الخصوصية</small>
+      `).addTo(group);
+    });
+
+    layerGroups.diseases = group;
+  }
+
+  // === طبقة 2: توزيع المحاصيل حسب المحافظة ===
+  async function loadCropsLayer(){
+    const { data: farms } = await db.from('farms').select('id, location_text');
+    const { data: crops } = await db.from('crops').select('crop_type, farm_id');
+    const group = L.layerGroup();
+
+    if(!crops || !crops.length){ layerGroups.crops = group; return; }
+    const farmGov = {};
+    (farms||[]).forEach(f => { farmGov[f.id] = extractGovernorate(f.location_text); });
+
+    const govCounts = {};
+    crops.forEach(c => {
+      const gov = farmGov[c.farm_id];
+      if(!gov) return;
+      govCounts[gov] = govCounts[gov] || {};
+      govCounts[gov][c.crop_type] = (govCounts[gov][c.crop_type] || 0) + 1;
+    });
+
+    Object.entries(govCounts).forEach(([gov, cropMix]) => {
+      if(!GOV_COORDS[gov]) return;
+      const total = Object.values(cropMix).reduce((a,b)=>a+b,0);
+      const top = Object.entries(cropMix).sort((a,b)=>b[1]-a[1])[0];
+      L.marker(GOV_COORDS[gov], {
+        icon: L.divIcon({ className: '', html: `<div style="background:#2E7D32;color:#fff;border-radius:50%;width:${18+Math.min(total*2,26)}px;height:${18+Math.min(total*2,26)}px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid #fff;">${total}</div>` })
+      }).bindPopup(`<b>🌾 ${gov}</b><br>إجمالي المحاصيل المسجّلة: ${total}<br>الأكتر زراعة: ${top[0]} (${top[1]})`).addTo(group);
+    });
+
+    layerGroups.crops = group;
+  }
+
+  // === طبقة 3-5: المهندسين/التجار/الشركات (عدد فقط لكل محافظة، احترامًا للخصوصية) ===
+  async function loadRoleLayer(role, iconEmoji, color, key){
+    const { data: users } = await db.from('profiles').select('address').eq('role', role);
+    const group = L.layerGroup();
+    if(!users || !users.length){ layerGroups[key] = group; return; }
+
+    const govCounts = {};
+    users.forEach(u => {
+      const gov = extractGovernorate(u.address);
+      if(gov) govCounts[gov] = (govCounts[gov] || 0) + 1;
+    });
+
+    Object.entries(govCounts).forEach(([gov, count]) => {
+      if(!GOV_COORDS[gov]) return;
+      L.marker(GOV_COORDS[gov], {
+        icon: L.divIcon({ className: '', html: `<div style="background:${color};color:#fff;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;border:2px solid #fff;white-space:nowrap;">${iconEmoji} ${count}</div>` })
+      }).bindPopup(`<b>${iconEmoji} ${gov}</b><br>عدد الحسابات: ${count}<br><small>عدد إجمالي فقط، بدون بيانات شخصية</small>`).addTo(group);
+    });
+
+    layerGroups[key] = group;
+  }
+
+  // === طبقة 6: المعروض في السوق ===
+  async function loadSupplyLayer(){
+    const { data: products } = await db.from('products').select('category, stock_quantity, seller:seller_id(address)').eq('is_active', true);
+    const group = L.layerGroup();
+    if(!products || !products.length){ layerGroups.supply = group; return; }
+
+    const govStock = {};
+    products.forEach(p => {
+      const gov = extractGovernorate(p.seller?.address);
+      if(!gov) return;
+      govStock[gov] = (govStock[gov] || 0) + Number(p.stock_quantity || 0);
+    });
+
+    Object.entries(govStock).forEach(([gov, stock]) => {
+      if(!GOV_COORDS[gov]) return;
+      L.marker(GOV_COORDS[gov], {
+        icon: L.divIcon({ className: '', html: `<div style="background:#2563EB;color:#fff;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;border:2px solid #fff;">📦 ${Math.round(stock)}</div>` })
+      }).bindPopup(`<b>📦 ${gov}</b><br>إجمالي الكمية المتاحة في السوق: ${Math.round(stock)} وحدة`).addTo(group);
+    });
+
+    layerGroups.supply = group;
+  }
+
+  function toggleLayer(key, show){
+    if(!layerGroups[key]) return;
+    if(show) layerGroups[key].addTo(map);
+    else map.removeLayer(layerGroups[key]);
+  }
+
+  document.querySelectorAll('.layer-chip:not(.disabled)').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('active');
+      toggleLayer(chip.getAttribute('data-layer'), chip.classList.contains('active'));
+    });
+  });
+
+  async function init(){
+    map = L.map('map').setView([26.8, 30.8], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
+
+    await Promise.all([
+      loadDiseaseLayer(),
+      loadCropsLayer(),
+      loadRoleLayer('engineer', '👨‍🔬', '#7E22CE', 'engineers'),
+      loadRoleLayer('trader', '🏪', '#C2410C', 'traders'),
+      loadRoleLayer('company', '🏢', '#0F766E', 'companies'),
+      loadSupplyLayer(),
+    ]);
+
+    // فعّل الطبقات المفعّلة افتراضيًا (الأمراض + المحاصيل)
+    document.querySelectorAll('.layer-chip.active').forEach(chip => {
+      toggleLayer(chip.getAttribute('data-layer'), true);
+    });
+
+    document.getElementById('legend').innerHTML = `
+      <div class="legend-item"><span class="legend-dot" style="background:${RISK_COLORS.low}"></span>خطر منخفض (1-2 حالة)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:${RISK_COLORS.medium}"></span>خطر متوسط (3-5 حالات)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:${RISK_COLORS.high}"></span>خطر مرتفع (6+ حالات)</div>
+    `;
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    init();
+  })();
+</script>
+</body>
+</html>
