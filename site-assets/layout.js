@@ -20,7 +20,7 @@ const AgroNexLayout = (() => {
     en: {
       nav: {
         dashboard: 'Home', diagnose: 'Plant Disease Diagnosis', knowledge: 'Knowledge Base',
-        'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'crop-prices': 'Crop Prices', 'disease-risk': 'Disease Risk Analysis', 'weather-history': 'Weather History', marketplace: 'Online Marketplace', 'my-products': 'My Products', 'my-profile': 'My Profile',
+        'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'crop-prices': 'Crop Prices', 'disease-risk': 'Disease Risk Analysis', 'weather-history': 'Weather History', 'disease-map': 'Disease Map', 'crops-map': 'Crops Map', marketplace: 'Online Marketplace', 'my-products': 'My Products', 'my-profile': 'My Profile',
         'admin-section': 'Platform Management', 'admin-dashboard': 'Admin Dashboard', 'admin-profile': 'Admin Profile',
         'admin-diagnoses': 'Diagnoses Log', 'knowledge-manage': 'Manage Knowledge Base', 'mix-manage': 'Manage Mixing Table',
       },
@@ -38,7 +38,9 @@ const AgroNexLayout = (() => {
     { key: 'crop-prices', href: 'crop-prices.html', icon: '📈', roles: 'all', permKey: 'can_view_crop_prices' },
     { key: 'disease-risk', href: 'disease-risk.html', icon: '🔬', roles: 'all', permKey: 'can_use_disease_risk' },
     { key: 'weather-history', href: 'weather-history.html', icon: '📊', roles: 'all', permKey: 'can_view_weather_history' },
-    { key: 'marketplace', href: 'marketplace.html', icon: '🛒', roles: 'all', permKey: 'can_use_marketplace' },
+    { key: 'disease-map', href: 'disease-map.html', icon: '🗺️', roles: 'all', permKey: 'can_view_disease_map' },
+    { key: 'crops-map', href: 'crops-map.html', icon: '🌾', roles: 'all', permKey: 'can_view_crops_map' },
+    { key: 'marketplace', href: 'marketplace.html', icon: '🛒', roles: 'all' },
     { key: 'my-products', href: 'my-products.html', icon: '📦', roles: 'all' },
     { key: 'my-profile', href: 'engineer-profile.html', icon: '👤', roles: 'all' },
 
