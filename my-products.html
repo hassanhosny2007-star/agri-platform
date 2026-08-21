@@ -61,6 +61,12 @@
     background:rgba(198,40,40,.9); color:#fff; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;
   }
   .no-images-warn{ font-size:11.5px; color:var(--rust); margin-bottom:8px; }
+  .order-card{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:8px; }
+  .order-card .o-top{ display:flex; justify-content:space-between; align-items:center; }
+  .order-card .o-item{ font-family:'Tajawal'; font-weight:700; font-size:13.5px; }
+  .order-card .o-status{ font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; background:var(--bg); }
+  .order-card .o-buyer{ font-size:12px; color:#5b543f; margin-top:6px; line-height:1.7; }
+  .order-card .o-source-link{ display:inline-block; margin-top:8px; font-size:12px; color:var(--rust); text-decoration:none; border:1px solid var(--rust); padding:5px 12px; border-radius:7px; }
 </style>
 </head>
 <body>
@@ -82,6 +88,7 @@
               <option value="fertilizer">أسمدة</option>
               <option value="seeds">بذور</option>
               <option value="pesticides">مبيدات</option>
+              <option value="equipment">مستلزمات زراعية</option>
             </select>
           </div>
           <div class="field"><label>الوحدة</label><input type="text" id="f-unit" placeholder="كيلو، شكارة، لتر..." required></div>
@@ -95,6 +102,14 @@
           <div id="image-preview" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;"></div>
         </div>
         <div class="field"><label>وصف المنتج</label><textarea id="f-desc" rows="2"></textarea></div>
+        <div class="field">
+          <label>🔒 لينك المصدر الخارجي (نون/أمازون/جوميا) — لك وحدك، مش هيظهر للمشتري</label>
+          <input type="text" id="f-source-url" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>🔒 سعر التكلفة (ج.م) — اختياري، لحساب هامش ربحك، مش هيظهر للمشتري خالص</label>
+          <input type="number" id="f-source-cost" step="0.01" placeholder="السعر اللي هتشتري بيه من المصدر">
+        </div>
         <div class="field"><label>طريقة الدفع</label>
           <select id="f-payment">
             <option value="full_cod">دفع كامل عند الاستلام</option>
@@ -108,6 +123,9 @@
     </div>
 
     <div id="products-list"><div class="empty">جاري التحميل...</div></div>
+
+    <h3 style="font-family:'Tajawal'; font-weight:700; font-size:15px; color:var(--leaf-deep); margin:24px 0 10px;">📬 الطلبات الواردة على منتجاتك</h3>
+    <div id="incoming-orders"><div class="empty">جاري التحميل...</div></div>
   </div>
 </div>
 
@@ -137,14 +155,14 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
-  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات' };
+  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات', equipment:'مستلزمات زراعية' };
   const PAY_LABELS = { full_online:'دفع أونلاين كامل', deposit_cod:'دفعة مقدمة + استلام', full_cod:'دفع عند الاستلام' };
   let currentUserId = null;
   let sellPerms = {};
 
   function getAllowedSellCategories(role){
     const defaultSeller = ['trader', 'company', 'admin'].includes(role);
-    return ['fertilizer', 'seeds', 'pesticides'].filter(cat => {
+    return ['fertilizer', 'seeds', 'pesticides', 'equipment'].filter(cat => {
       const key = 'can_sell_' + cat;
       return sellPerms[key] !== undefined ? sellPerms[key] === true : defaultSeller;
     });
@@ -153,7 +171,7 @@
   function applySellPermissions(role){
     const catSelect = document.getElementById('f-category');
     if(role === 'admin'){
-      catSelect.innerHTML = ['fertilizer','seeds','pesticides'].map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
+      catSelect.innerHTML = ['fertilizer','seeds','pesticides','equipment'].map(cat => `<option value="${cat}">${CAT_LABELS[cat]}</option>`).join('');
       return;
     }
 
@@ -192,6 +210,36 @@
     pendingNewFiles = Array.from(e.target.files);
     renderNewImagePreview();
   });
+
+  async function loadIncomingOrders(){
+    const { data: items, error } = await db.from('order_items')
+      .select('*, order:order_id(status, delivery_name, delivery_phone, delivery_governorate, delivery_center, delivery_village, created_at), product:product_id(external_source_url)')
+      .eq('seller_id', currentUserId)
+      .order('order_id', { ascending: false });
+
+    const list = document.getElementById('incoming-orders');
+    if(error || !items || !items.length){ list.innerHTML = '<div class="empty">مفيش طلبات وصلتك لسه</div>'; return; }
+
+    const STATUS_LABELS = {
+      pending_payment:'بانتظار الدفع', deposit_paid:'اتدفعت الدفعة المقدمة', fully_paid:'اتدفع بالكامل',
+      processing:'جاري التجهيز', shipped:'في الطريق', delivered:'تم التسليم', cancelled:'ملغي',
+    };
+
+    list.innerHTML = items.map(it => `
+      <div class="order-card">
+        <div class="o-top">
+          <span class="o-item">${it.product_name} × ${it.quantity}</span>
+          <span class="o-status">${STATUS_LABELS[it.order?.status] || it.order?.status || '—'}</span>
+        </div>
+        <div class="o-buyer">
+          👤 ${it.order?.delivery_name || '—'} · 📞 ${it.order?.delivery_phone || '—'}<br>
+          📍 ${[it.order?.delivery_governorate, it.order?.delivery_center, it.order?.delivery_village].filter(Boolean).join(' - ') || '—'}<br>
+          💰 ${it.subtotal} ج.م
+        </div>
+        ${it.product?.external_source_url ? `<a class="o-source-link" href="${it.product.external_source_url}" target="_blank">🔗 اشتري من المصدر عشان تجهّز الطلب</a>` : ''}
+      </div>
+    `).join('');
+  }
 
   document.getElementById('toggle-form-btn').addEventListener('click', () => {
     document.getElementById('product-form').classList.toggle('active');
@@ -259,6 +307,10 @@
         <div class="field"><label>الكمية المتاحة</label><input type="number" id="edit-stock" value="${p.stock_quantity}"></div>
       </div>
       <div class="field"><label>وصف المنتج</label><textarea id="edit-desc" rows="2">${p.description || ''}</textarea></div>
+      <div class="field">
+        <label>🔒 لينك المصدر الخارجي (لك وحدك)</label>
+        <input type="text" id="edit-source-url" value="${p.external_source_url || ''}" placeholder="https://...">
+      </div>
       <div class="field"><label>حالة المنتج</label>
         <select id="edit-active">
           <option value="true" ${p.is_active ? 'selected' : ''}>ظاهر في السوق</option>
@@ -322,6 +374,7 @@
       price: parseFloat(document.getElementById('edit-price').value),
       stock_quantity: parseFloat(document.getElementById('edit-stock').value),
       description: document.getElementById('edit-desc').value.trim() || null,
+      external_source_url: document.getElementById('edit-source-url').value.trim() || null,
       is_active: document.getElementById('edit-active').value === 'true',
       image_urls: finalImages,
       image_url: finalImages[0],
@@ -351,17 +404,21 @@
     const { data: products } = await db.from('products').select('*').eq('seller_id', currentUserId).order('created_at', { ascending: false });
     const list = document.getElementById('products-list');
     if(!products || !products.length){ list.innerHTML = '<div class="empty">لسه معملتش أي منتج</div>'; return; }
-    list.innerHTML = products.map(p => `
+    list.innerHTML = products.map(p => {
+      const margin = (p.source_cost !== null && p.source_cost !== undefined) ? (p.price - p.source_cost) : null;
+      return `
       <div class="prod-row">
         <div>
           <div class="p-name">${p.name} ${!p.is_active ? '(مخفي)' : ''}</div>
           <div class="p-meta">${CAT_LABELS[p.category]} · ${p.price} ج.م/${p.unit} · متاح: ${p.stock_quantity} · ${PAY_LABELS[p.payment_type]}</div>
+          ${p.external_source_url ? `<div class="p-meta">🔒 <a href="${p.external_source_url}" target="_blank">لينك المصدر</a>${margin !== null ? ` · هامش الربح: ${margin.toFixed(2)} ج.م` : ''}</div>` : ''}
         </div>
         <div style="display:flex; gap:6px;">
           <button class="edit-btn" data-id="${p.id}">تعديل</button>
           <button class="del-btn" data-id="${p.id}">حذف</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     list.querySelectorAll('.edit-btn').forEach(btn => {
       btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
@@ -417,6 +474,8 @@
       image_url: imageUrls[0],
       image_urls: imageUrls,
       description: document.getElementById('f-desc').value.trim() || null,
+      external_source_url: document.getElementById('f-source-url').value.trim() || null,
+      source_cost: document.getElementById('f-source-cost').value ? parseFloat(document.getElementById('f-source-cost').value) : null,
       payment_type: document.getElementById('f-payment').value,
       deposit_percent: parseFloat(document.getElementById('f-deposit').value) || 20,
     };
@@ -449,6 +508,7 @@
     currentUserId = session.user.id;
     applySellPermissions(profile.role);
     loadProducts();
+    loadIncomingOrders();
   })();
 </script>
 </body>
