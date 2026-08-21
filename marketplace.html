@@ -98,6 +98,7 @@
     <div class="cat-tab" data-cat="fertilizer" id="tab-fertilizer">🌾 أسمدة</div>
     <div class="cat-tab" data-cat="seeds" id="tab-seeds">🌱 بذور</div>
     <div class="cat-tab" data-cat="pesticides" id="tab-pesticides">🧪 مبيدات</div>
+    <div class="cat-tab" data-cat="equipment" id="tab-equipment">🛠️ مستلزمات</div>
   </div>
 
   <div class="prod-grid" id="prod-grid"><div class="empty">جاري التحميل...</div></div>
@@ -134,7 +135,7 @@
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
   const PAYMENT_LABELS = { full_online: '💳 دفع أونلاين كامل', deposit_cod: '💳 دفعة مقدمة + استلام', full_cod: '💵 دفع عند الاستلام' };
-  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات' };
+  const CAT_LABELS = { fertilizer:'أسمدة', seeds:'بذور', pesticides:'مبيدات', equipment:'مستلزمات زراعية' };
 
   let allProducts = [];
   let currentCat = '';
@@ -143,7 +144,7 @@
 
   function applyBuyPermissions(isAdmin){
     if(isAdmin) return; // الأدمن يشوف كل حاجة
-    ['fertilizer', 'seeds', 'pesticides'].forEach(cat => {
+    ['fertilizer', 'seeds', 'pesticides', 'equipment'].forEach(cat => {
       if(buyPerms['can_buy_' + cat] === false){
         const tab = document.getElementById('tab-' + cat);
         if(tab) tab.remove();
@@ -152,7 +153,9 @@
   }
 
   async function loadProducts(){
-    const { data, error } = await db.from('products').select('*, seller:seller_id(full_name)').eq('is_active', true).order('created_at', { ascending: false });
+    const { data, error } = await db.from('products')
+      .select('id, seller_id, category, name, description, price, unit, stock_quantity, image_url, image_urls, payment_type, deposit_percent, is_active, created_at, seller:seller_id(full_name)')
+      .eq('is_active', true).order('created_at', { ascending: false });
     if(error){ document.getElementById('prod-grid').innerHTML = '<div class="empty">تعذر تحميل المنتجات</div>'; return; }
     // استبعاد المنتجات في الفئات اللي المستخدم مالوش صلاحية شراء فيها
     allProducts = (data || []).filter(p => buyPerms['can_buy_' + p.category] !== false);
