@@ -126,7 +126,11 @@
     </div>
   </div>
 
-  <div class="section" id="edit-profile-section">
+  <div class="section" id="edit-profile-toggle-wrap">
+    <button class="toggle-form-btn" id="toggle-edit-profile-btn">✏️ تعديل البيانات الشخصية</button>
+  </div>
+
+  <div class="section" id="edit-profile-section" style="display:none;">
     <h2>✏️ تعديل البيانات الشخصية</h2>
     <div class="edit-field">
       <label>الاسم بالكامل</label>
@@ -233,6 +237,13 @@
   let currentUser = null;
   let currentProfile = null;
   let activeFarmId = null;
+
+  document.getElementById('toggle-edit-profile-btn').addEventListener('click', () => {
+    const section = document.getElementById('edit-profile-section');
+    const isOpen = section.style.display !== 'none';
+    section.style.display = isOpen ? 'none' : 'block';
+    document.getElementById('toggle-edit-profile-btn').textContent = isOpen ? '✏️ تعديل البيانات الشخصية' : '✕ إغلاق التعديل';
+  });
 
   async function init(){
     // بناء قائمة المحافظات والمراكز لفورم إضافة المزرعة
