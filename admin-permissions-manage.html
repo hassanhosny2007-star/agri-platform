@@ -1,6 +1,3 @@
-تمام، فاهم بالظبط — عايزها **مفتاح تبديل (Switch)** زي الصورة، مش زرار بنص. خليني أظبطها بنفس الشكل اللي في باقي صفحات المنصة:الآن هعدّل الجافاسكريبت عشان يبني نفس المفتاح ده بدل الزرار النصي:دلوقتي هعدّل الأحداث والدالة اللي بتبدّل الحالة عشان تتماشى مع الكلاس الجديد:خليني أتأكد من سلامة الملف كامل قبل ما أبعتهولك:الكود سليم ومترابط 100%. **حطه فين:** استبدل بيه `admin-permissions-manage.html` الموجود عندك على GitHub بالكامل.
-
-```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -108,13 +105,14 @@
 
   let allUsers = [];
 
+  // بيحسب الحالة الفعلية للصلاحية عند مستخدم معيّن (بياخد في الاعتبار الإعدادات الافتراضية حسب نوع الحساب)
   function getEffectiveStatus(user, key){
     const perms = user.permissions || {};
     if(perms[key] !== undefined) return perms[key] === true;
     if(key.startsWith('can_sell_')){
-      return ['trader', 'company'].includes(user.role);
+      return ['trader', 'company'].includes(user.role); // افتراضي: التجار والشركات بس يقدروا يبيعوا
     }
-    return true;
+    return true; // باقي الصلاحيات مفتوحة افتراضيًا لحد ما الأدمن يقفلها صراحة
   }
 
   function buildPermCard(perm){
@@ -155,6 +153,7 @@
 
     if(error){ alert('حصل خطأ: ' + error.message); return; }
 
+    // حدّث النسخة المحلية عشان لو المستخدم بدّل التبويب النتيجة تفضل صحيحة
     const u = allUsers.find(u => u.id === userId);
     if(u){ u.permissions = { ...(u.permissions || {}), [key]: newValue }; }
 
@@ -223,7 +222,7 @@
         if(!isOpen){
           body.classList.add('open');
           header.classList.add('open');
-          renderUsersList(key, 'all');
+          renderUsersList(key, 'all'); // أول ما يتفتح، يعرض كل المستخدمين افتراضيًا
         }
       });
     });
@@ -272,4 +271,3 @@
 </script>
 </body>
 </html>
-```
