@@ -1,3 +1,6 @@
+تمام، فاهم بالظبط — عايزها **مفتاح تبديل (Switch)** زي الصورة، مش زرار بنص. خليني أظبطها بنفس الشكل اللي في باقي صفحات المنصة:الآن هعدّل الجافاسكريبت عشان يبني نفس المفتاح ده بدل الزرار النصي:دلوقتي هعدّل الأحداث والدالة اللي بتبدّل الحالة عشان تتماشى مع الكلاس الجديد:خليني أتأكد من سلامة الملف كامل قبل ما أبعتهولك:الكود سليم ومترابط 100%. **حطه فين:** استبدل بيه `admin-permissions-manage.html` الموجود عندك على GitHub بالكامل.
+
+```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -55,13 +58,17 @@
   .cat-group-title:first-child{ margin-top:0; }
   .user-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 4px; border-bottom:1px solid var(--bg); font-size:13px; }
   .user-row:last-child{ border-bottom:none; }
-  .u-toggle{
-    border:none; border-radius:20px; padding:6px 16px; font-family:'Tajawal'; font-weight:800; font-size:11.5px;
-    cursor:pointer; color:#fff; min-width:70px; transition:background .15s;
+  .u-switch{
+    position:relative; width:46px; height:26px; border-radius:20px; border:none; cursor:pointer;
+    background:#cfc7ab; flex-shrink:0; transition:background .2s;
   }
-  .u-toggle.on{ background:var(--on-color); }
-  .u-toggle.off{ background:var(--off-color); }
-  .u-toggle:disabled{ opacity:.6; cursor:not-allowed; }
+  .u-switch.on{ background:var(--on-color); }
+  .u-switch .dot{
+    position:absolute; top:2px; right:2px; width:22px; height:22px; background:#fff; border-radius:50%;
+    transition:right .2s; box-shadow:0 1px 3px rgba(0,0,0,.25);
+  }
+  .u-switch.on .dot{ right:22px; }
+  .u-switch:disabled{ opacity:.6; cursor:not-allowed; }
 
   .empty{ text-align:center; color:#5b543f; padding:20px 0; font-size:13px; }
   .denied{ max-width:700px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
@@ -152,8 +159,6 @@
     if(u){ u.permissions = { ...(u.permissions || {}), [key]: newValue }; }
 
     btn.classList.toggle('on', newValue);
-    btn.classList.toggle('off', !newValue);
-    btn.textContent = newValue ? '🟢 شغال' : '⚪ مقفول';
   }
 
   function buildUserRow(user, key){
@@ -161,12 +166,12 @@
     return `
       <div class="user-row">
         <span>${user.full_name || user.email}</span>
-        <button class="u-toggle ${isOn ? 'on' : 'off'}" data-user="${user.id}" data-key="${key}">${isOn ? '🟢 شغال' : '⚪ مقفول'}</button>
+        <button class="u-switch ${isOn ? 'on' : ''}" data-user="${user.id}" data-key="${key}"><span class="dot"></span></button>
       </div>`;
   }
 
   function attachToggleEvents(container){
-    container.querySelectorAll('.u-toggle').forEach(btn => {
+    container.querySelectorAll('.u-switch').forEach(btn => {
       btn.addEventListener('click', () => {
         const userId = btn.getAttribute('data-user');
         const key = btn.getAttribute('data-key');
@@ -267,3 +272,4 @@
 </script>
 </body>
 </html>
+```
