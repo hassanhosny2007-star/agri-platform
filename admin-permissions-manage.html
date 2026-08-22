@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions-registry.js"></script>
 <style>
   :root{
     --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
@@ -90,28 +91,7 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
-  const PERMISSIONS_CONFIG = [
-    { key: 'can_add_farms', label: 'إضافة مزارع جديدة' },
-    { key: 'can_manage_crops', label: 'إدارة المحاصيل والسجلات' },
-    { key: 'can_use_ai_diagnosis', label: 'استخدام تشخيص الذكاء الاصطناعي' },
-    { key: 'can_export_reports', label: 'تصدير التقارير' },
-    { key: 'can_view_knowledge_base', label: 'الدخول لبنك المعرفة' },
-    { key: 'can_use_mix_checker', label: 'استخدام خلط المبيدات والأسمدة' },
-    { key: 'can_view_substances', label: 'الدخول لدليل المواد الفعالة' },
-    { key: 'can_view_crop_prices', label: 'مشاهدة أسعار المحاصيل' },
-    { key: 'can_use_disease_risk', label: 'استخدام تحليل مخاطر الأمراض' },
-    { key: 'can_view_weather_history', label: 'الدخول لسجل الطقس' },
-    { key: 'can_view_disease_map', label: 'الدخول لخريطة الأمراض' },
-    { key: 'can_view_crops_map', label: 'الدخول لخريطة المحاصيل' },
-    { key: 'can_buy_fertilizer', label: 'شراء الأسمدة من السوق' },
-    { key: 'can_sell_fertilizer', label: 'بيع الأسمدة في السوق' },
-    { key: 'can_buy_seeds', label: 'شراء البذور من السوق' },
-    { key: 'can_sell_seeds', label: 'بيع البذور في السوق' },
-    { key: 'can_buy_pesticides', label: 'شراء المبيدات من السوق' },
-    { key: 'can_sell_pesticides', label: 'بيع المبيدات في السوق' },
-    { key: 'can_buy_equipment', label: 'شراء المستلزمات الزراعية من السوق' },
-    { key: 'can_sell_equipment', label: 'بيع المستلزمات الزراعية في السوق' },
-  ];
+  const PERMISSIONS_CONFIG = AGRONEX_PERMISSIONS_REGISTRY;
   const ROLE_LABELS = { farmer:'المزارعين', engineer:'المهندسين الزراعيين', trader:'التجار', company:'الشركات' };
 
   let allUsers = [];

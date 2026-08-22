@@ -280,6 +280,8 @@
   (async () => {
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
+    const _hasPerm = await AgroNexPermissions.check(db, session.user.id, 'can_view_radar');
+    if(!_hasPerm){ AgroNexPermissions.redirectSilently(); return; }
     init();
   })();
 </script>
