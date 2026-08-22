@@ -184,13 +184,72 @@ const AgroNexLayout = (() => {
         return;
       }
 
-      panel.innerHTML = notifs.map(n => `
-        <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" data-url="${n.url || 'dashboard.html'}" data-title="${n.title.replace(/"/g,'&quot;')}" data-body="${(n.body||'').replace(/"/g,'&quot;')}" data-time="${n.created_at}">
-          <div class="n-title">${n.title}</div>
-          <div class="n-body">${n.body || ''}</div>
-          <div class="n-time">${timeAgo(n.created_at)}</div>
+      panel.innerHTML = `
+        <div class="notif-panel-header">
+          <span>الإشعارات</span>
+          <div class="notif-header-actions">
+            <button id="notif-mark-all-btn">✓ تحديد الكل كمقروء</button>
+            <button id="notif-delete-all-btn">🗑️ حذف الكل</button>
+          </div>
         </div>
-      `).join('');
+        <div id="notif-items-list">
+          ${notifs.map(n => `
+            <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" data-url="${n.url || 'dashboard.html'}" data-title="${n.title.replace(/"/g,'&quot;')}" data-body="${(n.body||'').replace(/"/g,'&quot;')}" data-time="${n.created_at}">
+              <div class="n-top-row">
+                <div class="n-title">${n.title}</div>
+                <div class="n-actions">
+                  <span class="n-read-badge ${n.is_read ? 'read' : 'unread'}">${n.is_read ? 'مقروءة' : 'جديدة'}</span>
+                  <button class="n-delete-btn" data-id="${n.id}" title="حذف">🗑️</button>
+                </div>
+              </div>
+              <div class="n-body">${n.body || ''}</div>
+              <div class="n-time">${timeAgo(n.created_at)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      document.getElementById('notif-mark-all-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const unreadIds = notifs.filter(n => !n.is_read).map(n => n.id);
+        if(!unreadIds.length) return;
+        await db.from('notifications').update({ is_read: true }).in('id', unreadIds);
+        panel.querySelectorAll('.notif-item.unread').forEach(item => {
+          item.classList.remove('unread');
+          item.querySelector('.n-read-badge').textContent = 'مقروءة';
+          item.querySelector('.n-read-badge').classList.remove('unread');
+          item.querySelector('.n-read-badge').classList.add('read');
+        });
+        loadNotifBadge();
+      });
+
+      document.getElementById('notif-delete-all-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if(!confirm('متأكد إنك عايز تمسح كل الإشعارات؟')) return;
+        const allIds = notifs.map(n => n.id);
+        await db.from('notifications').delete().in('id', allIds);
+        panel.innerHTML = `
+          <div class="notif-panel-header"><span>الإشعارات</span></div>
+          <div class="notif-empty">مفيش إشعارات لسه</div>
+        `;
+        loadNotifBadge();
+      });
+
+      panel.querySelectorAll('.n-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          await db.from('notifications').delete().eq('id', id);
+          btn.closest('.notif-item').remove();
+          loadNotifBadge();
+          if(!document.getElementById('notif-items-list')?.children.length){
+            panel.innerHTML = `
+              <div class="notif-panel-header"><span>الإشعارات</span></div>
+              <div class="notif-empty">مفيش إشعارات لسه</div>
+            `;
+          }
+        });
+      });
 
       panel.querySelectorAll('.notif-item').forEach(item => {
         item.addEventListener('click', async () => {
@@ -203,6 +262,8 @@ const AgroNexLayout = (() => {
           });
           await db.from('notifications').update({ is_read: true }).eq('id', id);
           item.classList.remove('unread');
+          const badge = item.querySelector('.n-read-badge');
+          if(badge){ badge.textContent = 'مقروءة'; badge.classList.remove('unread'); badge.classList.add('read'); }
           loadNotifBadge();
         });
       });
