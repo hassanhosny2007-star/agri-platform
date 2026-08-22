@@ -146,6 +146,12 @@ const AgroNexLayout = (() => {
           <main id="page-content">${existingContent}</main>
         </div>
       </div>
+      <div class="notif-detail-overlay" id="notif-detail-overlay">
+        <div class="notif-detail-box">
+          <button class="notif-detail-close" id="notif-detail-close">✕</button>
+          <div id="notif-detail-body"></div>
+        </div>
+      </div>
     `;
 
     const sidebarEl = document.getElementById('app-sidebar');
@@ -179,7 +185,7 @@ const AgroNexLayout = (() => {
       }
 
       panel.innerHTML = notifs.map(n => `
-        <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" data-url="${n.url || 'dashboard.html'}">
+        <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" data-url="${n.url || 'dashboard.html'}" data-title="${n.title.replace(/"/g,'&quot;')}" data-body="${(n.body||'').replace(/"/g,'&quot;')}" data-time="${n.created_at}">
           <div class="n-title">${n.title}</div>
           <div class="n-body">${n.body || ''}</div>
           <div class="n-time">${timeAgo(n.created_at)}</div>
@@ -189,18 +195,37 @@ const AgroNexLayout = (() => {
       panel.querySelectorAll('.notif-item').forEach(item => {
         item.addEventListener('click', async () => {
           const id = item.getAttribute('data-id');
-          const url = item.getAttribute('data-url');
+          openNotifDetail({
+            title: item.getAttribute('data-title'),
+            body: item.getAttribute('data-body'),
+            url: item.getAttribute('data-url'),
+            time: item.getAttribute('data-time'),
+          });
           await db.from('notifications').update({ is_read: true }).eq('id', id);
-          window.location.href = url;
+          item.classList.remove('unread');
+          loadNotifBadge();
         });
       });
 
-      const unreadIds = notifs.filter(n => !n.is_read).map(n => n.id);
-      if(unreadIds.length){
-        await db.from('notifications').update({ is_read: true }).in('id', unreadIds);
-        loadNotifBadge();
-      }
     }
+
+    function openNotifDetail(n){
+      document.getElementById('notif-detail-body').innerHTML = `
+        <div class="nd-title">${n.title}</div>
+        <div class="nd-body">${n.body || 'مفيش تفاصيل إضافية'}</div>
+        <div class="nd-time">🕒 ${timeAgo(n.time)}</div>
+        <a class="nd-open-btn" href="${n.url}">فتح الصفحة المرتبطة</a>
+      `;
+      document.getElementById('notif-detail-overlay').classList.add('open');
+      document.getElementById('notif-panel').classList.remove('open');
+    }
+
+    document.getElementById('notif-detail-close').addEventListener('click', () => {
+      document.getElementById('notif-detail-overlay').classList.remove('open');
+    });
+    document.getElementById('notif-detail-overlay').addEventListener('click', (e) => {
+      if(e.target.id === 'notif-detail-overlay') document.getElementById('notif-detail-overlay').classList.remove('open');
+    });
 
     function attachTopbarEvents(){
       const themeBtn = document.getElementById('theme-toggle-btn');
