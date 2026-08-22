@@ -1,0 +1,39 @@
+-- ============================================
+-- 034_demand_forecast.sql
+-- شغّله كامل في Supabase SQL Editor
+-- ============================================
+
+create table if not exists public.crop_growth_stages (
+  id uuid primary key default gen_random_uuid(),
+  crop_type text not null,
+  stage_name text not null,       -- مثال: "التزهير"، "الإثمار"، "الحصاد"
+  days_from_planting integer not null,
+  created_at timestamptz default now()
+);
+
+alter table public.crop_growth_stages enable row level security;
+
+drop policy if exists "Everyone authenticated can read growth stages" on public.crop_growth_stages;
+create policy "Everyone authenticated can read growth stages"
+  on public.crop_growth_stages for select
+  using (auth.role() = 'authenticated');
+
+drop policy if exists "Only admin manages growth stages" on public.crop_growth_stages;
+create policy "Only admin manages growth stages"
+  on public.crop_growth_stages for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- بيانات تقريبية استرشادية (متوسطات عامة، مش خاصة بصنف أو منطقة بعينها)
+insert into public.crop_growth_stages (crop_type, stage_name, days_from_planting) values
+('طماطم', 'التزهير', 42), ('طماطم', 'الإثمار', 60), ('طماطم', 'الحصاد', 85),
+('ذرة', 'التزهير', 60), ('ذرة', 'الحصاد', 100),
+('قمح', 'طرد السنابل', 95), ('قمح', 'الحصاد', 145),
+('قطن', 'التزهير', 55), ('قطن', 'الحصاد', 150),
+('بطاطس', 'التزهير', 40), ('بطاطس', 'الحصاد', 90),
+('خيار', 'التزهير', 32), ('خيار', 'الحصاد', 50),
+('فول الصويا', 'التزهير', 35), ('فول الصويا', 'الحصاد', 100),
+('أرز', 'طرد السنابل', 65), ('أرز', 'الحصاد', 120)
+on conflict do nothing;
+
+notify pgrst, 'reload schema';
