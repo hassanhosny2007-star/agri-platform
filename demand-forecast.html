@@ -1,39 +1,224 @@
--- ============================================
--- 034_demand_forecast.sql
--- شغّله كامل في Supabase SQL Editor
--- ============================================
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroNex Demand Forecast — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --down:#C62828;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --down:#EF5350;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:800px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:10px; }
+  .disclaimer{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:12px 16px; font-size:11.5px; color:#6b5a24; margin-bottom:20px; line-height:1.7; }
 
-create table if not exists public.crop_growth_stages (
-  id uuid primary key default gen_random_uuid(),
-  crop_type text not null,
-  stage_name text not null,       -- مثال: "التزهير"، "الإثمار"، "الحصاد"
-  days_from_planting integer not null,
-  created_at timestamptz default now()
-);
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
 
-alter table public.crop_growth_stages enable row level security;
+  .trend-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--bg); font-size:13.5px; }
+  .trend-row:last-child{ border-bottom:none; }
+  .trend-badge{ font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px; }
+  .trend-up{ background:rgba(46,125,50,.12); color:var(--up); }
+  .trend-down{ background:rgba(198,40,40,.12); color:var(--down); }
+  .trend-flat{ background:rgba(0,0,0,.06); color:#777; }
 
-drop policy if exists "Everyone authenticated can read growth stages" on public.crop_growth_stages;
-create policy "Everyone authenticated can read growth stages"
-  on public.crop_growth_stages for select
-  using (auth.role() = 'authenticated');
+  .stage-row{ padding:12px 0; border-bottom:1px solid var(--bg); font-size:13.5px; }
+  .stage-row:last-child{ border-bottom:none; }
+  .stage-row .s-title{ font-weight:700; }
+  .stage-row .s-meta{ font-size:11.5px; color:#8a7f63; margin-top:3px; }
 
-drop policy if exists "Only admin manages growth stages" on public.crop_growth_stages;
-create policy "Only admin manages growth stages"
-  on public.crop_growth_stages for all
-  using (public.is_admin())
-  with check (public.is_admin());
+  .trader-section{ display:none; }
+  .trader-section.active{ display:block; }
+  .rec-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--bg); font-size:13.5px; }
+  .rec-row:last-child{ border-bottom:none; }
+  .rec-badge{ font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; background:var(--bg); }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📊 AgroNex Demand Forecast</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">توقعات مبنية على بيانات حقيقية مسجّلة على المنصة — مش تعلّم آلي حقيقي، لكن مؤشرات منطقية ومفيدة</p>
+  <div class="disclaimer">
+    ⚠️ النسب هنا محسوبة من عدد المزارعين اللي سجّلوا محاصيل فعليًا على المنصة، ومراحل النمو تقديرية بمعايير زراعية عامة (مش خاصة بصنفك أو منطقتك بالتحديد). كل ما المستخدمين يزيدوا، الدقة تزيد.
+  </div>
 
--- بيانات تقريبية استرشادية (متوسطات عامة، مش خاصة بصنف أو منطقة بعينها)
-insert into public.crop_growth_stages (crop_type, stage_name, days_from_planting) values
-('طماطم', 'التزهير', 42), ('طماطم', 'الإثمار', 60), ('طماطم', 'الحصاد', 85),
-('ذرة', 'التزهير', 60), ('ذرة', 'الحصاد', 100),
-('قمح', 'طرد السنابل', 95), ('قمح', 'الحصاد', 145),
-('قطن', 'التزهير', 55), ('قطن', 'الحصاد', 150),
-('بطاطس', 'التزهير', 40), ('بطاطس', 'الحصاد', 90),
-('خيار', 'التزهير', 32), ('خيار', 'الحصاد', 50),
-('فول الصويا', 'التزهير', 35), ('فول الصويا', 'الحصاد', 100),
-('أرز', 'طرد السنابل', 65), ('أرز', 'الحصاد', 120)
-on conflict do nothing;
+  <div class="card">
+    <h3>📈 اتجاهات الزراعة (آخر 14 يوم مقابل الـ14 يوم اللي قبلها)</h3>
+    <div id="planting-trends"><div class="empty">جاري التحميل...</div></div>
+  </div>
 
-notify pgrst, 'reload schema';
+  <div class="card">
+    <h3>🌱 مراحل نمو قادمة خلال 7-10 أيام</h3>
+    <div id="stage-alerts"><div class="empty">جاري التحميل...</div></div>
+  </div>
+
+  <div class="card trader-section" id="trader-card">
+    <h3>🏪 ماذا أبيع في منطقتي؟ (مبني على بيانات محافظتك)</h3>
+    <div id="trader-recs"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  function extractGovernorate(text){
+    if(!text) return null;
+    return text.split(' - ')[0].trim();
+  }
+
+  // === 1) اتجاهات الزراعة ===
+  async function loadPlantingTrends(){
+    const { data: crops } = await db.from('crops').select('crop_type, planting_date').not('planting_date', 'is', null);
+    const container = document.getElementById('planting-trends');
+    if(!crops || !crops.length){ container.innerHTML = '<div class="empty">مفيش بيانات كافية</div>'; return; }
+
+    const now = Date.now();
+    const day14 = 14 * 24 * 60 * 60 * 1000;
+    const recent = {}, previous = {};
+
+    crops.forEach(c => {
+      const age = now - new Date(c.planting_date).getTime();
+      if(age >= 0 && age <= day14) recent[c.crop_type] = (recent[c.crop_type] || 0) + 1;
+      else if(age > day14 && age <= day14 * 2) previous[c.crop_type] = (previous[c.crop_type] || 0) + 1;
+    });
+
+    const names = [...new Set([...Object.keys(recent), ...Object.keys(previous)])]
+      .sort((a,b) => (recent[b]||0) - (recent[a]||0)).slice(0, 8);
+
+    if(!names.length){ container.innerHTML = '<div class="empty">مفيش بيانات كافية في آخر 28 يوم</div>'; return; }
+
+    container.innerHTML = names.map(name => {
+      const r = recent[name] || 0, p = previous[name] || 0;
+      let badge, cls;
+      if(p === 0 && r === 0){ badge = '—'; cls = 'trend-flat'; }
+      else if(p === 0){ badge = '▲ جديد'; cls = 'trend-up'; }
+      else {
+        const change = Math.round(((r - p) / p) * 100);
+        if(change > 5){ badge = `▲ ${change}%`; cls = 'trend-up'; }
+        else if(change < -5){ badge = `▼ ${Math.abs(change)}%`; cls = 'trend-down'; }
+        else { badge = 'مستقر'; cls = 'trend-flat'; }
+      }
+      return `<div class="trend-row"><span>${name}</span><span class="trend-badge ${cls}">${badge} (${r} زراعة حديثة)</span></div>`;
+    }).join('');
+  }
+
+  // === 2) مراحل نمو قادمة ===
+  let stageAlertsData = [];
+  async function loadStageAlerts(){
+    const { data: stages } = await db.from('crop_growth_stages').select('*');
+    const { data: farms } = await db.from('farms').select('id, location_text, area_size');
+    const { data: crops } = await db.from('crops').select('crop_type, farm_id, planting_date').not('planting_date', 'is', null).eq('status', 'active');
+
+    const container = document.getElementById('stage-alerts');
+    if(!stages || !crops || !crops.length){ container.innerHTML = '<div class="empty">مفيش بيانات كافية</div>'; return; }
+
+    const farmMap = {};
+    (farms||[]).forEach(f => { farmMap[f.id] = f; });
+
+    const now = Date.now();
+    const results = {}; // key: crop+stage+gov -> { area, count }
+
+    crops.forEach(c => {
+      const daysSincePlanting = Math.floor((now - new Date(c.planting_date).getTime()) / (24*60*60*1000));
+      const matchingStages = stages.filter(s => s.crop_type === c.crop_type &&
+        (s.days_from_planting - daysSincePlanting) >= 0 && (s.days_from_planting - daysSincePlanting) <= 10);
+
+      matchingStages.forEach(s => {
+        const farm = farmMap[c.farm_id];
+        const gov = farm ? extractGovernorate(farm.location_text) : null;
+        const key = `${c.crop_type}|${s.stage_name}|${gov || 'غير محدد'}`;
+        if(!results[key]) results[key] = { crop: c.crop_type, stage: s.stage_name, gov: gov || 'غير محدد', area: 0, count: 0 };
+        results[key].area += Number(farm?.area_size || 0);
+        results[key].count += 1;
+      });
+    });
+
+    stageAlertsData = Object.values(results).sort((a,b) => b.area - a.area);
+
+    if(!stageAlertsData.length){ container.innerHTML = '<div class="empty">مفيش محاصيل هتدخل مرحلة نمو رئيسية خلال 7-10 أيام حاليًا</div>'; return; }
+
+    container.innerHTML = stageAlertsData.slice(0, 10).map(r => `
+      <div class="stage-row">
+        <div class="s-title">${r.area > 0 ? Math.round(r.area) + ' فدان' : r.count + ' مزرعة'} ${r.crop} هتدخل مرحلة "${r.stage}" خلال 10 أيام</div>
+        <div class="s-meta">📍 ${r.gov} · ${r.count} مزرعة مسجّلة</div>
+      </div>
+    `).join('');
+  }
+
+  // === 3) توصيات التاجر ===
+  async function loadTraderRecommendations(userGov, buyPerms){
+    const container = document.getElementById('trader-recs');
+    if(!userGov){ container.innerHTML = '<div class="empty">محتاجين محافظتك مسجّلة في بروفايلك عشان نديك توصيات دقيقة</div>'; return; }
+
+    const govStages = stageAlertsData.filter(s => s.gov === userGov);
+
+    if(!govStages.length){ container.innerHTML = '<div class="empty">مفيش توصيات محددة لمحافظتك حاليًا</div>'; return; }
+
+    const STAGE_TO_INPUT = {
+      'التزهير': 'أسمدة بوتاسيوم وفوسفات + مبيدات فطرية وقائية',
+      'الإثمار': 'أسمدة بوتاسيوم + مبيدات حشرية',
+      'طرد السنابل': 'مبيدات فطرية للصدأ',
+      'الحصاد': 'مستلزمات حصاد وتخزين',
+    };
+
+    container.innerHTML = govStages.slice(0, 6).map(s => `
+      <div class="rec-row">
+        <span>${s.crop} (${s.stage}) — ${Math.round(s.area) || s.count} ${s.area > 0 ? 'فدان' : 'مزرعة'}</span>
+        <span class="rec-badge">💡 ${STAGE_TO_INPUT[s.stage] || 'مستلزمات عامة'}</span>
+      </div>
+    `).join('');
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+
+    await loadPlantingTrends();
+    await loadStageAlerts();
+
+    const { data: profile } = await db.from('profiles').select('role, address').eq('id', session.user.id).single();
+    if(profile && ['trader', 'company', 'admin'].includes(profile.role)){
+      document.getElementById('trader-card').classList.add('active');
+      const gov = extractGovernorate(profile.address);
+      loadTraderRecommendations(gov, profile.permissions);
+    }
+  })();
+</script>
+</body>
+</html>
