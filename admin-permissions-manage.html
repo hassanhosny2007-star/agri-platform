@@ -13,19 +13,21 @@
   :root{
     --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
     --line:#CDBF9C; --paper:#FCFAF3; --rust:#A85D28;
+    --on-color:#2E7D32; --off-color:#8a8a8a;
   }
 [data-theme="dark"]{
     --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
     --line: #2B3438; --paper: #1B2327; --rust: #D48A52;
+    --on-color:#66BB6A; --off-color:#8a9199;
 }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
-  .top{ max-width:680px; margin:0 auto 8px; }
+  .top{ max-width:700px; margin:0 auto 8px; }
   a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
-  h1{ max-width:680px; margin:8px auto 6px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
-  .subtitle{ max-width:680px; margin:0 auto 20px; color:#5b543f; font-size:13px; }
+  h1{ max-width:700px; margin:8px auto 6px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .subtitle{ max-width:700px; margin:0 auto 20px; color:#5b543f; font-size:13px; }
 
-  .list-wrap{ max-width:680px; margin:0 auto; }
+  .list-wrap{ max-width:700px; margin:0 auto; }
   .perm-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; }
   .perm-header{ padding:16px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
   .perm-header .p-name{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; }
@@ -35,39 +37,41 @@
   .perm-body{ display:none; padding:0 18px 18px; border-top:1px solid var(--bg); }
   .perm-body.open{ display:block; padding-top:16px; }
 
-  .scope-tabs{ display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
-  .s-tab{ flex:1; min-width:70px; text-align:center; padding:9px 6px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:11.5px; }
-  .s-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
-  .scope-sub{ display:none; margin-bottom:12px; }
-  .scope-sub.active{ display:block; }
-  select{
+  .view-tabs{ display:flex; gap:6px; margin-bottom:12px; }
+  .v-tab{ flex:1; text-align:center; padding:9px 6px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:12px; }
+  .v-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .view-sub{ margin-bottom:12px; }
+  select, input[type=text]{
     width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
     background:#fff; font-size:13.5px; font-family:inherit;
   }
 
-  .multi-user-list{ max-height:180px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; }
-  .multi-user-row{ display:flex; align-items:center; gap:8px; padding:6px 4px; font-size:13px; border-bottom:1px solid var(--bg); }
-  .multi-user-row:last-child{ border-bottom:none; }
-  .multi-user-row input{ width:auto; }
-  .multi-search{ margin-bottom:8px; }
+  .users-list{ max-height:340px; overflow-y:auto; }
+  .cat-group-title{
+    font-family:'Tajawal'; font-weight:800; font-size:12.5px; color:var(--leaf-deep);
+    padding:10px 4px 6px; border-bottom:1px solid var(--bg); margin-top:6px;
+  }
+  .cat-group-title:first-child{ margin-top:0; }
+  .user-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 4px; border-bottom:1px solid var(--bg); font-size:13px; }
+  .user-row:last-child{ border-bottom:none; }
+  .u-toggle{
+    border:none; border-radius:20px; padding:6px 16px; font-family:'Tajawal'; font-weight:800; font-size:11.5px;
+    cursor:pointer; color:#fff; min-width:70px; transition:background .15s;
+  }
+  .u-toggle.on{ background:var(--on-color); }
+  .u-toggle.off{ background:var(--off-color); }
+  .u-toggle:disabled{ opacity:.6; cursor:not-allowed; }
 
-  .action-row{ display:flex; gap:8px; }
-  .action-btn{ flex:1; padding:11px; border:none; border-radius:9px; cursor:pointer; font-family:'Tajawal'; font-weight:800; font-size:14px; }
-  .action-btn.enable{ background:#E8F5E9; color:#2E7D32; }
-  .action-btn.enable:hover{ background:#2E7D32; color:#fff; }
-  .action-btn.disable{ background:#FDECEA; color:#C62828; }
-  .action-btn.disable:hover{ background:#C62828; color:#fff; }
-  .action-btn:disabled{ opacity:.6; cursor:not-allowed; }
-
-  .result-msg{ font-size:12px; margin-top:10px; text-align:center; min-height:16px; }
-  .denied{ max-width:680px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+  .empty{ text-align:center; color:#5b543f; padding:20px 0; font-size:13px; }
+  .denied{ max-width:700px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
 </style>
 </head>
 <body>
 <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
   <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
   <h1>🔐 إدارة الصلاحيات</h1>
-  <p class="subtitle">دوس على أي صلاحية عشان تشغّلها ON أو تطفيها OFF — لمستخدم واحد، عدة مستخدمين، فئة كاملة، أو كل المستخدمين</p>
+  <p class="subtitle">دوس على أي صلاحية عشان تشوف كل المستخدمين وحالتهم — 🟢 شغال / ⚪ مقفول — ودوس على أي زرار تبدّل حالته فورًا</p>
 
   <div id="access-gate">
     <div class="list-wrap" id="perm-list"></div>
@@ -93,8 +97,18 @@
 
   const PERMISSIONS_CONFIG = AGRONEX_PERMISSIONS_REGISTRY;
   const ROLE_LABELS = { farmer:'المزارعين', engineer:'المهندسين الزراعيين', trader:'التجار', company:'الشركات' };
+  const ROLES_ORDER = ['farmer', 'engineer', 'trader', 'company'];
 
   let allUsers = [];
+
+  function getEffectiveStatus(user, key){
+    const perms = user.permissions || {};
+    if(perms[key] !== undefined) return perms[key] === true;
+    if(key.startsWith('can_sell_')){
+      return ['trader', 'company'].includes(user.role);
+    }
+    return true;
+  }
 
   function buildPermCard(perm){
     return `
@@ -104,115 +118,93 @@
           <span class="p-arrow">▾</span>
         </div>
         <div class="perm-body" id="body-${perm.key}">
-          <div class="scope-tabs" data-key="${perm.key}">
-            <div class="s-tab active" data-scope="all">الكل</div>
-            <div class="s-tab" data-scope="role">فئة معينة</div>
-            <div class="s-tab" data-scope="user">مستخدم واحد</div>
-            <div class="s-tab" data-scope="multi">عدة مستخدمين</div>
+          <div class="view-tabs" data-key="${perm.key}">
+            <div class="v-tab active" data-view="all">كل المستخدمين</div>
+            <div class="v-tab" data-view="category">فئة معينة</div>
+            <div class="v-tab" data-view="search">مستخدم / عدة مستخدمين</div>
           </div>
-          <div class="scope-sub" id="sub-role-${perm.key}">
-            <select id="role-select-${perm.key}">
+          <div class="view-sub" id="sub-category-${perm.key}" style="display:none;">
+            <select class="category-select" data-key="${perm.key}">
               <option value="farmer">المزارعين</option>
               <option value="engineer">المهندسين الزراعيين</option>
               <option value="trader">التجار</option>
               <option value="company">الشركات</option>
             </select>
           </div>
-          <div class="scope-sub" id="sub-user-${perm.key}">
-            <select id="user-select-${perm.key}">
-              <option value="">اختار مستخدم...</option>
-              ${allUsers.map(u => `<option value="${u.id}">${u.full_name || u.email} (${ROLE_LABELS[u.role] || u.role})</option>`).join('')}
-            </select>
+          <div class="view-sub" id="sub-search-${perm.key}" style="display:none;">
+            <input type="text" class="user-search" data-key="${perm.key}" placeholder="🔍 دوّر بالاسم...">
           </div>
-          <div class="scope-sub" id="sub-multi-${perm.key}">
-            <input type="text" class="multi-search" placeholder="🔍 دوّر على اسم..." data-key="${perm.key}">
-            <div class="multi-user-list" id="multi-list-${perm.key}">
-              ${allUsers.map(u => `
-                <label class="multi-user-row" data-name="${(u.full_name || u.email || '').toLowerCase()}">
-                  <input type="checkbox" class="multi-check" data-key="${perm.key}" value="${u.id}">
-                  <span>${u.full_name || u.email} (${ROLE_LABELS[u.role] || u.role})</span>
-                </label>
-              `).join('')}
-            </div>
-          </div>
-          <div class="action-row">
-            <button class="action-btn enable" data-key="${perm.key}" data-value="true">🟢 ON</button>
-            <button class="action-btn disable" data-key="${perm.key}" data-value="false">🔴 OFF</button>
-          </div>
-          <div class="result-msg" id="msg-${perm.key}"></div>
+          <div class="users-list" id="users-list-${perm.key}"></div>
         </div>
       </div>`;
   }
 
-  function getScope(key){
-    return document.querySelector(`.scope-tabs[data-key="${key}"] .s-tab.active`).getAttribute('data-scope');
+  async function toggleUserPermission(userId, key, newValue, btn){
+    btn.disabled = true;
+    const { data: profile } = await db.from('profiles').select('permissions').eq('id', userId).single();
+    const newPermissions = { ...(profile?.permissions || {}), [key]: newValue };
+    const { error } = await db.from('profiles').update({ permissions: newPermissions }).eq('id', userId);
+    btn.disabled = false;
+
+    if(error){ alert('حصل خطأ: ' + error.message); return; }
+
+    const u = allUsers.find(u => u.id === userId);
+    if(u){ u.permissions = { ...(u.permissions || {}), [key]: newValue }; }
+
+    btn.classList.toggle('on', newValue);
+    btn.classList.toggle('off', !newValue);
+    btn.textContent = newValue ? '🟢 شغال' : '⚪ مقفول';
   }
 
-  async function applyPermission(key, value){
-    const scope = getScope(key);
-    const msg = document.getElementById(`msg-${key}`);
-    const label = PERMISSIONS_CONFIG.find(p => p.key === key).label;
-    const actionWord = value ? 'تشغيل (ON)' : 'إطفاء (OFF)';
+  function buildUserRow(user, key){
+    const isOn = getEffectiveStatus(user, key);
+    return `
+      <div class="user-row">
+        <span>${user.full_name || user.email}</span>
+        <button class="u-toggle ${isOn ? 'on' : 'off'}" data-user="${user.id}" data-key="${key}">${isOn ? '🟢 شغال' : '⚪ مقفول'}</button>
+      </div>`;
+  }
 
-    let confirmText, multiIds = [];
-
-    if(scope === 'all'){
-      confirmText = `متأكد إنك عايز ${actionWord} صلاحية "${label}" لكل المستخدمين؟`;
-    } else if(scope === 'role'){
-      const role = document.getElementById(`role-select-${key}`).value;
-      confirmText = `متأكد إنك عايز ${actionWord} صلاحية "${label}" لفئة "${ROLE_LABELS[role]}" كاملة؟`;
-    } else if(scope === 'user'){
-      const userId = document.getElementById(`user-select-${key}`).value;
-      if(!userId){ msg.style.color = 'var(--rust)'; msg.textContent = 'اختار مستخدم الأول'; return; }
-      const u = allUsers.find(u => u.id === userId);
-      confirmText = `متأكد إنك عايز ${actionWord} صلاحية "${label}" لـ ${u.full_name || u.email}؟`;
-    } else if(scope === 'multi'){
-      multiIds = Array.from(document.querySelectorAll(`.multi-check[data-key="${key}"]:checked`)).map(c => c.value);
-      if(!multiIds.length){ msg.style.color = 'var(--rust)'; msg.textContent = 'اختار مستخدم واحد على الأقل'; return; }
-      confirmText = `متأكد إنك عايز ${actionWord} صلاحية "${label}" لـ ${multiIds.length} مستخدم مختارين؟`;
-    }
-
-    if(!confirm(confirmText)) return;
-
-    document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = true);
-    msg.style.color = '#5b543f';
-    msg.textContent = 'جاري التطبيق...';
-
-    if(scope === 'user'){
-      const userId = document.getElementById(`user-select-${key}`).value;
-      const { data: profile } = await db.from('profiles').select('permissions').eq('id', userId).single();
-      const newPermissions = { ...(profile?.permissions || {}), [key]: value };
-      const { error } = await db.from('profiles').update({ permissions: newPermissions }).eq('id', userId);
-
-      document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = false);
-      if(error){ msg.style.color = 'var(--rust)'; msg.textContent = 'حصل خطأ: ' + error.message; return; }
-      msg.style.color = 'var(--leaf)';
-      msg.textContent = '✅ تم التعديل للمستخدم المختار';
-
-    } else if(scope === 'multi'){
-      let successCount = 0;
-      for(const userId of multiIds){
-        const { data: profile } = await db.from('profiles').select('permissions').eq('id', userId).single();
-        const newPermissions = { ...(profile?.permissions || {}), [key]: value };
-        const { error } = await db.from('profiles').update({ permissions: newPermissions }).eq('id', userId);
-        if(!error) successCount++;
-      }
-
-      document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = false);
-      msg.style.color = 'var(--leaf)';
-      msg.textContent = `✅ تم التعديل على ${successCount} من ${multiIds.length} مستخدم`;
-
-    } else {
-      const role = scope === 'role' ? document.getElementById(`role-select-${key}`).value : null;
-      const { data, error } = await db.rpc('bulk_set_permission', {
-        target_scope: scope, target_role: role, perm_key: key, perm_value: value,
+  function attachToggleEvents(container){
+    container.querySelectorAll('.u-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const userId = btn.getAttribute('data-user');
+        const key = btn.getAttribute('data-key');
+        const currentlyOn = btn.classList.contains('on');
+        toggleUserPermission(userId, key, !currentlyOn, btn);
       });
+    });
+  }
 
-      document.querySelectorAll(`.action-btn[data-key="${key}"]`).forEach(b => b.disabled = false);
-      if(error){ msg.style.color = 'var(--rust)'; msg.textContent = 'حصل خطأ: ' + error.message; return; }
-      msg.style.color = 'var(--leaf)';
-      msg.textContent = `✅ تم التعديل على ${data} حساب`;
+  function renderUsersList(key, view){
+    const listEl = document.getElementById(`users-list-${key}`);
+
+    if(view === 'all'){
+      let html = '';
+      ROLES_ORDER.forEach(role => {
+        const usersInRole = allUsers.filter(u => u.role === role);
+        if(!usersInRole.length) return;
+        html += `<div class="cat-group-title">${ROLE_LABELS[role]} (${usersInRole.length})</div>`;
+        html += usersInRole.map(u => buildUserRow(u, key)).join('');
+      });
+      listEl.innerHTML = html || '<div class="empty">مفيش مستخدمين مسجّلين</div>';
+
+    } else if(view === 'category'){
+      const role = document.querySelector(`.category-select[data-key="${key}"]`).value;
+      const usersInRole = allUsers.filter(u => u.role === role);
+      listEl.innerHTML = usersInRole.length
+        ? usersInRole.map(u => buildUserRow(u, key)).join('')
+        : '<div class="empty">مفيش مستخدمين في الفئة دي</div>';
+
+    } else if(view === 'search'){
+      const term = document.querySelector(`.user-search[data-key="${key}"]`).value.trim().toLowerCase();
+      const matched = term ? allUsers.filter(u => (u.full_name || u.email || '').toLowerCase().includes(term)) : allUsers;
+      listEl.innerHTML = matched.length
+        ? matched.map(u => buildUserRow(u, key)).join('')
+        : '<div class="empty">مفيش نتائج مطابقة</div>';
     }
+
+    attachToggleEvents(listEl);
   }
 
   function attachCardEvents(){
@@ -226,39 +218,34 @@
         if(!isOpen){
           body.classList.add('open');
           header.classList.add('open');
+          renderUsersList(key, 'all');
         }
       });
     });
 
-    document.querySelectorAll('.s-tab').forEach(tab => {
+    document.querySelectorAll('.v-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
         e.stopPropagation();
-        const key = tab.closest('.scope-tabs').getAttribute('data-key');
-        tab.closest('.scope-tabs').querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+        const key = tab.closest('.view-tabs').getAttribute('data-key');
+        tab.closest('.view-tabs').querySelectorAll('.v-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        const scope = tab.getAttribute('data-scope');
-        document.querySelectorAll(`.scope-sub[id^="sub-"][id$="-${key}"]`).forEach(s => s.classList.remove('active'));
-        if(scope === 'role') document.getElementById(`sub-role-${key}`).classList.add('active');
-        if(scope === 'user') document.getElementById(`sub-user-${key}`).classList.add('active');
-        if(scope === 'multi') document.getElementById(`sub-multi-${key}`).classList.add('active');
+        const view = tab.getAttribute('data-view');
+
+        document.getElementById(`sub-category-${key}`).style.display = view === 'category' ? 'block' : 'none';
+        document.getElementById(`sub-search-${key}`).style.display = view === 'search' ? 'block' : 'none';
+
+        renderUsersList(key, view);
       });
     });
 
-    document.querySelectorAll('.multi-search').forEach(input => {
-      input.addEventListener('input', () => {
-        const key = input.getAttribute('data-key');
-        const term = input.value.trim().toLowerCase();
-        document.querySelectorAll(`#multi-list-${key} .multi-user-row`).forEach(row => {
-          row.style.display = row.getAttribute('data-name').includes(term) ? 'flex' : 'none';
-        });
-      });
+    document.querySelectorAll('.category-select').forEach(sel => {
+      sel.addEventListener('click', e => e.stopPropagation());
+      sel.addEventListener('change', () => renderUsersList(sel.getAttribute('data-key'), 'category'));
     });
 
-    document.querySelectorAll('.action-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        applyPermission(btn.getAttribute('data-key'), btn.getAttribute('data-value') === 'true');
-      });
+    document.querySelectorAll('.user-search').forEach(input => {
+      input.addEventListener('click', e => e.stopPropagation());
+      input.addEventListener('input', () => renderUsersList(input.getAttribute('data-key'), 'search'));
     });
   }
 
@@ -271,7 +258,7 @@
       return;
     }
 
-    const { data: users } = await db.from('profiles').select('id, full_name, email, role').neq('role', 'admin').order('full_name');
+    const { data: users } = await db.from('profiles').select('id, full_name, email, role, permissions').neq('role', 'admin').order('full_name');
     allUsers = users || [];
 
     document.getElementById('perm-list').innerHTML = PERMISSIONS_CONFIG.map(buildPermCard).join('');
