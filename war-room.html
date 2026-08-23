@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agricultural War Room — غرفة عمليات الأزمات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --down:#C62828; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --down:#EF5350; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:960px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--down); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:16px; }
+  .disclaimer{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:12px 16px; font-size:11.5px; color:#6b5a24; margin-bottom:18px; line-height:1.8; }
+
+  .select-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:18px; }
+  select{ width:100%; padding:12px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:14.5px; font-family:inherit; }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .stat-box{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .stat-box .s-icon{ font-size:20px; }
+  .stat-box .s-value{ font-family:'Tajawal'; font-weight:900; font-size:19px; margin-top:6px; }
+  .stat-box .s-label{ font-size:11px; color:#8a7f63; margin-top:2px; }
+
+  #map{ height:360px; border-radius:16px; border:1px solid var(--line); margin-bottom:18px; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:12px; color:var(--leaf-deep); }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ background:var(--bg); padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; }
+  .list-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bg); font-size:13px; }
+  .list-row:last-child{ border-bottom:none; }
+
+  .scenario-grid{ display:grid; grid-template-columns:1fr; gap:12px; }
+  @media(min-width:640px){ .scenario-grid{ grid-template-columns:1fr 1fr 1fr; } }
+  .scenario-box{ border-radius:14px; padding:16px; border:2px solid var(--line); }
+  .scenario-box.a{ border-color:var(--gold); }
+  .scenario-box.b{ border-color:var(--up); }
+  .scenario-box.c{ border-color:var(--down); }
+  .scenario-box h4{ font-family:'Tajawal'; font-weight:800; font-size:13px; margin-bottom:8px; }
+  .scenario-box.a h4{ color:var(--gold); }
+  .scenario-box.b h4{ color:var(--up); }
+  .scenario-box.c h4{ color:var(--down); }
+  .scenario-box .sc-value{ font-family:'Tajawal'; font-weight:900; font-size:22px; }
+  .scenario-box .sc-desc{ font-size:11.5px; color:#5b543f; margin-top:6px; line-height:1.6; }
+  .scenario-disclaimer{ font-size:10.5px; color:var(--rust); margin-top:12px; line-height:1.7; }
+
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🚨 Agricultural War Room</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">غرفة عمليات لإدارة أزمة مرض معيّن — بيانات حقيقية + إسقاط رياضي توضيحي</p>
+  <div class="disclaimer">
+    ⚠️ قسم "السيناريوهات المتوقعة" تحت ده **إسقاط رياضي بسيط** بناءً على معدل النمو الحالي، **مش نموذج وبائي علمي مُدرَّب** — استخدمه كمؤشر استرشادي بس، وارجع لرأي مهندس زراعي متخصص قبل أي قرار فعلي.
+  </div>
+
+  <div class="select-card">
+    <label style="font-size:13px; font-weight:700; color:var(--leaf-deep); display:block; margin-bottom:8px;">اختار المرض اللي عايز تتابعه</label>
+    <select id="disease-select"><option value="">جاري التحميل...</option></select>
+  </div>
+
+  <div id="war-room-content" style="display:none;">
+    <div class="stat-grid" id="stat-grid"></div>
+    <div id="map"></div>
+
+    <div class="card">
+      <h3>🌱 المحاصيل المتأثرة</h3>
+      <div class="chip-row" id="affected-crops"></div>
+    </div>
+
+    <div class="card">
+      <h3>🌦️ حالة الطقس في أكبر بؤرة انتشار</h3>
+      <div id="weather-snapshot"><div class="empty">جاري التحميل...</div></div>
+    </div>
+
+    <div class="card">
+      <h3>🚨 مناطق معرّضة (نفس المحصول، لسه معملهاش المرض ظاهر)</h3>
+      <div id="at-risk-areas"><div class="empty">جاري التحميل...</div></div>
+    </div>
+
+    <div class="card">
+      <h3>👨‍🔬 الخبراء المتاحين (حسب المحافظة)</h3>
+      <div id="experts-list"><div class="empty">جاري التحميل...</div></div>
+    </div>
+
+    <div class="card">
+      <h3>📊 السيناريوهات المتوقعة (خلال أسبوعين)</h3>
+      <div class="scenario-grid" id="scenario-grid"></div>
+      <div class="scenario-disclaimer">
+        الحساب: Scenario A = استمرار نفس معدل النمو الحالي حرفيًا. Scenario B = افتراض تخفيف 50% من معدل النمو بسبب إجراءات وقائية (نسبة افتراضية للتوضيح فقط). Scenario C = افتراض تضاعف معدل النمو الحالي. الأرقام دي احتمالات رياضية مبسّطة، مش تنبؤ مؤكد.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let allCases = [];
+  let map = null;
+
+  function distanceKm(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180, dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function extractGovernorate(text){
+    if(!text) return null;
+    return text.split(' - ')[0].trim();
+  }
+
+  async function loadDiseaseOptions(){
+    const { data: cases } = await db.from('diagnoses_map_view').select('*').not('disease_name', 'ilike', '%سليم%');
+    allCases = cases || [];
+    const names = [...new Set(allCases.map(c => c.disease_name))];
+    const sel = document.getElementById('disease-select');
+
+    if(!names.length){
+      sel.innerHTML = '<option value="">مفيش أمراض مسجّلة حاليًا</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">اختار مرض...</option>' + names.map(n => `<option value="${n}">${n}</option>`).join('');
+    sel.addEventListener('change', () => {
+      if(sel.value) openWarRoom(sel.value);
+      else document.getElementById('war-room-content').style.display = 'none';
+    });
+  }
+
+  async function openWarRoom(diseaseName){
+    document.getElementById('war-room-content').style.display = 'block';
+    const cases = allCases.filter(c => c.disease_name === diseaseName);
+
+    // تجميع بؤر الانتشار (نفس منطق الرادار)
+    const clusters = [];
+    cases.forEach(c => {
+      let matched = clusters.find(cl => distanceKm(cl.lat, cl.lng, c.latitude, c.longitude) <= 10);
+      if(matched){
+        matched.points.push(c);
+        matched.lat = matched.points.reduce((s,p)=>s+p.latitude,0) / matched.points.length;
+        matched.lng = matched.points.reduce((s,p)=>s+p.longitude,0) / matched.points.length;
+      } else {
+        clusters.push({ lat: c.latitude, lng: c.longitude, points: [c] });
+      }
+    });
+    clusters.sort((a,b) => b.points.length - a.points.length);
+    const mainCluster = clusters[0];
+
+    // معدل الزيادة (14 يوم مقابل 14 يوم اللي قبلها)
+    const now = Date.now(), day14 = 14*24*60*60*1000;
+    const recent = cases.filter(c => (now - new Date(c.created_at).getTime()) <= day14).length;
+    const previous = cases.filter(c => {
+      const age = now - new Date(c.created_at).getTime();
+      return age > day14 && age <= day14*2;
+    }).length;
+    const growthRate = previous > 0 ? ((recent - previous) / previous) : (recent > 0 ? 1 : 0);
+
+    renderStats(cases, clusters, growthRate);
+    renderMap(clusters);
+    renderAffectedCrops(cases);
+    if(mainCluster) loadWeatherSnapshot(mainCluster.lat, mainCluster.lng);
+    loadAtRiskAreas(cases, clusters);
+    loadExperts(clusters);
+    renderScenarios(recent, growthRate);
+  }
+
+  function renderStats(cases, clusters, growthRate){
+    const govs = [...new Set(cases.map(c => extractGovernorate(c.location_text)).filter(Boolean))];
+    document.getElementById('stat-grid').innerHTML = `
+      <div class="stat-box"><div class="s-icon">🦠</div><div class="s-value">${cases.length}</div><div class="s-label">إجمالي الحالات المسجّلة</div></div>
+      <div class="stat-box"><div class="s-icon">📈</div><div class="s-value">${growthRate >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(growthRate*100))}%</div><div class="s-label">معدل الزيادة (14 يوم)</div></div>
+      <div class="stat-box"><div class="s-icon">🗺️</div><div class="s-value">${clusters.length}</div><div class="s-label">بؤر انتشار منفصلة</div></div>
+      <div class="stat-box"><div class="s-icon">📍</div><div class="s-value">${govs.length}</div><div class="s-label">محافظات متأثرة</div></div>
+    `;
+  }
+
+  function renderMap(clusters){
+    if(map){ map.remove(); }
+    map = L.map('map').setView([clusters[0]?.lat || 26.8, clusters[0]?.lng || 30.8], clusters.length ? 8 : 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
+
+    clusters.forEach(cl => {
+      const radiusKm = Math.max(...cl.points.map(p => distanceKm(cl.lat, cl.lng, p.latitude, p.longitude)), 1);
+      L.circle([cl.lat, cl.lng], {
+        radius: radiusKm * 1000, color: '#C62828', fillColor: '#C62828', fillOpacity: 0.25, weight: 2,
+      }).bindPopup(`${cl.points.length} حالة · نطاق ${radiusKm.toFixed(1)} كم`).addTo(map);
+    });
+  }
+
+  function renderAffectedCrops(cases){
+    const plants = [...new Set(cases.map(c => c.plant_name).filter(Boolean))];
+    document.getElementById('affected-crops').innerHTML = plants.length
+      ? plants.map(p => `<span class="chip">🌱 ${p}</span>`).join('')
+      : '<div class="empty">مفيش بيانات كافية</div>';
+  }
+
+  async function loadWeatherSnapshot(lat, lng){
+    const container = document.getElementById('weather-snapshot');
+    try{
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`);
+      const data = await res.json();
+      container.innerHTML = `
+        <div class="list-row"><span>الحرارة</span><span>${Math.round(data.current.temperature_2m)}°</span></div>
+        <div class="list-row"><span>الرطوبة</span><span>${Math.round(data.current.relative_humidity_2m)}%</span></div>
+        <div class="list-row"><span>سرعة الرياح</span><span>${Math.round(data.current.wind_speed_10m)} كم/س</span></div>
+      `;
+    }catch(e){ container.innerHTML = '<div class="empty">تعذر جلب بيانات الطقس</div>'; }
+  }
+
+  async function loadAtRiskAreas(cases, clusters){
+    const container = document.getElementById('at-risk-areas');
+    const affectedGovs = new Set(cases.map(c => extractGovernorate(c.location_text)).filter(Boolean));
+    const affectedPlants = new Set(cases.map(c => c.plant_name).filter(Boolean));
+
+    if(!affectedPlants.size){ container.innerHTML = '<div class="empty">مفيش بيانات كافية</div>'; return; }
+
+    const { data: farms } = await db.from('farms').select('id, location_text');
+    const { data: crops } = await db.from('crops').select('crop_type, farm_id').eq('status', 'active');
+
+    const farmGov = {};
+    (farms||[]).forEach(f => { farmGov[f.id] = extractGovernorate(f.location_text); });
+
+    const riskGovs = {};
+    (crops||[]).forEach(c => {
+      const gov = farmGov[c.farm_id];
+      if(!gov || affectedGovs.has(gov)) return; // المحافظة دي أصلًا فيها المرض، مش "معرّضة" بمعنى جديد
+      if([...affectedPlants].some(p => c.crop_type.includes(p) || p.includes(c.crop_type))){
+        riskGovs[gov] = (riskGovs[gov] || 0) + 1;
+      }
+    });
+
+    const entries = Object.entries(riskGovs).sort((a,b) => b[1] - a[1]);
+    container.innerHTML = entries.length
+      ? entries.map(([gov, count]) => `<div class="list-row"><span>📍 ${gov}</span><span>${count} مزرعة بنفس نوع المحصول</span></div>`).join('')
+      : '<div class="empty">مفيش مناطق معرّضة واضحة حاليًا حسب البيانات المتاحة</div>';
+  }
+
+  async function loadExperts(clusters){
+    const container = document.getElementById('experts-list');
+    const affectedGovs = new Set();
+    clusters.forEach(cl => {
+      const gov = extractGovernorate(cl.points[0]?.location_text);
+      if(gov) affectedGovs.add(gov);
+    });
+
+    const { data: engineers } = await db.from('profiles').select('address').eq('role', 'engineer');
+    const govCounts = {};
+    (engineers||[]).forEach(e => {
+      const gov = extractGovernorate(e.address);
+      if(gov) govCounts[gov] = (govCounts[gov] || 0) + 1;
+    });
+
+    const relevant = [...affectedGovs].map(gov => ({ gov, count: govCounts[gov] || 0 }));
+    container.innerHTML = relevant.length
+      ? relevant.map(r => `<div class="list-row"><span>👨‍🔬 ${r.gov}</span><span>${r.count} مهندس مسجّل</span></div>`).join('')
+      : '<div class="empty">مفيش بيانات كافية</div>';
+  }
+
+  function renderScenarios(currentCases, growthRate){
+    const scenarioA = Math.round(currentCases * Math.pow(1 + growthRate, 2)); // نفس المعدل يستمر (كل 14 يوم)
+    const scenarioB = Math.round(currentCases * Math.pow(1 + growthRate*0.5, 2)); // تخفيف افتراضي 50%
+    const scenarioC = Math.round(currentCases * Math.pow(1 + Math.max(growthRate*2, 0.3), 2)); // تفاقم
+
+    document.getElementById('scenario-grid').innerHTML = `
+      <div class="scenario-box a">
+        <h4>Scenario A — استمرار الوضع الحالي</h4>
+        <div class="sc-value">${scenarioA} حالة</div>
+        <div class="sc-desc">لو معدل الانتشار الحالي فضل زي ما هو من غير أي تدخل إضافي</div>
+      </div>
+      <div class="scenario-box b">
+        <h4>Scenario B — إجراءات وقائية الآن</h4>
+        <div class="sc-value">${scenarioB} حالة</div>
+        <div class="sc-desc">لو اتخذت إجراءات وقائية فورية وقللت معدل الانتشار للنص (افتراضي)</div>
+      </div>
+      <div class="scenario-box c">
+        <h4>Scenario C — أسوأ احتمال</h4>
+        <div class="sc-value">${scenarioC} حالة</div>
+        <div class="sc-desc">لو الظروف البيئية ساعدت على تسارع الانتشار أكتر من المعدل الحالي</div>
+      </div>
+    `;
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const _hasPerm = await AgroNexPermissions.check(db, session.user.id, 'can_view_war_room');
+    if(!_hasPerm){ AgroNexPermissions.redirectSilently(); return; }
+    loadDiseaseOptions();
+  })();
+</script>
+</body>
+</html>
