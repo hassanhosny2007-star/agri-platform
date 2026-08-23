@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroNex Earth Pulse — نبض الزراعة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --down:#C62828; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --down:#EF5350; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:960px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); display:flex; align-items:center; gap:8px; }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:18px; }
+
+  .pulse-dot{ width:10px; height:10px; border-radius:50%; background:var(--down); animation:pulseAnim 1.5s infinite; }
+  @keyframes pulseAnim{
+    0%{ box-shadow:0 0 0 0 rgba(198,40,40,.5); }
+    70%{ box-shadow:0 0 0 10px rgba(198,40,40,0); }
+    100%{ box-shadow:0 0 0 0 rgba(198,40,40,0); }
+  }
+
+  .pulse-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+  .pulse-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:16px; position:relative; overflow:hidden; }
+  .pulse-card .p-icon{ font-size:22px; }
+  .pulse-card .p-value{ font-family:'Tajawal'; font-weight:900; font-size:22px; margin-top:8px; }
+  .pulse-card .p-label{ font-size:11.5px; color:#8a7f63; margin-top:2px; }
+  .pulse-card .p-trend{ font-size:11px; font-weight:800; margin-top:6px; display:inline-block; padding:2px 8px; border-radius:20px; }
+  .trend-up-bad{ background:rgba(198,40,40,.12); color:var(--down); }
+  .trend-up-good{ background:rgba(46,125,50,.12); color:var(--up); }
+  .trend-down-good{ background:rgba(46,125,50,.12); color:var(--up); }
+  .trend-down-bad{ background:rgba(198,40,40,.12); color:var(--down); }
+  .trend-flat{ background:rgba(0,0,0,.06); color:#777; }
+
+  #map{ height:400px; border-radius:16px; border:1px solid var(--line); margin-bottom:16px; }
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px; font-size:12px; }
+  .legend-item{ display:flex; align-items:center; gap:6px; }
+  .legend-dot{ width:12px; height:12px; border-radius:50%; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:12px; color:var(--leaf-deep); }
+  .ticker-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bg); font-size:13px; }
+  .ticker-row:last-child{ border-bottom:none; }
+  .disclaimer{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:10px 14px; font-size:11px; color:#6b5a24; margin-bottom:18px; line-height:1.7; }
+  .empty{ text-align:center; color:#5b543f; padding:20px 0; font-size:13px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1><span class="pulse-dot"></span> AgroNex Earth Pulse</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">نبض القطاع الزراعي — مؤشرات حية مبنية على بيانات حقيقية مسجّلة على المنصة</p>
+  <div class="disclaimer">⚠️ المؤشرات دي بتتحدث كل ما تفتح الصفحة (مش تحديث تلقائي مستمر في الخلفية)، ومبنية على البيانات المسجّلة فعليًا — مش استشعار عن بعد حقيقي لكل مصر.</div>
+
+  <div class="pulse-grid" id="pulse-grid">
+    <div class="empty">جاري النبض... 💓</div>
+  </div>
+
+  <div id="map"></div>
+  <div class="legend" id="legend"></div>
+
+  <div class="card">
+    <h3>📡 آخر نبضات الخطر المسجّلة</h3>
+    <div id="risk-ticker"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  // نقط استرشادية موزّعة على مصر لأخذ عيّنة طقس تمثيلية (مش تغطية كل نقطة، عيّنة كافية للنبض العام)
+  const SAMPLE_POINTS = [
+    { name:'القاهرة', lat:30.0444, lng:31.2357 },
+    { name:'الإسكندرية', lat:31.2001, lng:29.9187 },
+    { name:'الدقهلية', lat:31.0409, lng:31.3785 },
+    { name:'المنيا', lat:28.0871, lng:30.7618 },
+    { name:'أسوان', lat:24.0889, lng:32.8998 },
+    { name:'البحيرة', lat:31.0409, lng:30.4696 },
+  ];
+
+  const RISK_COLORS = { high: '#C62828', medium: '#C9A227', low: '#2E7D32' };
+
+  function distanceKm(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180, dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function trendBadge(change, goodDirectionIsDown){
+    if(change === null) return { text: '—', cls: 'trend-flat' };
+    const isUp = change > 0;
+    const arrow = isUp ? '▲' : (change < 0 ? '▼' : '—');
+    let cls;
+    if(change === 0) cls = 'trend-flat';
+    else if(goodDirectionIsDown) cls = isUp ? 'trend-up-bad' : 'trend-down-good';
+    else cls = isUp ? 'trend-up-good' : 'trend-down-bad';
+    return { text: `${arrow} ${Math.abs(change)}%`, cls };
+  }
+
+  // === 1) الحرارة والمياه (عيّنة طقس حية) ===
+  async function loadWeatherPulse(){
+    const results = await Promise.all(SAMPLE_POINTS.map(async p => {
+      try{
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lng}&current=temperature_2m,relative_humidity_2m`);
+        const data = await res.json();
+        return { temp: data.current.temperature_2m, humidity: data.current.relative_humidity_2m };
+      }catch(e){ return null; }
+    }));
+    const valid = results.filter(Boolean);
+    if(!valid.length) return { avgTemp: null, waterStressPct: null };
+
+    const avgTemp = valid.reduce((s,v) => s+v.temp, 0) / valid.length;
+    const stressedCount = valid.filter(v => v.humidity < 40 && v.temp > 30).length;
+    const waterStressPct = Math.round((stressedCount / valid.length) * 100);
+    return { avgTemp, waterStressPct };
+  }
+
+  // === 2) ضغط الأمراض (Disease Pressure) ===
+  async function loadDiseasePressure(){
+    const { data: cases } = await db.from('diagnoses_map_view').select('disease_name, created_at')
+      .not('disease_name', 'ilike', '%سليم%');
+    if(!cases || !cases.length) return { current: 0, change: null };
+
+    const now = Date.now(), day30 = 30*24*60*60*1000;
+    const recent = cases.filter(c => (now - new Date(c.created_at).getTime()) <= day30).length;
+    const previous = cases.filter(c => {
+      const age = now - new Date(c.created_at).getTime();
+      return age > day30 && age <= day30*2;
+    }).length;
+
+    const change = previous > 0 ? Math.round(((recent - previous) / previous) * 100) : (recent > 0 ? 100 : 0);
+    return { current: recent, change };
+  }
+
+  // === 3) نشاط الزراعة (Crop Activity) ===
+  async function loadCropActivity(){
+    const { data: crops } = await db.from('crops').select('planting_date').not('planting_date', 'is', null);
+    if(!crops || !crops.length) return { current: 0, change: null };
+
+    const now = Date.now(), day14 = 14*24*60*60*1000;
+    const recent = crops.filter(c => (now - new Date(c.planting_date).getTime()) <= day14).length;
+    const previous = crops.filter(c => {
+      const age = now - new Date(c.planting_date).getTime();
+      return age > day14 && age <= day14*2;
+    }).length;
+
+    const change = previous > 0 ? Math.round(((recent - previous) / previous) * 100) : (recent > 0 ? 100 : 0);
+    return { current: recent, change };
+  }
+
+  // === 4) أسعار المحاصيل (آخر قراءة مسجّلة) ===
+  async function loadPricePulse(){
+    const { data: prices } = await db.from('crop_prices').select('*').not('price', 'is', null);
+    if(!prices || !prices.length) return { avgChange: null, top: null };
+    const avgChange = prices.reduce((s,p) => s + (p.change_percent || 0), 0) / prices.length;
+    const top = [...prices].sort((a,b) => Math.abs(b.change_percent||0) - Math.abs(a.change_percent||0))[0];
+    return { avgChange: Math.round(avgChange*10)/10, top };
+  }
+
+  // === 5) مراكز الخطر على الخريطة (نفس منطق الرادار) ===
+  async function loadRiskClusters(){
+    const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+    const { data: cases } = await db.from('diagnoses_map_view').select('*')
+      .not('disease_name', 'ilike', '%سليم%').gte('created_at', thirtyDaysAgo);
+    if(!cases || !cases.length) return [];
+
+    const clusters = [];
+    cases.forEach(c => {
+      let matched = clusters.find(cl => cl.disease === c.disease_name &&
+        distanceKm(cl.lat, cl.lng, c.latitude, c.longitude) <= 10);
+      if(matched){
+        matched.points.push(c);
+        matched.lat = matched.points.reduce((s,p)=>s+p.latitude,0) / matched.points.length;
+        matched.lng = matched.points.reduce((s,p)=>s+p.longitude,0) / matched.points.length;
+      } else {
+        clusters.push({ disease: c.disease_name, lat: c.latitude, lng: c.longitude, points: [c] });
+      }
+    });
+    return clusters.map(cl => ({
+      ...cl, count: cl.points.length,
+      level: cl.points.length >= 6 ? 'high' : (cl.points.length >= 3 ? 'medium' : 'low'),
+    })).sort((a,b) => b.count - a.count);
+  }
+
+  function renderPulseGrid(weather, disease, crop, price){
+    const grid = document.getElementById('pulse-grid');
+    const tempCard = weather.avgTemp !== null
+      ? `<div class="pulse-card"><div class="p-icon">🌡️</div><div class="p-value">${Math.round(weather.avgTemp)}°</div><div class="p-label">متوسط الحرارة (عيّنة مناطق)</div></div>`
+      : `<div class="pulse-card"><div class="p-icon">🌡️</div><div class="p-value">—</div><div class="p-label">متوسط الحرارة</div></div>`;
+
+    const waterCard = weather.waterStressPct !== null
+      ? `<div class="pulse-card"><div class="p-icon">💧</div><div class="p-value">${weather.waterStressPct}%</div><div class="p-label">Water Stress (مناطق العيّنة)</div></div>`
+      : `<div class="pulse-card"><div class="p-icon">💧</div><div class="p-value">—</div><div class="p-label">Water Stress</div></div>`;
+
+    const diseaseTrend = trendBadge(disease.change, true);
+    const diseaseCard = `<div class="pulse-card"><div class="p-icon">🦠</div><div class="p-value">${disease.current}</div><div class="p-label">Disease Pressure (30 يوم)</div><span class="p-trend ${diseaseTrend.cls}">${diseaseTrend.text}</span></div>`;
+
+    const cropTrend = trendBadge(crop.change, false);
+    const cropCard = `<div class="pulse-card"><div class="p-icon">🌱</div><div class="p-value">${crop.current}</div><div class="p-label">نشاط زراعي (14 يوم)</div><span class="p-trend ${cropTrend.cls}">${cropTrend.text}</span></div>`;
+
+    const priceCard = price.avgChange !== null
+      ? `<div class="pulse-card"><div class="p-icon">📈</div><div class="p-value">${price.avgChange > 0 ? '+' : ''}${price.avgChange}%</div><div class="p-label">متوسط تغيّر الأسعار</div></div>`
+      : `<div class="pulse-card"><div class="p-icon">📈</div><div class="p-value">—</div><div class="p-label">أسعار المحاصيل</div></div>`;
+
+    grid.innerHTML = tempCard + waterCard + diseaseCard + cropCard + priceCard;
+  }
+
+  function renderRiskTicker(clusters){
+    const container = document.getElementById('risk-ticker');
+    if(!clusters.length){ container.innerHTML = '<div class="empty">مفيش مراكز خطر مسجّلة حاليًا</div>'; return; }
+
+    const icons = { high: '🔴', medium: '🟡', low: '🟢' };
+    container.innerHTML = clusters.slice(0, 8).map(cl => `
+      <div class="ticker-row">
+        <span>${icons[cl.level]} ${cl.disease} Pressure</span>
+        <span>${cl.count} حالة · نطاق ${Math.max(...cl.points.map(p => distanceKm(cl.lat, cl.lng, p.latitude, p.longitude)), 1).toFixed(1)} كم</span>
+      </div>
+    `).join('');
+  }
+
+  function renderMap(clusters){
+    const map = L.map('map').setView([26.8, 30.8], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
+
+    clusters.forEach(cl => {
+      const radiusKm = Math.max(...cl.points.map(p => distanceKm(cl.lat, cl.lng, p.latitude, p.longitude)), 1);
+      const color = RISK_COLORS[cl.level];
+
+      L.circle([cl.lat, cl.lng], {
+        radius: radiusKm * 1000, color, fillColor: color, fillOpacity: 0.2, weight: 2,
+      }).bindPopup(`<b>${cl.disease}</b><br>${cl.count} حالة · نطاق ${radiusKm.toFixed(1)} كم`).addTo(map);
+
+      if(cl.level === 'high'){
+        const pulseIcon = L.divIcon({
+          className: '', html: `<div style="width:14px;height:14px;background:${color};border-radius:50%;box-shadow:0 0 0 rgba(198,40,40,.6);animation:pulseAnim 1.5s infinite;"></div>`,
+        });
+        L.marker([cl.lat, cl.lng], { icon: pulseIcon }).addTo(map);
+      }
+    });
+
+    document.getElementById('legend').innerHTML = `
+      <div class="legend-item"><span class="legend-dot" style="background:${RISK_COLORS.low}"></span>خطر منخفض</div>
+      <div class="legend-item"><span class="legend-dot" style="background:${RISK_COLORS.medium}"></span>خطر متوسط</div>
+      <div class="legend-item"><span class="legend-dot" style="background:${RISK_COLORS.high}"></span>خطر مرتفع (نابض 💓)</div>
+    `;
+  }
+
+  async function init(){
+    const [weather, disease, crop, price, clusters] = await Promise.all([
+      loadWeatherPulse(), loadDiseasePressure(), loadCropActivity(), loadPricePulse(), loadRiskClusters(),
+    ]);
+
+    renderPulseGrid(weather, disease, crop, price);
+    renderMap(clusters);
+    renderRiskTicker(clusters);
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const _hasPerm = await AgroNexPermissions.check(db, session.user.id, 'can_view_earth_pulse');
+    if(!_hasPerm){ AgroNexPermissions.redirectSilently(); return; }
+    init();
+  })();
+</script>
+</body>
+</html>
