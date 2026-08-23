@@ -21,6 +21,7 @@ const AGRONEX_PERMISSIONS_REGISTRY = [
   { key: 'can_view_crops_map', label: 'الدخول لخريطة المحاصيل' },
   { key: 'can_view_radar', label: 'الدخول لـ AgroNex Radar' },
   { key: 'can_view_demand_forecast', label: 'الدخول لتوقع الطلب' },
+  { key: 'can_view_earth_pulse', label: 'الدخول لـ AgroNex Earth Pulse' },
   { key: 'can_buy_fertilizer', label: 'شراء الأسمدة من السوق' },
   { key: 'can_sell_fertilizer', label: 'بيع الأسمدة في السوق' },
   { key: 'can_buy_seeds', label: 'شراء البذور من السوق' },
