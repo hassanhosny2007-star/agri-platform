@@ -159,6 +159,7 @@
 
     if(error){ alert('حصل خطأ: ' + error.message); return; }
 
+    // حدّث النسخة المحلية عشان لو المستخدم بدّل التبويب النتيجة تفضل صحيحة
     const u = allUsers.find(u => u.id === userId);
     if(u){ u.permissions = { ...(u.permissions || {}), [key]: newValue }; }
 
@@ -175,7 +176,7 @@
   }
 
   function attachToggleEvents(container){
-    container.querySelectorAll('.u-switch').forEach(btn => {
+    container.querySelectorAll('.u-switch:not(.bulk-switch)').forEach(btn => {
       btn.addEventListener('click', () => {
         const userId = btn.getAttribute('data-user');
         const key = btn.getAttribute('data-key');
@@ -255,6 +256,7 @@
 
     if(error){ alert('حصل خطأ: ' + error.message); return false; }
 
+    // حدّث النسخة المحلية لكل المستخدمين المتأثرين عشان الحالة تتحدث فورًا
     allUsers.forEach(u => {
       if(scope === 'all' || u.role === role){
         u.permissions = { ...(u.permissions || {}), [key]: newValue };
@@ -272,7 +274,7 @@
         const role = btn.getAttribute('data-role');
         const currentlyOn = btn.classList.contains('on');
         const success = await applyBulkPermission(scope, role, key, !currentlyOn, btn);
-        if(success) renderUsersList(key, view);
+        if(success) renderUsersList(key, view); // إعادة رسم القائمة عشان كل المفاتيح الفردية تتحدث
       });
     });
   }
@@ -288,7 +290,7 @@
         if(!isOpen){
           body.classList.add('open');
           header.classList.add('open');
-          renderUsersList(key, 'all');
+          renderUsersList(key, 'all'); // أول ما يتفتح، يعرض كل المستخدمين افتراضيًا
         }
       });
     });
