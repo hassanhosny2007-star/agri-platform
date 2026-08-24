@@ -48,11 +48,17 @@
   }
 
   .users-list{ max-height:340px; overflow-y:auto; }
-  .cat-group-title{
-    font-family:'Tajawal'; font-weight:800; font-size:12.5px; color:var(--leaf-deep);
-    padding:10px 4px 6px; border-bottom:1px solid var(--bg); margin-top:6px;
+  .bulk-row{
+    display:flex; justify-content:space-between; align-items:center; padding:10px 8px;
+    background:var(--bg); border-radius:9px; margin-bottom:8px; font-size:12.5px; font-weight:700;
   }
-  .cat-group-title:first-child{ margin-top:0; }
+  .bulk-row.master{ background:rgba(168,93,40,.1); margin-bottom:12px; }
+  .cat-group-header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 4px 6px; border-bottom:1px solid var(--bg); margin-top:10px;
+  }
+  .cat-group-header:first-child{ margin-top:0; }
+  .cat-group-title{ font-family:'Tajawal'; font-weight:800; font-size:12.5px; color:var(--leaf-deep); }
   .user-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 4px; border-bottom:1px solid var(--bg); font-size:13px; }
   .user-row:last-child{ border-bottom:none; }
   .u-switch{
@@ -184,21 +190,35 @@
     const listEl = document.getElementById(`users-list-${key}`);
 
     if(view === 'all'){
-      let html = '';
+      let html = `
+        <div class="bulk-row master">
+          <span>🌍 تطبيق على كل المستخدمين</span>
+          <button class="u-switch bulk-switch" data-scope="all" data-key="${key}"><span class="dot"></span></button>
+        </div>`;
       ROLES_ORDER.forEach(role => {
         const usersInRole = allUsers.filter(u => u.role === role);
         if(!usersInRole.length) return;
-        html += `<div class="cat-group-title">${ROLE_LABELS[role]} (${usersInRole.length})</div>`;
+        html += `
+          <div class="cat-group-header">
+            <span class="cat-group-title">${ROLE_LABELS[role]} (${usersInRole.length})</span>
+            <button class="u-switch bulk-switch" data-scope="role" data-role="${role}" data-key="${key}"><span class="dot"></span></button>
+          </div>`;
         html += usersInRole.map(u => buildUserRow(u, key)).join('');
       });
-      listEl.innerHTML = html || '<div class="empty">مفيش مستخدمين مسجّلين</div>';
+      listEl.innerHTML = html;
 
     } else if(view === 'category'){
       const role = document.querySelector(`.category-select[data-key="${key}"]`).value;
       const usersInRole = allUsers.filter(u => u.role === role);
-      listEl.innerHTML = usersInRole.length
+      let html = `
+        <div class="bulk-row">
+          <span>تطبيق على فئة "${ROLE_LABELS[role]}" كاملة</span>
+          <button class="u-switch bulk-switch" data-scope="role" data-role="${role}" data-key="${key}"><span class="dot"></span></button>
+        </div>`;
+      html += usersInRole.length
         ? usersInRole.map(u => buildUserRow(u, key)).join('')
         : '<div class="empty">مفيش مستخدمين في الفئة دي</div>';
+      listEl.innerHTML = html;
 
     } else if(view === 'search'){
       const term = document.querySelector(`.user-search[data-key="${key}"]`).value.trim().toLowerCase();
@@ -209,6 +229,46 @@
     }
 
     attachToggleEvents(listEl);
+    attachBulkEvents(listEl, key, view);
+  }
+
+  async function applyBulkPermission(scope, role, key, newValue, btn){
+    const label = PERMISSIONS_CONFIG.find(p => p.key === key)?.label || key;
+    const confirmText = scope === 'all'
+      ? `متأكد إنك عايز ${newValue ? 'تفتح' : 'تقفل'} "${label}" لكل المستخدمين دفعة واحدة؟`
+      : `متأكد إنك عايز ${newValue ? 'تفتح' : 'تقفل'} "${label}" لفئة "${ROLE_LABELS[role]}" كاملة دفعة واحدة؟`;
+    if(!confirm(confirmText)) return false;
+
+    btn.disabled = true;
+    const { data, error } = await db.rpc('bulk_set_permission', {
+      target_scope: scope, target_role: scope === 'role' ? role : null, perm_key: key, perm_value: newValue,
+    });
+    btn.disabled = false;
+
+    if(error){ alert('حصل خطأ: ' + error.message); return false; }
+
+    // حدّث النسخة المحلية لكل المستخدمين المتأثرين عشان المفاتيح الفردية تتحدث فورًا
+    allUsers.forEach(u => {
+      if(scope === 'all' || u.role === role){
+        u.permissions = { ...(u.permissions || {}), [key]: newValue };
+      }
+    });
+
+    btn.classList.toggle('on', newValue);
+    alert(`✅ تم التعديل على ${data} حساب`);
+    return true;
+  }
+
+  function attachBulkEvents(container, key, view){
+    container.querySelectorAll('.bulk-switch').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const scope = btn.getAttribute('data-scope');
+        const role = btn.getAttribute('data-role');
+        const currentlyOn = btn.classList.contains('on');
+        const success = await applyBulkPermission(scope, role, key, !currentlyOn, btn);
+        if(success) renderUsersList(key, view); // إعادة رسم القائمة عشان كل المفاتيح الفردية تتحدث
+      });
+    });
   }
 
   function attachCardEvents(){
