@@ -159,7 +159,6 @@
 
     if(error){ alert('حصل خطأ: ' + error.message); return; }
 
-    // حدّث النسخة المحلية عشان لو المستخدم بدّل التبويب النتيجة تفضل صحيحة
     const u = allUsers.find(u => u.id === userId);
     if(u){ u.permissions = { ...(u.permissions || {}), [key]: newValue }; }
 
@@ -256,7 +255,6 @@
 
     if(error){ alert('حصل خطأ: ' + error.message); return false; }
 
-    // حدّث النسخة المحلية لكل المستخدمين المتأثرين عشان الحالة تتحدث فورًا
     allUsers.forEach(u => {
       if(scope === 'all' || u.role === role){
         u.permissions = { ...(u.permissions || {}), [key]: newValue };
@@ -274,7 +272,7 @@
         const role = btn.getAttribute('data-role');
         const currentlyOn = btn.classList.contains('on');
         const success = await applyBulkPermission(scope, role, key, !currentlyOn, btn);
-        if(success) renderUsersList(key, view); // إعادة رسم القائمة عشان كل المفاتيح الفردية تتحدث
+        if(success) renderUsersList(key, view);
       });
     });
   }
@@ -290,7 +288,7 @@
         if(!isOpen){
           body.classList.add('open');
           header.classList.add('open');
-          renderUsersList(key, 'all'); // أول ما يتفتح، يعرض كل المستخدمين افتراضيًا
+          renderUsersList(key, 'all');
         }
       });
     });
