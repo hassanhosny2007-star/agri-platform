@@ -186,22 +186,30 @@
     });
   }
 
+  // بيحدد هل كل المستخدمين في مجموعة معيّنة شغالة عندهم الصلاحية دي (يستخدم في عرض حالة مفاتيح التطبيق الجماعي)
+  function getGroupStatus(users, key){
+    if(!users.length) return false;
+    return users.every(u => getEffectiveStatus(u, key));
+  }
+
   function renderUsersList(key, view){
     const listEl = document.getElementById(`users-list-${key}`);
 
     if(view === 'all'){
+      const allOn = getGroupStatus(allUsers, key);
       let html = `
         <div class="bulk-row master">
           <span>🌍 تطبيق على كل المستخدمين</span>
-          <button class="u-switch bulk-switch" data-scope="all" data-key="${key}"><span class="dot"></span></button>
+          <button class="u-switch bulk-switch ${allOn ? 'on' : ''}" data-scope="all" data-key="${key}"><span class="dot"></span></button>
         </div>`;
       ROLES_ORDER.forEach(role => {
         const usersInRole = allUsers.filter(u => u.role === role);
         if(!usersInRole.length) return;
+        const roleOn = getGroupStatus(usersInRole, key);
         html += `
           <div class="cat-group-header">
             <span class="cat-group-title">${ROLE_LABELS[role]} (${usersInRole.length})</span>
-            <button class="u-switch bulk-switch" data-scope="role" data-role="${role}" data-key="${key}"><span class="dot"></span></button>
+            <button class="u-switch bulk-switch ${roleOn ? 'on' : ''}" data-scope="role" data-role="${role}" data-key="${key}"><span class="dot"></span></button>
           </div>`;
         html += usersInRole.map(u => buildUserRow(u, key)).join('');
       });
@@ -210,10 +218,11 @@
     } else if(view === 'category'){
       const role = document.querySelector(`.category-select[data-key="${key}"]`).value;
       const usersInRole = allUsers.filter(u => u.role === role);
+      const roleOn = getGroupStatus(usersInRole, key);
       let html = `
         <div class="bulk-row">
           <span>تطبيق على فئة "${ROLE_LABELS[role]}" كاملة</span>
-          <button class="u-switch bulk-switch" data-scope="role" data-role="${role}" data-key="${key}"><span class="dot"></span></button>
+          <button class="u-switch bulk-switch ${roleOn ? 'on' : ''}" data-scope="role" data-role="${role}" data-key="${key}"><span class="dot"></span></button>
         </div>`;
       html += usersInRole.length
         ? usersInRole.map(u => buildUserRow(u, key)).join('')
@@ -247,14 +256,13 @@
 
     if(error){ alert('حصل خطأ: ' + error.message); return false; }
 
-    // حدّث النسخة المحلية لكل المستخدمين المتأثرين عشان المفاتيح الفردية تتحدث فورًا
+    // حدّث النسخة المحلية لكل المستخدمين المتأثرين عشان الحالة تتحدث فورًا
     allUsers.forEach(u => {
       if(scope === 'all' || u.role === role){
         u.permissions = { ...(u.permissions || {}), [key]: newValue };
       }
     });
 
-    btn.classList.toggle('on', newValue);
     alert(`✅ تم التعديل على ${data} حساب`);
     return true;
   }
