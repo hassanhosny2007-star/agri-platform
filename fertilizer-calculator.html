@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حاسبة التسميد — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --up:#2E7D32; --mid:#C9A227; --down:#C62828;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --up:#66BB6A; --mid:#E0B84D; --down:#EF5350;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:10px; }
+  .disclaimer{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:12px 16px; font-size:11.5px; color:#6b5a24; margin-bottom:18px; line-height:1.8; }
+
+  .select-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:18px; }
+  select, input{ width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:14px; font-family:inherit; }
+  .field{ margin-bottom:12px; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+
+  .tabs{ display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+  .tab{ flex:1; min-width:130px; text-align:center; padding:10px 8px; border-radius:9px; border:1px solid var(--line); background:var(--paper); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:12.5px; }
+  .tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:14px; color:var(--leaf-deep); }
+
+  .nutrient-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+  .nutrient-box{ text-align:center; padding:14px 8px; border-radius:12px; background:var(--bg); }
+  .nutrient-box .n-name{ font-family:'Tajawal'; font-weight:800; font-size:13px; }
+  .nutrient-box .n-total{ font-size:11px; color:#8a7f63; margin-top:6px; }
+  .nutrient-box .n-remaining{ font-family:'Tajawal'; font-weight:900; font-size:18px; margin-top:6px; }
+  .nutrient-box .n-remaining.ok{ color:var(--up); }
+  .nutrient-box .n-remaining.mid{ color:var(--mid); }
+  .nutrient-box .n-remaining.low{ color:var(--down); }
+  .progress-bar{ height:6px; border-radius:4px; background:var(--line); margin-top:8px; overflow:hidden; }
+  .progress-bar .fill{ height:100%; background:var(--up); }
+
+  .fert-result{ background:var(--bg); border-radius:12px; padding:14px; margin-top:14px; }
+  .fert-row{ display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid var(--paper); }
+  .fert-row:last-child{ border-bottom:none; }
+
+  button.action-btn{ width:100%; padding:12px; border:none; border-radius:9px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer; margin-top:6px; }
+
+  .log-row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--bg); font-size:12.5px; }
+  .log-row:last-child{ border-bottom:none; }
+  .empty{ text-align:center; color:#5b543f; padding:20px 0; font-size:13px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🌱 حاسبة التسميد</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">احسب احتياج محصولك من الأسمدة، سجّل اللي ضفته، واعرف المتبقي</p>
+  <div class="disclaimer">⚠️ الأرقام هنا متوسطات إرشادية زراعية عامة، مش نتيجة تحليل تربة أو صنف بعينه — استخدمها كنقطة بداية، وارجع لمهندس زراعي أو تحليل تربة حقيقي للدقة الكاملة.</div>
+
+  <div class="select-card">
+    <label style="font-size:13px; font-weight:700; color:var(--leaf-deep); display:block; margin-bottom:8px;">اختار محصولك</label>
+    <select id="crop-select"><option value="">جاري التحميل...</option></select>
+  </div>
+
+  <div id="calc-content" style="display:none;">
+    <div class="tabs">
+      <div class="tab active" data-tab="status">📊 الحالة الحالية</div>
+      <div class="tab" data-tab="log">➕ سجّل تسميد</div>
+      <div class="tab" data-tab="convert">🔄 تحويل سماد</div>
+    </div>
+
+    <div class="tab-panel active" id="panel-status">
+      <div class="card">
+        <h3>الحالة الغذائية للمحصول</h3>
+        <div class="nutrient-grid" id="nutrient-grid"></div>
+        <div id="stage-recommendation"></div>
+      </div>
+      <div class="card">
+        <h3>📜 سجل التسميد المضاف</h3>
+        <div id="log-list"><div class="empty">جاري التحميل...</div></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-log">
+      <div class="card">
+        <h3>➕ سجّل إضافة سماد</h3>
+        <div class="field"><label>نوع السماد</label><select id="log-fertilizer"></select></div>
+        <div class="field"><label>الكمية (كجم)</label><input type="number" id="log-amount" step="0.1"></div>
+        <div class="field"><label>تاريخ الإضافة</label><input type="date" id="log-date"></div>
+        <button class="action-btn" id="log-submit-btn">تسجيل الإضافة</button>
+        <div id="log-preview"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-convert">
+      <div class="card">
+        <h3>🔄 تحويل عنصر غذائي لكمية سماد</h3>
+        <div class="field"><label>العنصر المطلوب</label>
+          <select id="conv-nutrient">
+            <option value="n">نيتروجين (N)</option>
+            <option value="p2o5">فوسفور (P₂O₅)</option>
+            <option value="k2o">بوتاسيوم (K₂O)</option>
+          </select>
+        </div>
+        <div class="field"><label>الكمية المطلوبة (كجم من العنصر الخالص)</label><input type="number" id="conv-amount" step="0.1"></div>
+        <div class="field"><label>السماد المستخدم</label><select id="conv-fertilizer"></select></div>
+        <button class="action-btn" id="conv-submit-btn">احسب الكمية</button>
+        <div id="conv-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let userCrops = [];
+  let fertilizerTypes = [];
+  let currentCrop = null;
+  let currentRequirement = null;
+  let stageDistribution = [];
+  let currentUserId = null;
+
+  document.getElementById('log-date').valueAsDate = new Date();
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.getAttribute('data-tab')).classList.add('active');
+    });
+  });
+
+  async function loadUserCrops(){
+    const { data: farms } = await db.from('farms').select('id, farm_name, area_size');
+    if(!farms || !farms.length){
+      document.getElementById('crop-select').innerHTML = '<option value="">لسه معملتش مزرعة</option>';
+      return;
+    }
+    const farmIds = farms.map(f => f.id);
+    const { data: crops } = await db.from('crops').select('*').in('farm_id', farmIds).eq('status', 'active');
+    if(!crops || !crops.length){
+      document.getElementById('crop-select').innerHTML = '<option value="">لسه معملتش أي محصول نشط</option>';
+      return;
+    }
+    userCrops = crops.map(c => ({ ...c, farm: farms.find(f => f.id === c.farm_id) }));
+    document.getElementById('crop-select').innerHTML = '<option value="">اختار محصول...</option>' +
+      userCrops.map(c => `<option value="${c.id}">${c.crop_type}${c.variety ? ' - ' + c.variety : ''} (${c.farm?.farm_name || ''})</option>`).join('');
+  }
+
+  function ageInDays(plantingDate){
+    if(!plantingDate) return null;
+    return Math.floor((Date.now() - new Date(plantingDate).getTime()) / (1000*60*60*24));
+  }
+
+  async function openCrop(cropId){
+    currentCrop = userCrops.find(c => c.id === cropId);
+    document.getElementById('calc-content').style.display = 'block';
+
+    const { data: req } = await db.from('fertilizer_requirements').select('*').eq('crop_type', currentCrop.crop_type).maybeSingle();
+    currentRequirement = req;
+
+    const { data: stages } = await db.from('fertilizer_stage_distribution').select('*').order('stage_order');
+    stageDistribution = stages || [];
+
+    if(!currentRequirement){
+      document.getElementById('nutrient-grid').innerHTML = `<div class="empty" style="grid-column:1/-1;">مفيش بيانات احتياج مسجّلة للمحصول ده لسه (${currentCrop.crop_type}) — اطلب من الأدمن يضيفها</div>`;
+      document.getElementById('log-list').innerHTML = '';
+      return;
+    }
+
+    renderStatus();
+    loadLog();
+  }
+
+  async function getAppliedTotals(){
+    const { data: logs } = await db.from('fertilizer_log').select('*').eq('crop_id', currentCrop.id).order('applied_date', { ascending: false });
+    const totals = { n: 0, p2o5: 0, k2o: 0 };
+    (logs || []).forEach(l => {
+      totals.n += Number(l.n_applied || 0);
+      totals.p2o5 += Number(l.p2o5_applied || 0);
+      totals.k2o += Number(l.k2o_applied || 0);
+    });
+    return { totals, logs: logs || [] };
+  }
+
+  function nutrientStatus(applied, total){
+    const pct = total > 0 ? (applied / total) * 100 : 0;
+    let cls = 'low';
+    if(pct >= 90) cls = 'ok';
+    else if(pct >= 50) cls = 'mid';
+    return { pct: Math.min(pct, 100), cls };
+  }
+
+  async function renderStatus(){
+    const { totals } = await getAppliedTotals();
+    const area = currentCrop.farm?.area_size || 1;
+
+    const totalN = currentRequirement.n_total * area;
+    const totalP = currentRequirement.p2o5_total * area;
+    const totalK = currentRequirement.k2o_total * area;
+
+    const nStat = nutrientStatus(totals.n, totalN);
+    const pStat = nutrientStatus(totals.p2o5, totalP);
+    const kStat = nutrientStatus(totals.k2o, totalK);
+
+    document.getElementById('nutrient-grid').innerHTML = `
+      <div class="nutrient-box">
+        <div class="n-name">N نيتروجين</div>
+        <div class="n-total">الاحتياج: ${totalN.toFixed(0)} كجم</div>
+        <div class="n-remaining ${nStat.cls}">${Math.max(totalN - totals.n, 0).toFixed(0)} كجم متبقي</div>
+        <div class="progress-bar"><div class="fill" style="width:${nStat.pct}%; background:${nStat.cls==='ok'?'var(--up)':nStat.cls==='mid'?'var(--mid)':'var(--down)'}"></div></div>
+      </div>
+      <div class="nutrient-box">
+        <div class="n-name">P₂O₅ فوسفور</div>
+        <div class="n-total">الاحتياج: ${totalP.toFixed(0)} كجم</div>
+        <div class="n-remaining ${pStat.cls}">${Math.max(totalP - totals.p2o5, 0).toFixed(0)} كجم متبقي</div>
+        <div class="progress-bar"><div class="fill" style="width:${pStat.pct}%; background:${pStat.cls==='ok'?'var(--up)':pStat.cls==='mid'?'var(--mid)':'var(--down)'}"></div></div>
+      </div>
+      <div class="nutrient-box">
+        <div class="n-name">K₂O بوتاسيوم</div>
+        <div class="n-total">الاحتياج: ${totalK.toFixed(0)} كجم</div>
+        <div class="n-remaining ${kStat.cls}">${Math.max(totalK - totals.k2o, 0).toFixed(0)} كجم متبقي</div>
+        <div class="progress-bar"><div class="fill" style="width:${kStat.pct}%; background:${kStat.cls==='ok'?'var(--up)':kStat.cls==='mid'?'var(--mid)':'var(--down)'}"></div></div>
+      </div>
+    `;
+
+    // توصية حسب مرحلة النمو (استرشادية)
+    const age = ageInDays(currentCrop.planting_date);
+    if(age !== null && stageDistribution.length){
+      // نفترض موسم عام تقريبي 100 يوم لحد النضج الكامل (استرشادي) لتحديد أي مرحلة تقريبية
+      const seasonDays = 100;
+      const progressPct = Math.min((age / seasonDays) * 100, 100);
+      const stage = stageDistribution.find(s => progressPct <= s.cumulative_percent) || stageDistribution[stageDistribution.length-1];
+
+      const expectedN = (stage.cumulative_percent / 100) * totalN;
+      const gapN = expectedN - totals.n;
+
+      document.getElementById('stage-recommendation').innerHTML = `
+        <div class="fert-result">
+          <div class="fert-row"><span>عمر النبات</span><span>${age} يوم</span></div>
+          <div class="fert-row"><span>المرحلة التقريبية</span><span>${stage.stage_label}</span></div>
+          <div class="fert-row"><span>المفروض يكون اتضاف N لحد دلوقتي</span><span>${expectedN.toFixed(0)} كجم</span></div>
+          <div class="fert-row"><span>💡 التوصية</span><span>${gapN > 10 ? `متأخر بـ ${gapN.toFixed(0)} كجم N عن المرحلة دي` : 'البرنامج مواكب للمرحلة الحالية'}</span></div>
+        </div>
+      `;
+    }
+  }
+
+  async function loadLog(){
+    const { logs } = await getAppliedTotals();
+    const container = document.getElementById('log-list');
+    if(!logs.length){ container.innerHTML = '<div class="empty">لسه معملتش أي تسجيل تسميد</div>'; return; }
+    container.innerHTML = logs.map(l => `
+      <div class="log-row">
+        <span>${l.applied_date} — ${l.fertilizer_name} (${l.amount_kg} كجم)</span>
+        <span>N:${l.n_applied.toFixed(1)} P:${l.p2o5_applied.toFixed(1)} K:${l.k2o_applied.toFixed(1)}</span>
+      </div>
+    `).join('');
+  }
+
+  async function loadFertilizerTypes(){
+    const { data } = await db.from('fertilizer_types').select('*').order('name');
+    fertilizerTypes = data || [];
+    const opts = fertilizerTypes.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+    document.getElementById('log-fertilizer').innerHTML = opts;
+    document.getElementById('conv-fertilizer').innerHTML = opts;
+  }
+
+  document.getElementById('log-submit-btn').addEventListener('click', async () => {
+    if(!currentCrop){ alert('اختار محصول الأول'); return; }
+    const fertId = document.getElementById('log-fertilizer').value;
+    const amount = parseFloat(document.getElementById('log-amount').value);
+    const date = document.getElementById('log-date').value;
+    if(!fertId || !amount){ alert('أكمل البيانات'); return; }
+
+    const fert = fertilizerTypes.find(f => f.id === fertId);
+    const n_applied = amount * (fert.n_percent / 100);
+    const p2o5_applied = amount * (fert.p2o5_percent / 100);
+    const k2o_applied = amount * (fert.k2o_percent / 100);
+
+    const { error } = await db.from('fertilizer_log').insert({
+      crop_id: currentCrop.id, user_id: currentUserId, fertilizer_name: fert.name,
+      amount_kg: amount, n_applied, p2o5_applied, k2o_applied, applied_date: date,
+    });
+
+    if(error){ alert('خطأ: ' + error.message); return; }
+
+    document.getElementById('log-preview').innerHTML = `
+      <div class="fert-result">
+        <div class="fert-row"><span>تمت الإضافة ✅</span><span></span></div>
+        <div class="fert-row"><span>N مضاف</span><span>${n_applied.toFixed(1)} كجم</span></div>
+        <div class="fert-row"><span>P₂O₅ مضاف</span><span>${p2o5_applied.toFixed(1)} كجم</span></div>
+        <div class="fert-row"><span>K₂O مضاف</span><span>${k2o_applied.toFixed(1)} كجم</span></div>
+      </div>
+    `;
+    document.getElementById('log-amount').value = '';
+    renderStatus();
+    loadLog();
+  });
+
+  document.getElementById('conv-submit-btn').addEventListener('click', () => {
+    const nutrient = document.getElementById('conv-nutrient').value;
+    const amount = parseFloat(document.getElementById('conv-amount').value);
+    const fertId = document.getElementById('conv-fertilizer').value;
+    if(!amount || !fertId){ alert('أكمل البيانات'); return; }
+
+    const fert = fertilizerTypes.find(f => f.id === fertId);
+    const percentMap = { n: fert.n_percent, p2o5: fert.p2o5_percent, k2o: fert.k2o_percent };
+    const percent = percentMap[nutrient];
+
+    if(!percent || percent === 0){
+      document.getElementById('conv-result').innerHTML = `<div class="fert-result">⚠️ السماد ده مفهوش العنصر المختار خالص</div>`;
+      return;
+    }
+
+    const neededKg = amount / (percent / 100);
+    document.getElementById('conv-result').innerHTML = `
+      <div class="fert-result">
+        <div class="fert-row"><span>عشان توفّر ${amount} كجم من العنصر</span><span></span></div>
+        <div class="fert-row"><span>محتاج من "${fert.name}"</span><span><b>${neededKg.toFixed(1)} كجم</b></span></div>
+      </div>
+    `;
+  });
+
+  document.getElementById('crop-select').addEventListener('change', (e) => {
+    if(e.target.value) openCrop(e.target.value);
+    else document.getElementById('calc-content').style.display = 'none';
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const _hasPerm = await AgroNexPermissions.check(db, session.user.id, 'can_use_fertilizer_calculator');
+    if(!_hasPerm){ AgroNexPermissions.redirectSilently(); return; }
+
+    currentUserId = session.user.id;
+    loadUserCrops();
+    loadFertilizerTypes();
+  })();
+</script>
+</body>
+</html>
