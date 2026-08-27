@@ -302,6 +302,7 @@ const AgroNexLayout = (() => {
       });
 
       document.getElementById('layout-logout-btn').addEventListener('click', async () => {
+        await markOffline();
         await db.auth.signOut();
         window.location.href = 'login.html';
       });
@@ -347,6 +348,19 @@ const AgroNexLayout = (() => {
         localStorage.setItem('agronex-sidebar-collapsed', sidebarEl.classList.contains('collapsed') ? 'true' : 'false');
       }
     });
+
+    // ===== نبضة الحياة: تحديث "آخر نشاط" كل دقيقة طول ما الصفحة مفتوحة =====
+    async function sendHeartbeat(){
+      await db.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('id', profile.id);
+    }
+    sendHeartbeat(); // نبضة فورية أول ما الصفحة تفتح
+    const heartbeatInterval = setInterval(sendHeartbeat, 60000); // وبعدين كل دقيقة
+
+    async function markOffline(){
+      clearInterval(heartbeatInterval);
+      // مفيش عمود "أوفلاين" منفصل — الاعتماد على إن آخر نبضة قبل تسجيل الخروج تفضل هي "آخر ظهور"
+      // (يعني بمجرد ما دقيقتين يعدوا من غير نبضة جديدة، يتحسب "مش متصل" تلقائي)
+    }
 
     return { session, profile, isAdmin };
   }
