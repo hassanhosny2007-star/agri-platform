@@ -38,11 +38,20 @@
     background:var(--paper); border:1px solid var(--line); border-radius:14px;
     padding:14px 16px; display:flex; align-items:center; gap:12px;
   }
-  .avatar{ width:48px; height:48px; border-radius:50%; object-fit:cover; background:#e7e0cb; flex-shrink:0; }
+  .avatar-wrap{ position:relative; flex-shrink:0; }
+  .avatar{ width:48px; height:48px; border-radius:50%; object-fit:cover; background:#e7e0cb; display:block; }
+  .online-dot{
+    position:absolute; bottom:0; left:0; width:13px; height:13px; border-radius:50%;
+    background:#2E7D32; border:2.5px solid var(--paper); display:none;
+  }
+  .online-dot.show{ display:block; }
   .info{ flex:1; min-width:0; }
   .info a{ text-decoration:none; color:inherit; }
-  .name{ font-family:'Tajawal'; font-weight:700; font-size:15px; display:flex; align-items:center; gap:6px; }
+  .name{ font-family:'Tajawal'; font-weight:700; font-size:15px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .badge{ font-size:11px; background:#fbe2e2; color:#a83232; padding:2px 8px; border-radius:20px; }
+  .presence-text{ font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
+  .presence-text.online{ background:#e8f5e9; color:#2E7D32; }
+  .presence-text.offline{ background:#f0eee7; color:#8a7f63; }
   .email{ font-size:13px; color:#5b543f; margin-top:2px; }
   .meta{ font-size:12px; color:#8a7f63; margin-top:2px; }
   .actions{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
@@ -90,6 +99,21 @@
   const params = new URLSearchParams(window.location.search);
   const role = params.get('role');
 
+  function presenceInfo(lastActiveAt){
+    if(!lastActiveAt) return { isOnline: false, text: 'لسه ما دخلش المنصة' };
+
+    const diffMs = Date.now() - new Date(lastActiveAt).getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+
+    if(diffMin < 2) return { isOnline: true, text: 'نشط الآن' };
+
+    if(diffMin < 60) return { isOnline: false, text: `نشط منذ ${diffMin} دقيقة` };
+    const diffH = Math.floor(diffMin / 60);
+    if(diffH < 24) return { isOnline: false, text: `نشط منذ ${diffH} ساعة` };
+    const diffD = Math.floor(diffH / 24);
+    return { isOnline: false, text: `نشط منذ ${diffD} يوم` };
+  }
+
   function renderUsers(users, currentAdminId){
     if(!users.length){
       document.getElementById('content').innerHTML = '<div class="empty">مفيش مستخدمين في الفئة دي لسه</div>';
@@ -98,12 +122,20 @@
     const rows = users.map(u => {
       const farmsCount = (u.farms && u.farms[0] && u.farms[0].count) || 0;
       const isActive = u.is_active !== false;
+      const presence = presenceInfo(u.last_active_at);
       return `
         <div class="user-row" data-id="${u.id}">
           <a href="admin-user.html?id=${u.id}" style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
-            <img class="avatar" src="${u.avatar_url || ''}" onerror="this.style.visibility='hidden'">
+            <div class="avatar-wrap">
+              <img class="avatar" src="${u.avatar_url || ''}" onerror="this.style.visibility='hidden'">
+              <span class="online-dot ${presence.isOnline ? 'show' : ''}"></span>
+            </div>
             <div class="info">
-              <div class="name">${u.full_name || '—'} ${!isActive ? '<span class="badge">معطّل</span>' : ''}</div>
+              <div class="name">
+                ${u.full_name || '—'}
+                ${!isActive ? '<span class="badge">معطّل</span>' : ''}
+                <span class="presence-text ${presence.isOnline ? 'online' : 'offline'}">${presence.text}</span>
+              </div>
               <div class="email">${u.email}</div>
               ${u.specialization ? `<div class="meta">${u.specialization}</div>` : ''}
             </div>
@@ -131,7 +163,7 @@
           const row = document.querySelector(`.user-row[data-id="${id}"]`);
           const badge = row.querySelector('.badge');
           if(current){
-            if(!badge) row.querySelector('.name').insertAdjacentHTML('beforeend', '<span class="badge">معطّل</span>');
+            if(!badge) row.querySelector('.name').insertAdjacentHTML('afterbegin', '<span class="badge">معطّل</span>');
           } else {
             if(badge) badge.remove();
           }
@@ -144,6 +176,25 @@
         btn.disabled = false;
       });
     });
+  }
+
+  let allUsers = [];
+  let currentAdminId = null;
+
+  async function loadAndRender(){
+    const { data: users, error } = await db
+      .from('profiles')
+      .select('*, farms(count)')
+      .eq('role', role)
+      .order('created_at', { ascending: false });
+
+    if(error){
+      document.getElementById('content').innerHTML = '<div class="denied">حصل خطأ: ' + error.message + '</div>';
+      return;
+    }
+
+    allUsers = users || [];
+    renderUsers(allUsers, currentAdminId);
   }
 
   (async () => {
@@ -159,20 +210,12 @@
       return;
     }
 
+    currentAdminId = session.user.id;
     document.getElementById('page-title').textContent = ROLE_LABELS[role];
 
-    const { data: users, error } = await db
-      .from('profiles')
-      .select('*, farms(count)')
-      .eq('role', role)
-      .order('created_at', { ascending: false });
+    await loadAndRender();
 
-    if(error){
-      document.getElementById('content').innerHTML = '<div class="denied">حصل خطأ: ' + error.message + '</div>';
-      return;
-    }
-
-    renderUsers(users || [], session.user.id);
+    setInterval(loadAndRender, 30000);
   })();
 </script>
 </body>
