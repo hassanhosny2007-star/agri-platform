@@ -1,0 +1,197 @@
+cat > /home/claude/farm-platform-html/admin-suggestions.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة المقترحات — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:720px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .filter-tabs{ display:flex; gap:8px; margin-bottom:18px; }
+  .f-tab{ flex:1; text-align:center; padding:10px; border-radius:9px; border:1px solid var(--line); background:var(--paper); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13px; }
+  .f-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .sugg-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:18px 20px; margin-bottom:14px; }
+  .sugg-card .s-status{ font-size:11px; font-weight:700; padding:2px 10px; border-radius:20px; float:left; }
+  .status-pending{ background:#FFF6E0; color:var(--gold); }
+  .status-replied{ background:#E8F5E9; color:#2E7D32; }
+  .sugg-card .s-title{ font-family:'Tajawal'; font-weight:800; font-size:15px; }
+  .sugg-card .s-user{ font-size:12px; color:#8a7f63; margin-top:4px; }
+  .sugg-card .s-content{ font-size:13.5px; color:#5b543f; margin-top:10px; line-height:1.7; }
+  .sugg-card .s-date{ font-size:11px; color:#8a7f63; margin-top:8px; }
+
+  .existing-reply{ background:var(--bg); border-radius:10px; padding:12px 14px; margin-top:12px; }
+  .existing-reply .r-from{ font-family:'Tajawal'; font-weight:800; font-size:12.5px; color:var(--leaf-deep); }
+  .existing-reply .r-text{ font-size:13px; margin-top:6px; line-height:1.7; }
+
+  .reply-form{ margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }
+  .reply-as-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .reply-as-btn{ flex:1; text-align:center; padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-size:12.5px; font-weight:700; }
+  .reply-as-btn.active{ background:var(--leaf-deep); color:#fff; border-color:var(--leaf-deep); }
+  textarea{ width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:13.5px; font-family:inherit; margin-bottom:10px; }
+  button.reply-btn{ padding:10px 20px; border:none; border-radius:9px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
+
+  .empty{ text-align:center; color:#5b543f; padding:40px 0; font-size:14px; }
+  .denied{ max-width:720px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>💡 إدارة المقترحات</h1>
+    <a class="back" href="admin.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div id="access-gate">
+    <div class="filter-tabs">
+      <div class="f-tab active" data-filter="pending">قيد المراجعة</div>
+      <div class="f-tab" data-filter="replied">اتردّ عليها</div>
+      <div class="f-tab" data-filter="all">الكل</div>
+    </div>
+    <div id="suggestions-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let adminName = '';
+  let currentFilter = 'pending';
+
+  async function loadSuggestions(){
+    let query = db.from('suggestions').select('*, user:user_id(full_name, email)').order('created_at', { ascending: false });
+    if(currentFilter !== 'all') query = query.eq('status', currentFilter);
+    const { data: suggestions } = await query;
+
+    const container = document.getElementById('suggestions-list');
+    if(!suggestions || !suggestions.length){ container.innerHTML = '<div class="empty">مفيش اقتراحات هنا حاليًا</div>'; return; }
+
+    container.innerHTML = suggestions.map(s => `
+      <div class="sugg-card">
+        <span class="s-status status-${s.status}">${s.status === 'replied' ? 'اتردّ عليه' : 'قيد المراجعة'}</span>
+        <div class="s-title">${s.title}</div>
+        <div class="s-user">👤 ${s.user?.full_name || s.user?.email || '—'}</div>
+        <div class="s-content">${s.content}</div>
+        <div class="s-date">${new Date(s.created_at).toLocaleString('ar-EG')}</div>
+
+        ${s.admin_reply ? `
+          <div class="existing-reply">
+            <div class="r-from">💬 رد ${s.admin_reply_as === 'platform' ? 'فريق AgroNex' : (s.admin_replier_name || 'الأدمن')}</div>
+            <div class="r-text">${s.admin_reply}</div>
+          </div>
+        ` : ''}
+
+        <div class="reply-form">
+          <div class="reply-as-row">
+            <div class="reply-as-btn active" data-mode="admin_name" data-id="${s.id}">ردّ باسمي (${adminName})</div>
+            <div class="reply-as-btn" data-mode="platform" data-id="${s.id}">ردّ باسم فريق AgroNex</div>
+          </div>
+          <textarea id="reply-text-${s.id}" rows="2" placeholder="اكتب ردّك هنا...">${s.admin_reply || ''}</textarea>
+          <button class="reply-btn" data-submit-id="${s.id}">${s.admin_reply ? 'تحديث الرد' : 'إرسال الرد'}</button>
+        </div>
+      </div>
+    `).join('');
+
+    document.querySelectorAll('.reply-as-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        document.querySelectorAll(`.reply-as-btn[data-id="${id}"]`).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('[data-submit-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-submit-id');
+        const replyText = document.getElementById(`reply-text-${id}`).value.trim();
+        if(!replyText){ alert('اكتب رد الأول'); return; }
+
+        const activeMode = document.querySelector(`.reply-as-btn[data-id="${id}"].active`).getAttribute('data-mode');
+
+        btn.disabled = true;
+        btn.textContent = 'جاري الإرسال...';
+
+        const suggestion = suggestions.find(s => s.id === id);
+
+        const { error } = await db.from('suggestions').update({
+          admin_reply: replyText,
+          admin_reply_as: activeMode,
+          admin_replier_name: activeMode === 'admin_name' ? adminName : null,
+          status: 'replied',
+          replied_at: new Date().toISOString(),
+        }).eq('id', id);
+
+        if(error){ alert('خطأ: ' + error.message); btn.disabled = false; btn.textContent = 'إرسال الرد'; return; }
+
+        // إشعار للمستخدم صاحب الاقتراح
+        await db.from('notifications').insert({
+          user_id: suggestion.user_id,
+          title: '💬 اتردّ على اقتراحك',
+          body: suggestion.title,
+          url: 'suggestions.html',
+        });
+
+        loadSuggestions();
+      });
+    });
+  }
+
+  document.querySelectorAll('.f-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.f-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFilter = tab.getAttribute('data-filter');
+      loadSuggestions();
+    });
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const { data: myProfile } = await db.from('profiles').select('role, full_name').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+    adminName = myProfile.full_name || 'الأدمن';
+    loadSuggestions();
+  })();
+</script>
+</body>
+</html>
+HTMLEOF
+echo "done"
