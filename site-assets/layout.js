@@ -10,9 +10,9 @@ const AgroNexLayout = (() => {
     ar: {
       nav: {
         dashboard: 'الرئيسية', diagnose: 'تشخيص أمراض النبات', knowledge: 'بنك المعرفة',
-        'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'crop-prices': 'أسعار المحاصيل', 'disease-risk': 'تحليل مخاطر الأمراض', 'weather-history': 'سجل الطقس', 'disease-map': 'خريطة الأمراض', 'crops-map': 'خريطة المحاصيل', radar: 'AgroNex Radar', 'demand-forecast': 'توقع الطلب', 'earth-pulse': 'Earth Pulse', 'war-room': 'War Room', 'fertilizer-calculator': 'حاسبة التسميد', marketplace: 'السوق الأونلاين', 'my-products': 'منتجاتي', 'my-profile': 'بروفايلي',
+        'mix-checker': 'خلط المبيدات والأسمدة', substances: 'دليل المواد الفعالة', 'crop-prices': 'أسعار المحاصيل', 'disease-risk': 'تحليل مخاطر الأمراض', 'weather-history': 'سجل الطقس', 'disease-map': 'خريطة الأمراض', 'crops-map': 'خريطة المحاصيل', radar: 'AgroNex Radar', 'demand-forecast': 'توقع الطلب', 'earth-pulse': 'Earth Pulse', 'war-room': 'War Room', 'fertilizer-calculator': 'حاسبة التسميد', marketplace: 'السوق الأونلاين', 'my-products': 'منتجاتي', suggestions: 'مقترحاتي', reviews: 'تقييم المنصة', 'my-profile': 'بروفايلي',
         'admin-section': 'إدارة المنصة', 'admin-dashboard': 'لوحة تحكم الأدمن', 'admin-profile': 'بروفايل المدير',
-        'admin-diagnoses': 'سجل التشخيصات', 'knowledge-manage': 'إدارة بنك المعرفة', 'mix-manage': 'إدارة جدول الخلط',
+        'admin-diagnoses': 'سجل التشخيصات', 'knowledge-manage': 'إدارة بنك المعرفة', 'mix-manage': 'إدارة جدول الخلط', 'admin-suggestions': 'إدارة المقترحات',
       },
       siteLink: '🌐 عرض الموقع', toggleTitle: 'إظهار/إخفاء القائمة الجانبية',
       themeTitle: 'تبديل الوضع الليلي/النهاري', logoutTitle: 'تسجيل الخروج', langBtn: 'EN',
@@ -20,9 +20,9 @@ const AgroNexLayout = (() => {
     en: {
       nav: {
         dashboard: 'Home', diagnose: 'Plant Disease Diagnosis', knowledge: 'Knowledge Base',
-        'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'crop-prices': 'Crop Prices', 'disease-risk': 'Disease Risk Analysis', 'weather-history': 'Weather History', 'disease-map': 'Disease Map', 'crops-map': 'Crops Map', radar: 'AgroNex Radar', 'demand-forecast': 'Demand Forecast', 'earth-pulse': 'Earth Pulse', 'war-room': 'War Room', 'fertilizer-calculator': 'Fertilizer Calculator', marketplace: 'Online Marketplace', 'my-products': 'My Products', 'my-profile': 'My Profile',
+        'mix-checker': 'Pesticide & Fertilizer Mixing', substances: 'Active Substances Guide', 'crop-prices': 'Crop Prices', 'disease-risk': 'Disease Risk Analysis', 'weather-history': 'Weather History', 'disease-map': 'Disease Map', 'crops-map': 'Crops Map', radar: 'AgroNex Radar', 'demand-forecast': 'Demand Forecast', 'earth-pulse': 'Earth Pulse', 'war-room': 'War Room', 'fertilizer-calculator': 'Fertilizer Calculator', marketplace: 'Online Marketplace', 'my-products': 'My Products', suggestions: 'My Suggestions', reviews: 'Rate Platform', 'my-profile': 'My Profile',
         'admin-section': 'Platform Management', 'admin-dashboard': 'Admin Dashboard', 'admin-profile': 'Admin Profile',
-        'admin-diagnoses': 'Diagnoses Log', 'knowledge-manage': 'Manage Knowledge Base', 'mix-manage': 'Manage Mixing Table',
+        'admin-diagnoses': 'Diagnoses Log', 'knowledge-manage': 'Manage Knowledge Base', 'mix-manage': 'Manage Mixing Table', 'admin-suggestions': 'Manage Suggestions',
       },
       siteLink: '🌐 View Site', toggleTitle: 'Show/Hide sidebar',
       themeTitle: 'Toggle dark/light mode', logoutTitle: 'Logout', langBtn: 'AR',
@@ -47,6 +47,8 @@ const AgroNexLayout = (() => {
     { key: 'fertilizer-calculator', href: 'fertilizer-calculator.html', icon: '🌱', roles: 'all', permKey: 'can_use_fertilizer_calculator' },
     { key: 'marketplace', href: 'marketplace.html', icon: '🛒', roles: 'all' },
     { key: 'my-products', href: 'my-products.html', icon: '📦', roles: 'all' },
+    { key: 'suggestions', href: 'suggestions.html', icon: '💡', roles: 'all', permKey: 'can_submit_suggestions' },
+    { key: 'reviews', href: 'reviews.html', icon: '⭐', roles: 'all', permKey: 'can_rate_platform' },
     { key: 'my-profile', href: 'engineer-profile.html', icon: '👤', roles: 'all' },
 
     { key: 'admin-section', roles: ['admin'], isSection: true },
@@ -55,6 +57,7 @@ const AgroNexLayout = (() => {
     { key: 'admin-diagnoses', href: 'admin-diagnoses.html', icon: '📋', roles: ['admin'] },
     { key: 'knowledge-manage', href: 'knowledge-manage.html', icon: '🗂️', roles: ['admin'] },
     { key: 'mix-manage', href: 'mix-checker-manage.html', icon: '⚗️', roles: ['admin'] },
+    { key: 'admin-suggestions', href: 'admin-suggestions.html', icon: '💡', roles: ['admin'] },
   ];
 
   function getInitialLang(){ return localStorage.getItem('agronex-lang') || 'ar'; }
