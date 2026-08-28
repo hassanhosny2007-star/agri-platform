@@ -1,0 +1,192 @@
+cat > /home/claude/farm-platform-html/reviews.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقييم المنصة — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:700px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .summary-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:24px; margin-bottom:18px; text-align:center; }
+  .summary-card .avg-num{ font-family:'Tajawal'; font-weight:900; font-size:42px; color:var(--gold); }
+  .summary-card .avg-stars{ font-size:22px; color:var(--gold); margin-top:4px; }
+  .summary-card .avg-count{ font-size:12.5px; color:#8a7f63; margin-top:6px; }
+
+  .rate-card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:18px; }
+  .rate-card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:14px; color:var(--leaf-deep); }
+  .star-picker{ display:flex; justify-content:center; gap:8px; font-size:34px; margin-bottom:16px; cursor:pointer; }
+  .star-picker span{ color:#ddd4b8; transition:color .15s; }
+  .star-picker span.filled{ color:var(--gold); }
+  textarea{ width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:14px; font-family:inherit; margin-bottom:10px; }
+  button.submit-btn{ width:100%; padding:12px; border:none; border-radius:9px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:14.5px; cursor:pointer; }
+  #rate-msg{ font-size:12.5px; margin-top:8px; text-align:center; }
+
+  .review-item{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; }
+  .review-item .rv-top{ display:flex; justify-content:space-between; align-items:center; }
+  .review-item .rv-name{ font-family:'Tajawal'; font-weight:700; font-size:13.5px; }
+  .review-item .rv-stars{ color:var(--gold); font-size:14px; }
+  .review-item .rv-comment{ font-size:13px; color:#5b543f; margin-top:8px; line-height:1.7; }
+  .review-item .rv-date{ font-size:11px; color:#8a7f63; margin-top:8px; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>⭐ تقييم المنصة</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div class="summary-card">
+    <div class="avg-num" id="avg-num">—</div>
+    <div class="avg-stars" id="avg-stars">☆☆☆☆☆</div>
+    <div class="avg-count" id="avg-count">جاري التحميل...</div>
+  </div>
+
+  <div class="rate-card">
+    <h3>قيّم تجربتك مع AgroNex</h3>
+    <div class="star-picker" id="star-picker">
+      <span data-val="1">★</span><span data-val="2">★</span><span data-val="3">★</span><span data-val="4">★</span><span data-val="5">★</span>
+    </div>
+    <textarea id="review-comment" rows="3" placeholder="اكتب رأيك (اختياري)..."></textarea>
+    <button class="submit-btn" id="submit-review-btn">إرسال التقييم</button>
+    <div id="rate-msg"></div>
+  </div>
+
+  <h3 style="font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:12px; color:var(--leaf-deep);">💬 آراء المستخدمين</h3>
+  <div id="reviews-list"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUserId = null;
+  let selectedRating = 0;
+
+  function renderStars(container, count){
+    container.querySelectorAll('span').forEach(s => {
+      s.classList.toggle('filled', parseInt(s.getAttribute('data-val')) <= count);
+    });
+  }
+
+  document.querySelectorAll('#star-picker span').forEach(star => {
+    star.addEventListener('click', () => {
+      selectedRating = parseInt(star.getAttribute('data-val'));
+      renderStars(document.getElementById('star-picker'), selectedRating);
+    });
+  });
+
+  async function loadSummary(){
+    const { data: reviews } = await db.from('platform_reviews').select('rating');
+    const count = (reviews || []).length;
+    if(!count){
+      document.getElementById('avg-num').textContent = '—';
+      document.getElementById('avg-count').textContent = 'لسه مفيش تقييمات';
+      return;
+    }
+    const avg = reviews.reduce((s, r) => s + r.rating, 0) / count;
+    document.getElementById('avg-num').textContent = avg.toFixed(1);
+    document.getElementById('avg-stars').textContent = '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg));
+    document.getElementById('avg-count').textContent = `بناءً على ${count} تقييم`;
+  }
+
+  async function loadReviewsList(){
+    const { data: reviews } = await db.from('platform_reviews')
+      .select('*, user:user_id(full_name)').order('created_at', { ascending: false }).limit(30);
+    const container = document.getElementById('reviews-list');
+    if(!reviews || !reviews.length){ container.innerHTML = '<div class="empty">لسه محدش قيّم المنصة</div>'; return; }
+
+    container.innerHTML = reviews.map(r => `
+      <div class="review-item">
+        <div class="rv-top">
+          <span class="rv-name">${r.user?.full_name || 'مستخدم'}</span>
+          <span class="rv-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+        </div>
+        ${r.comment ? `<div class="rv-comment">${r.comment}</div>` : ''}
+        <div class="rv-date">${new Date(r.created_at).toLocaleDateString('ar-EG')}</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadMyExistingReview(){
+    const { data: mine } = await db.from('platform_reviews').select('*').eq('user_id', currentUserId).maybeSingle();
+    if(mine){
+      selectedRating = mine.rating;
+      renderStars(document.getElementById('star-picker'), selectedRating);
+      document.getElementById('review-comment').value = mine.comment || '';
+      document.getElementById('submit-review-btn').textContent = 'تحديث تقييمي';
+    }
+  }
+
+  document.getElementById('submit-review-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('rate-msg');
+    if(!selectedRating){ msg.style.color = 'var(--rust)'; msg.textContent = 'اختار عدد نجوم الأول'; return; }
+
+    const comment = document.getElementById('review-comment').value.trim();
+    const btn = document.getElementById('submit-review-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الإرسال...';
+
+    const { error } = await db.from('platform_reviews').upsert({
+      user_id: currentUserId, rating: selectedRating, comment: comment || null,
+    }, { onConflict: 'user_id' });
+
+    btn.disabled = false;
+    btn.textContent = 'تحديث تقييمي';
+
+    if(error){ msg.style.color = 'var(--rust)'; msg.textContent = 'حصل خطأ: ' + error.message; return; }
+
+    msg.style.color = 'var(--leaf)';
+    msg.textContent = '✅ شكرًا لتقييمك';
+    loadSummary();
+    loadReviewsList();
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    loadSummary();
+    loadReviewsList();
+    loadMyExistingReview();
+  })();
+</script>
+</body>
+</html>
+HTMLEOF
+echo "done"
