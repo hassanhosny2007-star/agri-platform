@@ -32,4 +32,6 @@ const AGRONEX_PERMISSIONS_REGISTRY = [
   { key: 'can_sell_pesticides', label: 'بيع المبيدات في السوق' },
   { key: 'can_buy_equipment', label: 'شراء المستلزمات الزراعية من السوق' },
   { key: 'can_sell_equipment', label: 'بيع المستلزمات الزراعية في السوق' },
+  { key: 'can_submit_suggestions', label: 'إرسال مقترحات للمنصة' },
+  { key: 'can_rate_platform', label: 'تقييم المنصة بالنجوم والتعليقات' },
 ];
