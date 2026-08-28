@@ -45,6 +45,7 @@
   .review-item .rv-stars{ color:var(--gold); font-size:14px; }
   .review-item .rv-comment{ font-size:13px; color:#5b543f; margin-top:8px; line-height:1.7; }
   .review-item .rv-date{ font-size:11px; color:#8a7f63; margin-top:8px; }
+  .rv-del-btn{ font-size:11px; padding:5px 10px; border-radius:7px; border:1px solid #e3b8b8; background:#fbe9e9; color:#a83232; cursor:pointer; margin-top:8px; }
   .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
 </style>
 </head>
@@ -96,6 +97,7 @@
 
   let currentUserId = null;
   let selectedRating = 0;
+  let isCurrentUserAdmin = false;
 
   function renderStars(container, count){
     container.querySelectorAll('span').forEach(s => {
@@ -131,15 +133,31 @@
     if(!reviews || !reviews.length){ container.innerHTML = '<div class="empty">لسه محدش قيّم المنصة</div>'; return; }
 
     container.innerHTML = reviews.map(r => `
-      <div class="review-item">
+      <div class="review-item" data-review-id="${r.id}">
         <div class="rv-top">
           <span class="rv-name">${r.user?.full_name || 'مستخدم'}</span>
           <span class="rv-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
         </div>
         ${r.comment ? `<div class="rv-comment">${r.comment}</div>` : ''}
         <div class="rv-date">${new Date(r.created_at).toLocaleDateString('ar-EG')}</div>
+        ${isCurrentUserAdmin ? `<button class="rv-del-btn" data-del-id="${r.id}">🗑️ حذف التقييم</button>` : ''}
       </div>
     `).join('');
+
+    if(isCurrentUserAdmin){
+      document.querySelectorAll('[data-del-id]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if(!confirm('متأكد إنك عايز تمسح التقييم ده؟ الإجراء ده نهائي.')) return;
+          btn.disabled = true;
+          btn.textContent = 'جاري الحذف...';
+          const id = btn.getAttribute('data-del-id');
+          const { error } = await db.from('platform_reviews').delete().eq('id', id);
+          if(error){ alert('حصل خطأ: ' + error.message); btn.disabled = false; btn.textContent = '🗑️ حذف التقييم'; return; }
+          loadSummary();
+          loadReviewsList();
+        });
+      });
+    }
   }
 
   async function loadMyExistingReview(){
@@ -180,6 +198,10 @@
     const { data: { session } } = await db.auth.getSession();
     if(!session){ window.location.href = 'login.html'; return; }
     currentUserId = session.user.id;
+
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', currentUserId).single();
+    isCurrentUserAdmin = myProfile && myProfile.role === 'admin';
+
     loadSummary();
     loadReviewsList();
     loadMyExistingReview();
