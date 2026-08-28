@@ -1,3 +1,4 @@
+cat > /home/claude/farm-platform-html/admin.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -108,6 +109,13 @@
           <div class="tile-label">إدارة الصلاحيات</div>
           <div class="tile-sub">فعّل/عطّل أي ميزة لمستخدم أو فئة أو للكل</div>
         </div>
+      </a>
+      <a class="stat-tile tile-gold" href="admin-suggestions.html">
+        <span class="tile-icon">💡</span>
+        <div>
+          <div class="tile-label">إدارة المقترحات</div>
+          <div class="tile-sub">راجع ورُد على مقترحات المستخدمين</div>
+        </div>
       </a>`;
 
     document.getElementById('tiles').innerHTML = categoryTiles + extraTiles;
@@ -127,3 +135,5 @@
 </script>
 </body>
 </html>
+HTMLEOF
+echo "done"
