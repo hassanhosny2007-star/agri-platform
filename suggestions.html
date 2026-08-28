@@ -1,0 +1,157 @@
+cat > /home/claude/farm-platform-html/suggestions.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مقترحاتي — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/permissions.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --gold:#C9A227;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --gold:#E0B84D;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:700px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:18px; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:18px; }
+  .field{ margin-bottom:14px; }
+  .field label{ font-size:13px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:6px; }
+  input, textarea{ width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:14px; font-family:inherit; }
+  button.submit-btn{ width:100%; padding:12px; border:none; border-radius:9px; background:var(--leaf); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:14.5px; cursor:pointer; margin-top:6px; }
+  #submit-msg{ font-size:12.5px; margin-top:8px; text-align:center; }
+
+  .sugg-item{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:12px; }
+  .sugg-item .s-title{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; }
+  .sugg-item .s-status{ font-size:11px; font-weight:700; padding:2px 10px; border-radius:20px; float:left; }
+  .status-pending{ background:#FFF6E0; color:var(--gold); }
+  .status-replied{ background:#E8F5E9; color:#2E7D32; }
+  .sugg-item .s-content{ font-size:13px; color:#5b543f; margin-top:8px; line-height:1.7; }
+  .sugg-item .s-date{ font-size:11px; color:#8a7f63; margin-top:8px; }
+  .admin-reply{ background:var(--bg); border-radius:10px; padding:12px 14px; margin-top:12px; }
+  .admin-reply .r-from{ font-family:'Tajawal'; font-weight:800; font-size:12.5px; color:var(--leaf-deep); }
+  .admin-reply .r-text{ font-size:13px; margin-top:6px; line-height:1.7; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>💡 مقترحاتي</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">عندك اقتراح لتحسين المنصة أو حاجة عايز تتعدّل؟ اكتبها هنا وهيردّ عليك الأدمن</p>
+
+  <div class="card">
+    <h3 style="font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:14px; color:var(--leaf-deep);">✍️ اقتراح جديد</h3>
+    <div class="field"><label>عنوان مختصر</label><input type="text" id="sugg-title" placeholder="مثال: إضافة تنبيه للسماد"></div>
+    <div class="field"><label>التفاصيل</label><textarea id="sugg-content" rows="4" placeholder="اشرح اقتراحك بالتفصيل..."></textarea></div>
+    <button class="submit-btn" id="submit-btn">إرسال الاقتراح</button>
+    <div id="submit-msg"></div>
+  </div>
+
+  <h3 style="font-family:'Tajawal'; font-weight:700; font-size:15px; margin-bottom:12px; color:var(--leaf-deep);">📋 اقتراحاتي السابقة</h3>
+  <div id="my-suggestions"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUserId = null;
+
+  async function loadMySuggestions(){
+    const { data: suggestions } = await db.from('suggestions').select('*').eq('user_id', currentUserId).order('created_at', { ascending: false });
+    const container = document.getElementById('my-suggestions');
+    if(!suggestions || !suggestions.length){ container.innerHTML = '<div class="empty">لسه معملتش أي اقتراح</div>'; return; }
+
+    container.innerHTML = suggestions.map(s => `
+      <div class="sugg-item">
+        <span class="s-status status-${s.status}">${s.status === 'replied' ? 'اتردّ عليه' : 'قيد المراجعة'}</span>
+        <div class="s-title">${s.title}</div>
+        <div class="s-content">${s.content}</div>
+        <div class="s-date">${new Date(s.created_at).toLocaleDateString('ar-EG')}</div>
+        ${s.admin_reply ? `
+          <div class="admin-reply">
+            <div class="r-from">💬 رد ${s.admin_reply_as === 'platform' ? 'فريق AgroNex' : (s.admin_replier_name || 'الأدمن')}</div>
+            <div class="r-text">${s.admin_reply}</div>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('submit-msg');
+    const title = document.getElementById('sugg-title').value.trim();
+    const content = document.getElementById('sugg-content').value.trim();
+    if(!title || !content){ msg.style.color = 'var(--rust)'; msg.textContent = 'أكمل العنوان والتفاصيل'; return; }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الإرسال...';
+
+    const { error } = await db.from('suggestions').insert({ user_id: currentUserId, title, content });
+
+    if(error){
+      msg.style.color = 'var(--rust)';
+      msg.textContent = 'حصل خطأ: ' + error.message;
+      btn.disabled = false; btn.textContent = 'إرسال الاقتراح';
+      return;
+    }
+
+    // إشعار لكل الأدمن
+    const { data: admins } = await db.from('profiles').select('id').eq('role', 'admin');
+    if(admins && admins.length){
+      await db.from('notifications').insert(admins.map(a => ({
+        user_id: a.id, title: '💡 اقتراح جديد', body: title, url: 'admin-suggestions.html',
+      })));
+    }
+
+    msg.style.color = 'var(--leaf)';
+    msg.textContent = '✅ تم إرسال اقتراحك، هيوصلك رد قريب';
+    document.getElementById('sugg-title').value = '';
+    document.getElementById('sugg-content').value = '';
+    btn.disabled = false; btn.textContent = 'إرسال الاقتراح';
+    loadMySuggestions();
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    loadMySuggestions();
+  })();
+</script>
+</body>
+</html>
+HTMLEOF
+echo "done"
