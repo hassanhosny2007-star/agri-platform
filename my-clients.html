@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عملائي — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/egypt-locations.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --gold:#C9A227; --silver:#8a8f99; --bronze:#a5683a; --danger:#C62828; --up:#2E7D32;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --gold:#E0B84D; --silver:#a9afb8; --bronze:#c58658; --danger:#EF5350; --up:#66BB6A;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:900px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:18px; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:14px; color:var(--leaf-deep); }
+
+  .spec-grid{ display:flex; gap:8px; flex-wrap:wrap; }
+  .spec-chip{ padding:9px 16px; border-radius:20px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-size:12.5px; font-weight:700; }
+  .spec-chip.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .summary-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+  .summary-box{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; text-align:center; }
+  .summary-box .s-num{ font-family:'Tajawal'; font-weight:900; font-size:22px; color:var(--leaf-deep); }
+  .summary-box .s-label{ font-size:11.5px; color:#8a7f63; margin-top:4px; }
+  .summary-box.warn .s-num{ color:var(--danger); }
+
+  .client-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+  .c-tab{ flex:1; text-align:center; padding:11px; border-radius:9px; border:1px solid var(--line); background:var(--paper); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13.5px; }
+  .c-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .toolbar{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .toolbar input, .toolbar select{ padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:#fff; font-size:13px; font-family:inherit; }
+  .toolbar input{ flex:1; min-width:150px; }
+  button.add-btn{ padding:10px 18px; border:none; border-radius:9px; background:var(--rust); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
+
+  .client-form{ display:none; background:var(--bg); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .client-form.open{ display:block; }
+  .form-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+  .form-row.full{ grid-template-columns:1fr; }
+  .field label{ font-size:12px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:5px; }
+  .field input, .field select{ width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:#fff; font-size:13px; font-family:inherit; }
+  .form-actions{ display:flex; gap:8px; margin-top:10px; }
+  .form-actions button{ padding:10px 20px; border:none; border-radius:8px; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
+  .btn-save{ background:var(--leaf); color:#fff; }
+  .btn-cancel{ background:var(--paper); border:1px solid var(--line); color:var(--ink); }
+
+  .client-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; }
+  .client-card .c-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .client-card .c-name{ font-family:'Tajawal'; font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .tier-badge{ font-size:10px; font-weight:800; padding:2px 10px; border-radius:20px; color:#fff; }
+  .tier-gold{ background:var(--gold); }
+  .tier-silver{ background:var(--silver); }
+  .tier-bronze{ background:var(--bronze); }
+  .client-card .c-type{ font-size:11px; color:#8a7f63; margin-top:2px; }
+  .client-card .c-details{ display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr)); gap:8px; margin-top:12px; font-size:12px; }
+  .client-card .c-details div{ background:var(--bg); border-radius:8px; padding:8px 10px; }
+  .client-card .c-details .d-label{ color:#8a7f63; font-size:10.5px; }
+  .client-card .c-details .d-value{ font-weight:700; margin-top:2px; }
+  .c-remaining.has-debt{ color:var(--danger); }
+  .c-actions{ display:flex; gap:6px; margin-top:12px; }
+  .c-actions button{ font-size:11.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:inherit; }
+  .c-actions .promote-btn{ background:#E8F5E9; border-color:#b7cdae; color:var(--leaf-deep); }
+  .c-actions .delete-btn{ background:#fbe9e9; border-color:#e3b8b8; color:#a83232; }
+
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+  .chart-wrap{ height:280px; }
+  .tier-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; margin-top:10px; }
+  .tier-legend span{ display:flex; align-items:center; gap:5px; }
+  .tier-legend .dot{ width:10px; height:10px; border-radius:50%; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>👥 عملائي</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">إدارة عملائك، متابعة المتحصلات، وتحليل نشاطهم — كله في مكان واحد</p>
+
+  <div class="card">
+    <h3>🎯 تخصصك (تقدر تختار أكتر من واحد)</h3>
+    <div class="spec-grid" id="spec-grid">
+      <div class="spec-chip" data-spec="بذور">🌱 بذور</div>
+      <div class="spec-chip" data-spec="مبيدات">🧪 مبيدات</div>
+      <div class="spec-chip" data-spec="أسمدة">🌾 أسمدة</div>
+      <div class="spec-chip" data-spec="تشخيص أمراض النبات">🔬 تشخيص أمراض النبات</div>
+      <div class="spec-chip" data-spec="موالح">🍊 موالح</div>
+    </div>
+  </div>
+
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <div class="card">
+    <h3>📊 العملاء الأكثر نشاطًا</h3>
+    <div class="chart-wrap"><canvas id="top-clients-chart"></canvas></div>
+    <div class="tier-legend">
+      <span><span class="dot" style="background:var(--gold)"></span>🥇 ذهبي — أعلى 20% تحصيل</span>
+      <span><span class="dot" style="background:var(--silver)"></span>🥈 فضي — الـ30% اللي بعدهم</span>
+      <span><span class="dot" style="background:var(--bronze)"></span>🥉 برونزي — الباقي</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="client-tabs">
+      <div class="c-tab active" data-tab="current">العملاء الحاليين</div>
+      <div class="c-tab" data-tab="potential">العملاء المحتملين</div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="search-input" placeholder="🔍 دوّر باسم العميل...">
+      <select id="sort-select">
+        <option value="debt">الأعلى ديون متبقية</option>
+        <option value="recent">الأحدث</option>
+        <option value="paid">الأعلى تحصيل</option>
+        <option value="name">الاسم أبجديًا</option>
+      </select>
+      <button class="add-btn" id="add-client-btn">+ إضافة عميل</button>
+    </div>
+
+    <div class="client-form" id="client-form">
+      <h3 id="form-title" style="margin-bottom:14px;">➕ عميل جديد</h3>
+      <input type="hidden" id="edit-client-id">
+      <div class="form-row">
+        <div class="field"><label>اسم العميل</label><input type="text" id="f-name" placeholder="الاسم بالكامل"></div>
+        <div class="field"><label>النوع</label><select id="f-type"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>الصنف / المنتج بالتحديد</label><input type="text" id="f-variety" placeholder="مثال: يوريا 46% / صنف طماطم 028"></div>
+        <div class="field"><label>الحالة</label>
+          <select id="f-status">
+            <option value="current">عميل حالي</option>
+            <option value="potential">عميل محتمل</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row full">
+        <div class="field"><label>العنوان</label><input type="text" id="f-address" placeholder="المحافظة - المركز - القرية"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>المساحة (فدان)</label><input type="number" id="f-area" step="0.1"></div>
+        <div class="field"><label>عدد الوحدات</label><input type="number" id="f-units" step="0.1"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>المبلغ المدفوع (ج.م)</label><input type="number" id="f-paid" step="0.01"></div>
+        <div class="field"><label>المبلغ المتبقي (ج.م)</label><input type="number" id="f-remaining" step="0.01"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>التاريخ</label><input type="date" id="f-date"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-save" id="save-client-btn">حفظ</button>
+        <button class="btn-cancel" id="cancel-client-btn">إلغاء</button>
+      </div>
+    </div>
+
+    <div id="clients-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUserId = null;
+  let selectedSpecs = [];
+  let allClients = [];
+  let currentTab = 'current';
+  let topClientsChart = null;
+
+  document.getElementById('f-date').valueAsDate = new Date();
+
+  document.querySelectorAll('.spec-chip').forEach(chip => {
+    chip.addEventListener('click', async () => {
+      const spec = chip.getAttribute('data-spec');
+      if(selectedSpecs.includes(spec)){
+        selectedSpecs = selectedSpecs.filter(s => s !== spec);
+        chip.classList.remove('active');
+      } else {
+        selectedSpecs.push(spec);
+        chip.classList.add('active');
+      }
+      await db.from('profiles').update({ specializations: selectedSpecs }).eq('id', currentUserId);
+      populateTypeDropdown();
+    });
+  });
+
+  function populateTypeDropdown(){
+    const select = document.getElementById('f-type');
+    const options = selectedSpecs.length ? selectedSpecs : ['بذور', 'مبيدات', 'أسمدة', 'تشخيص أمراض النبات', 'موالح'];
+    select.innerHTML = options.map(s => `<option value="${s}">${s}</option>`).join('');
+  }
+
+  document.querySelectorAll('.c-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.c-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTab = tab.getAttribute('data-tab');
+      renderClientsList();
+    });
+  });
+
+  document.getElementById('search-input').addEventListener('input', renderClientsList);
+  document.getElementById('sort-select').addEventListener('change', renderClientsList);
+
+  document.getElementById('add-client-btn').addEventListener('click', () => {
+    document.getElementById('form-title').textContent = '➕ عميل جديد';
+    document.getElementById('edit-client-id').value = '';
+    ['f-name','f-variety','f-address','f-area','f-units','f-paid','f-remaining'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-status').value = currentTab;
+    document.getElementById('f-date').valueAsDate = new Date();
+    document.getElementById('client-form').classList.add('open');
+  });
+
+  document.getElementById('cancel-client-btn').addEventListener('click', () => {
+    document.getElementById('client-form').classList.remove('open');
+  });
+
+  document.getElementById('save-client-btn').addEventListener('click', async () => {
+    const name = document.getElementById('f-name').value.trim();
+    if(!name){ alert('اكتب اسم العميل الأول'); return; }
+
+    const payload = {
+      owner_id: currentUserId,
+      full_name: name,
+      client_type: document.getElementById('f-type').value,
+      variety: document.getElementById('f-variety').value.trim() || null,
+      status: document.getElementById('f-status').value,
+      address: document.getElementById('f-address').value.trim() || null,
+      area_size: parseFloat(document.getElementById('f-area').value) || null,
+      units_count: parseFloat(document.getElementById('f-units').value) || null,
+      amount_paid: parseFloat(document.getElementById('f-paid').value) || 0,
+      amount_remaining: parseFloat(document.getElementById('f-remaining').value) || 0,
+      transaction_date: document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
+    };
+
+    const editId = document.getElementById('edit-client-id').value;
+    const btn = document.getElementById('save-client-btn');
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+
+    let error;
+    if(editId){
+      ({ error } = await db.from('clients').update(payload).eq('id', editId));
+    } else {
+      ({ error } = await db.from('clients').insert(payload));
+    }
+
+    btn.disabled = false; btn.textContent = 'حفظ';
+
+    if(error){ alert('حصل خطأ: ' + error.message); return; }
+
+    document.getElementById('client-form').classList.remove('open');
+    await loadClients();
+  });
+
+  async function loadClients(){
+    const { data } = await db.from('clients').select('*').eq('owner_id', currentUserId).order('created_at', { ascending: false });
+    allClients = data || [];
+    renderSummary();
+    renderTopClientsChart();
+    renderClientsList();
+  }
+
+  function renderSummary(){
+    const current = allClients.filter(c => c.status === 'current');
+    const potential = allClients.filter(c => c.status === 'potential');
+    const totalPaid = allClients.reduce((s,c) => s + Number(c.amount_paid || 0), 0);
+    const totalRemaining = allClients.reduce((s,c) => s + Number(c.amount_remaining || 0), 0);
+
+    document.getElementById('summary-grid').innerHTML = `
+      <div class="summary-box"><div class="s-num">${current.length}</div><div class="s-label">عميل حالي</div></div>
+      <div class="summary-box"><div class="s-num">${potential.length}</div><div class="s-label">عميل محتمل</div></div>
+      <div class="summary-box"><div class="s-num">${totalPaid.toLocaleString()}</div><div class="s-label">إجمالي محصّل (ج.م)</div></div>
+      <div class="summary-box ${totalRemaining > 0 ? 'warn' : ''}"><div class="s-num">${totalRemaining.toLocaleString()}</div><div class="s-label">إجمالي متبقي (ج.م)</div></div>
+    `;
+  }
+
+  function computeTiers(){
+    const current = allClients.filter(c => c.status === 'current');
+    const sorted = [...current].sort((a,b) => Number(b.amount_paid||0) - Number(a.amount_paid||0));
+    const tiers = {};
+    const goldCount = Math.max(Math.ceil(sorted.length * 0.2), sorted.length ? 1 : 0);
+    const silverCount = Math.ceil(sorted.length * 0.3);
+    sorted.forEach((c, i) => {
+      if(i < goldCount) tiers[c.id] = 'gold';
+      else if(i < goldCount + silverCount) tiers[c.id] = 'silver';
+      else tiers[c.id] = 'bronze';
+    });
+    return tiers;
+  }
+
+  function renderTopClientsChart(){
+    const current = allClients.filter(c => c.status === 'current');
+    const sorted = [...current].sort((a,b) => Number(b.amount_paid||0) - Number(a.amount_paid||0)).slice(0, 8);
+
+    if(!sorted.length){
+      document.getElementById('top-clients-chart').parentElement.innerHTML = '<div class="empty">مفيش عملاء حاليين كفاية لعرض الرسم البياني</div>';
+      return;
+    }
+
+    if(topClientsChart) topClientsChart.destroy();
+    topClientsChart = new Chart(document.getElementById('top-clients-chart'), {
+      type: 'bar',
+      data: {
+        labels: sorted.map(c => c.full_name),
+        datasets: [{ label: 'إجمالي المحصّل (ج.م)', data: sorted.map(c => Number(c.amount_paid||0)), backgroundColor: '#3B5B37' }],
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  }
+
+  function renderClientsList(){
+    const tiers = computeTiers();
+    const search = document.getElementById('search-input').value.trim().toLowerCase();
+    const sortBy = document.getElementById('sort-select').value;
+
+    let filtered = allClients.filter(c => c.status === currentTab);
+    if(search) filtered = filtered.filter(c => c.full_name.toLowerCase().includes(search));
+
+    if(sortBy === 'debt') filtered.sort((a,b) => Number(b.amount_remaining||0) - Number(a.amount_remaining||0));
+    else if(sortBy === 'recent') filtered.sort((a,b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+    else if(sortBy === 'paid') filtered.sort((a,b) => Number(b.amount_paid||0) - Number(a.amount_paid||0));
+    else if(sortBy === 'name') filtered.sort((a,b) => a.full_name.localeCompare(b.full_name, 'ar'));
+
+    const container = document.getElementById('clients-list');
+    if(!filtered.length){ container.innerHTML = '<div class="empty">مفيش عملاء هنا حاليًا</div>'; return; }
+
+    const tierLabels = { gold: '🥇 ذهبي', silver: '🥈 فضي', bronze: '🥉 برونزي' };
+
+    container.innerHTML = filtered.map(c => `
+      <div class="client-card">
+        <div class="c-top">
+          <div>
+            <div class="c-name">
+              ${c.full_name}
+              ${c.status === 'current' && tiers[c.id] ? `<span class="tier-badge tier-${tiers[c.id]}">${tierLabels[tiers[c.id]]}</span>` : ''}
+            </div>
+            <div class="c-type">${c.client_type}${c.variety ? ' — ' + c.variety : ''}</div>
+          </div>
+        </div>
+        <div class="c-details">
+          ${c.address ? `<div><div class="d-label">العنوان</div><div class="d-value">${c.address}</div></div>` : ''}
+          ${c.area_size ? `<div><div class="d-label">المساحة</div><div class="d-value">${c.area_size} فدان</div></div>` : ''}
+          ${c.units_count ? `<div><div class="d-label">عدد الوحدات</div><div class="d-value">${c.units_count}</div></div>` : ''}
+          <div><div class="d-label">المدفوع</div><div class="d-value">${Number(c.amount_paid||0).toLocaleString()} ج.م</div></div>
+          <div><div class="d-label">المتبقي</div><div class="d-value ${Number(c.amount_remaining||0) > 0 ? 'c-remaining has-debt' : ''}">${Number(c.amount_remaining||0).toLocaleString()} ج.م</div></div>
+          <div><div class="d-label">التاريخ</div><div class="d-value">${c.transaction_date}</div></div>
+        </div>
+        <div class="c-actions">
+          <button data-edit-id="${c.id}">✏️ تعديل</button>
+          ${c.status === 'potential' ? `<button class="promote-btn" data-promote-id="${c.id}">⬆️ حوّله لعميل حالي</button>` : ''}
+          <button class="delete-btn" data-delete-id="${c.id}">🗑️ حذف</button>
+        </div>
+      </div>
+    `).join('');
+
+    document.querySelectorAll('[data-edit-id]').forEach(btn => {
+      btn.addEventListener('click', () => openEditForm(btn.getAttribute('data-edit-id')));
+    });
+    document.querySelectorAll('[data-promote-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-promote-id');
+        await db.from('clients').update({ status: 'current' }).eq('id', id);
+        loadClients();
+      });
+    });
+    document.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('متأكد إنك عايز تمسح العميل ده؟')) return;
+        const id = btn.getAttribute('data-delete-id');
+        await db.from('clients').delete().eq('id', id);
+        loadClients();
+      });
+    });
+  }
+
+  function openEditForm(id){
+    const c = allClients.find(cl => cl.id === id);
+    if(!c) return;
+    document.getElementById('form-title').textContent = '✏️ تعديل بيانات العميل';
+    document.getElementById('edit-client-id').value = c.id;
+    document.getElementById('f-name').value = c.full_name;
+    document.getElementById('f-type').value = c.client_type;
+    document.getElementById('f-variety').value = c.variety || '';
+    document.getElementById('f-status').value = c.status;
+    document.getElementById('f-address').value = c.address || '';
+    document.getElementById('f-area').value = c.area_size || '';
+    document.getElementById('f-units').value = c.units_count || '';
+    document.getElementById('f-paid').value = c.amount_paid || '';
+    document.getElementById('f-remaining').value = c.amount_remaining || '';
+    document.getElementById('f-date').value = c.transaction_date;
+    document.getElementById('client-form').classList.add('open');
+    window.scrollTo({ top: document.getElementById('client-form').offsetTop - 20, behavior: 'smooth' });
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+
+    const { data: profile } = await db.from('profiles').select('specializations').eq('id', currentUserId).single();
+    selectedSpecs = (profile && profile.specializations) || [];
+    selectedSpecs.forEach(spec => {
+      const chip = document.querySelector(`.spec-chip[data-spec="${spec}"]`);
+      if(chip) chip.classList.add('active');
+    });
+    populateTypeDropdown();
+
+    loadClients();
+  })();
+</script>
+</body>
+</html>
