@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="site-assets/egypt-locations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   :root{
@@ -55,27 +54,36 @@
   .client-form.open{ display:block; }
   .form-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
   .form-row.full{ grid-template-columns:1fr; }
+  .form-row.triple{ grid-template-columns:1fr 1fr 1fr; }
   .field label{ font-size:12px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:5px; }
   .field input, .field select{ width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:#fff; font-size:13px; font-family:inherit; }
+  .field select:disabled, .field input:disabled{ background:#eee7d3; color:#8a7f63; }
   .form-actions{ display:flex; gap:8px; margin-top:10px; }
   .form-actions button{ padding:10px 20px; border:none; border-radius:8px; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
   .btn-save{ background:var(--leaf); color:#fff; }
   .btn-cancel{ background:var(--paper); border:1px solid var(--line); color:var(--ink); }
+  .remaining-preview{ background:var(--paper); border:1px dashed var(--line); border-radius:9px; padding:10px 14px; font-size:13px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .remaining-preview b{ font-family:'Tajawal'; font-size:15px; }
+  .remaining-preview b.debt{ color:var(--danger); }
+  .remaining-preview b.clear{ color:var(--up); }
 
   .client-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; }
-  .client-card .c-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-  .client-card .c-name{ font-family:'Tajawal'; font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .client-card .c-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+  .client-card .c-name{ font-family:'Tajawal'; font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .tier-badge{ font-size:10px; font-weight:800; padding:2px 10px; border-radius:20px; color:#fff; }
   .tier-gold{ background:var(--gold); }
   .tier-silver{ background:var(--silver); }
   .tier-bronze{ background:var(--bronze); }
+  .progress-badge{ font-size:11px; font-weight:800; padding:3px 11px; border-radius:20px; display:inline-flex; align-items:center; gap:4px; }
+  .progress-badge.good{ background:rgba(46,125,50,.12); color:var(--up); }
+  .progress-badge.bad{ background:rgba(198,40,40,.12); color:var(--danger); }
   .client-card .c-type{ font-size:11px; color:#8a7f63; margin-top:2px; }
   .client-card .c-details{ display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr)); gap:8px; margin-top:12px; font-size:12px; }
   .client-card .c-details div{ background:var(--bg); border-radius:8px; padding:8px 10px; }
   .client-card .c-details .d-label{ color:#8a7f63; font-size:10.5px; }
   .client-card .c-details .d-value{ font-weight:700; margin-top:2px; }
   .c-remaining.has-debt{ color:var(--danger); }
-  .c-actions{ display:flex; gap:6px; margin-top:12px; }
+  .c-actions{ display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
   .c-actions button{ font-size:11.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:inherit; }
   .c-actions .promote-btn{ background:#E8F5E9; border-color:#b7cdae; color:var(--leaf-deep); }
   .c-actions .delete-btn{ background:#fbe9e9; border-color:#e3b8b8; color:#a83232; }
@@ -139,12 +147,9 @@
     <div class="client-form" id="client-form">
       <h3 id="form-title" style="margin-bottom:14px;">➕ عميل جديد</h3>
       <input type="hidden" id="edit-client-id">
+
       <div class="form-row">
         <div class="field"><label>اسم العميل</label><input type="text" id="f-name" placeholder="الاسم بالكامل"></div>
-        <div class="field"><label>النوع</label><select id="f-type"></select></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label>الصنف / المنتج بالتحديد</label><input type="text" id="f-variety" placeholder="مثال: يوريا 46% / صنف طماطم 028"></div>
         <div class="field"><label>الحالة</label>
           <select id="f-status">
             <option value="current">عميل حالي</option>
@@ -152,17 +157,42 @@
           </select>
         </div>
       </div>
+
+      <div class="form-row">
+        <div class="field"><label>النوع</label><select id="f-type"></select></div>
+        <div class="field"><label>الصنف / المنتج</label><select id="f-variety"></select></div>
+      </div>
+      <div class="form-row full" id="variety-other-wrap" style="display:none;">
+        <div class="field"><label>اكتب الصنف يدويًا</label><input type="text" id="f-variety-other" placeholder="اكتب الصنف هنا"></div>
+      </div>
+
       <div class="form-row full">
         <div class="field"><label>العنوان</label><input type="text" id="f-address" placeholder="المحافظة - المركز - القرية"></div>
       </div>
-      <div class="form-row">
+
+      <div class="form-row triple">
         <div class="field"><label>المساحة (فدان)</label><input type="number" id="f-area" step="0.1"></div>
         <div class="field"><label>عدد الوحدات</label><input type="number" id="f-units" step="0.1"></div>
+        <div class="field"><label>وحدة القياس</label>
+          <select id="f-unit-type">
+            <option value="تذاكر">🎫 تذاكر (للتشخيص/الزيارات)</option>
+            <option value="أكياس">🛍️ أكياس</option>
+            <option value="كراتين">📦 كراتين</option>
+            <option value="عبوات">🧴 عبوات</option>
+          </select>
+        </div>
       </div>
+
       <div class="form-row">
+        <div class="field"><label>الإجمالي المطلوب (ج.م)</label><input type="number" id="f-total" step="0.01" placeholder="القيمة الكلية للصفقة"></div>
         <div class="field"><label>المبلغ المدفوع (ج.م)</label><input type="number" id="f-paid" step="0.01"></div>
-        <div class="field"><label>المبلغ المتبقي (ج.م)</label><input type="number" id="f-remaining" step="0.01"></div>
       </div>
+
+      <div class="remaining-preview">
+        <span>المتبقي المحسوب تلقائيًا:</span>
+        <b id="remaining-preview-value">0 ج.م</b>
+      </div>
+
       <div class="form-row">
         <div class="field"><label>التاريخ</label><input type="date" id="f-date"></div>
       </div>
@@ -200,6 +230,15 @@
   let currentTab = 'current';
   let topClientsChart = null;
 
+  const VARIETY_OPTIONS = {
+    'بذور': ['طماطم', 'خيار', 'فلفل', 'باذنجان', 'بطاطس', 'ذرة', 'قمح', 'أرز', 'فول الصويا', 'بصل', 'أخرى'],
+    'مبيدات': ['مبيد فطري', 'مبيد حشري', 'مبيد أعشاب', 'مبيد حلم (أكاروسيدي)', 'مطهر تربة', 'أخرى'],
+    'أسمدة': ['يوريا 46%', 'سلفات نشادر', 'نترات نشادر', 'سوبر فوسفات', 'MAP', 'DAP', 'سلفات بوتاسيوم', 'نترات بوتاسيوم', 'سماد عضوي', 'أخرى'],
+    'تشخيص أمراض النبات': ['كشف ميداني', 'تحليل صور', 'متابعة دورية', 'استشارة عن بُعد', 'أخرى'],
+    'موالح': ['برتقال', 'ليمون', 'يوسفي', 'جريب فروت', 'كمكوات', 'أخرى'],
+  };
+  const ALL_TYPES = Object.keys(VARIETY_OPTIONS);
+
   document.getElementById('f-date').valueAsDate = new Date();
 
   document.querySelectorAll('.spec-chip').forEach(chip => {
@@ -219,9 +258,37 @@
 
   function populateTypeDropdown(){
     const select = document.getElementById('f-type');
-    const options = selectedSpecs.length ? selectedSpecs : ['بذور', 'مبيدات', 'أسمدة', 'تشخيص أمراض النبات', 'موالح'];
+    const options = selectedSpecs.length ? selectedSpecs : ALL_TYPES;
     select.innerHTML = options.map(s => `<option value="${s}">${s}</option>`).join('');
+    populateVarietyDropdown();
   }
+
+  function populateVarietyDropdown(){
+    const type = document.getElementById('f-type').value;
+    const varietySelect = document.getElementById('f-variety');
+    const options = VARIETY_OPTIONS[type] || ['أخرى'];
+    varietySelect.innerHTML = options.map(v => `<option value="${v}">${v}</option>`).join('');
+    toggleVarietyOther();
+  }
+
+  function toggleVarietyOther(){
+    const isOther = document.getElementById('f-variety').value === 'أخرى';
+    document.getElementById('variety-other-wrap').style.display = isOther ? 'block' : 'none';
+  }
+
+  document.getElementById('f-type').addEventListener('change', populateVarietyDropdown);
+  document.getElementById('f-variety').addEventListener('change', toggleVarietyOther);
+
+  function updateRemainingPreview(){
+    const total = parseFloat(document.getElementById('f-total').value) || 0;
+    const paid = parseFloat(document.getElementById('f-paid').value) || 0;
+    const remaining = Math.max(total - paid, 0);
+    const el = document.getElementById('remaining-preview-value');
+    el.textContent = remaining.toLocaleString() + ' ج.م';
+    el.className = remaining > 0 ? 'debt' : 'clear';
+  }
+  document.getElementById('f-total').addEventListener('input', updateRemainingPreview);
+  document.getElementById('f-paid').addEventListener('input', updateRemainingPreview);
 
   document.querySelectorAll('.c-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -238,9 +305,12 @@
   document.getElementById('add-client-btn').addEventListener('click', () => {
     document.getElementById('form-title').textContent = '➕ عميل جديد';
     document.getElementById('edit-client-id').value = '';
-    ['f-name','f-variety','f-address','f-area','f-units','f-paid','f-remaining'].forEach(id => document.getElementById(id).value = '');
+    ['f-name','f-variety-other','f-address','f-area','f-units','f-total','f-paid'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('f-status').value = currentTab;
+    document.getElementById('f-unit-type').value = 'أكياس';
     document.getElementById('f-date').valueAsDate = new Date();
+    populateVarietyDropdown();
+    updateRemainingPreview();
     document.getElementById('client-form').classList.add('open');
   });
 
@@ -252,17 +322,26 @@
     const name = document.getElementById('f-name').value.trim();
     if(!name){ alert('اكتب اسم العميل الأول'); return; }
 
+    const varietyValue = document.getElementById('f-variety').value;
+    const finalVariety = varietyValue === 'أخرى' ? (document.getElementById('f-variety-other').value.trim() || 'أخرى') : varietyValue;
+
+    const total = parseFloat(document.getElementById('f-total').value) || 0;
+    const paid = parseFloat(document.getElementById('f-paid').value) || 0;
+    const remaining = Math.max(total - paid, 0);
+
     const payload = {
       owner_id: currentUserId,
       full_name: name,
       client_type: document.getElementById('f-type').value,
-      variety: document.getElementById('f-variety').value.trim() || null,
+      variety: finalVariety,
       status: document.getElementById('f-status').value,
       address: document.getElementById('f-address').value.trim() || null,
       area_size: parseFloat(document.getElementById('f-area').value) || null,
       units_count: parseFloat(document.getElementById('f-units').value) || null,
-      amount_paid: parseFloat(document.getElementById('f-paid').value) || 0,
-      amount_remaining: parseFloat(document.getElementById('f-remaining').value) || 0,
+      unit_type: document.getElementById('f-unit-type').value,
+      total_amount: total,
+      amount_paid: paid,
+      amount_remaining: remaining,
       transaction_date: document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
     };
 
@@ -305,6 +384,13 @@
       <div class="summary-box"><div class="s-num">${totalPaid.toLocaleString()}</div><div class="s-label">إجمالي محصّل (ج.م)</div></div>
       <div class="summary-box ${totalRemaining > 0 ? 'warn' : ''}"><div class="s-num">${totalRemaining.toLocaleString()}</div><div class="s-label">إجمالي متبقي (ج.م)</div></div>
     `;
+  }
+
+  function paymentProgress(paid, total){
+    if(!total || total <= 0) return null;
+    const pct = Math.min(Math.round((paid / total) * 100), 100);
+    const isGood = pct >= 75;
+    return { pct, isGood };
   }
 
   function computeTiers(){
@@ -359,13 +445,16 @@
 
     const tierLabels = { gold: '🥇 ذهبي', silver: '🥈 فضي', bronze: '🥉 برونزي' };
 
-    container.innerHTML = filtered.map(c => `
+    container.innerHTML = filtered.map(c => {
+      const progress = paymentProgress(c.amount_paid, c.total_amount);
+      return `
       <div class="client-card">
         <div class="c-top">
           <div>
             <div class="c-name">
               ${c.full_name}
               ${c.status === 'current' && tiers[c.id] ? `<span class="tier-badge tier-${tiers[c.id]}">${tierLabels[tiers[c.id]]}</span>` : ''}
+              ${progress ? `<span class="progress-badge ${progress.isGood ? 'good' : 'bad'}">${progress.isGood ? '▲' : '▼'} ${progress.pct}% ${progress.isGood ? 'تقدم جيد' : 'متأخر'}</span>` : ''}
             </div>
             <div class="c-type">${c.client_type}${c.variety ? ' — ' + c.variety : ''}</div>
           </div>
@@ -373,7 +462,8 @@
         <div class="c-details">
           ${c.address ? `<div><div class="d-label">العنوان</div><div class="d-value">${c.address}</div></div>` : ''}
           ${c.area_size ? `<div><div class="d-label">المساحة</div><div class="d-value">${c.area_size} فدان</div></div>` : ''}
-          ${c.units_count ? `<div><div class="d-label">عدد الوحدات</div><div class="d-value">${c.units_count}</div></div>` : ''}
+          ${c.units_count ? `<div><div class="d-label">عدد الوحدات</div><div class="d-value">${c.units_count} ${c.unit_type || ''}</div></div>` : ''}
+          <div><div class="d-label">الإجمالي</div><div class="d-value">${Number(c.total_amount||0).toLocaleString()} ج.م</div></div>
           <div><div class="d-label">المدفوع</div><div class="d-value">${Number(c.amount_paid||0).toLocaleString()} ج.م</div></div>
           <div><div class="d-label">المتبقي</div><div class="d-value ${Number(c.amount_remaining||0) > 0 ? 'c-remaining has-debt' : ''}">${Number(c.amount_remaining||0).toLocaleString()} ج.م</div></div>
           <div><div class="d-label">التاريخ</div><div class="d-value">${c.transaction_date}</div></div>
@@ -383,8 +473,8 @@
           ${c.status === 'potential' ? `<button class="promote-btn" data-promote-id="${c.id}">⬆️ حوّله لعميل حالي</button>` : ''}
           <button class="delete-btn" data-delete-id="${c.id}">🗑️ حذف</button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
     document.querySelectorAll('[data-edit-id]').forEach(btn => {
       btn.addEventListener('click', () => openEditForm(btn.getAttribute('data-edit-id')));
@@ -413,14 +503,26 @@
     document.getElementById('edit-client-id').value = c.id;
     document.getElementById('f-name').value = c.full_name;
     document.getElementById('f-type').value = c.client_type;
-    document.getElementById('f-variety').value = c.variety || '';
+    populateVarietyDropdown();
+
+    const knownVarieties = VARIETY_OPTIONS[c.client_type] || [];
+    if(c.variety && knownVarieties.includes(c.variety)){
+      document.getElementById('f-variety').value = c.variety;
+    } else if(c.variety){
+      document.getElementById('f-variety').value = 'أخرى';
+      document.getElementById('f-variety-other').value = c.variety;
+    }
+    toggleVarietyOther();
+
     document.getElementById('f-status').value = c.status;
     document.getElementById('f-address').value = c.address || '';
     document.getElementById('f-area').value = c.area_size || '';
     document.getElementById('f-units').value = c.units_count || '';
+    document.getElementById('f-unit-type').value = c.unit_type || 'أكياس';
+    document.getElementById('f-total').value = c.total_amount || '';
     document.getElementById('f-paid').value = c.amount_paid || '';
-    document.getElementById('f-remaining').value = c.amount_remaining || '';
     document.getElementById('f-date').value = c.transaction_date;
+    updateRemainingPreview();
     document.getElementById('client-form').classList.add('open');
     window.scrollTo({ top: document.getElementById('client-form').offsetTop - 20, behavior: 'smooth' });
   }
