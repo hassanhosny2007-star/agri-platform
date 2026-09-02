@@ -74,6 +74,9 @@
   .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--error); }
   .msg.success{ display:block; background:rgba(59,91,55,0.1); color:var(--leaf-deep); }
 
+  .check-email-box{ display:none; text-align:center; margin-top:22px; padding:24px 18px; background:var(--bg); border-radius:14px; border:1px solid var(--line); }
+  .check-email-box.active{ display:block; }
+
   .address-group{ border:1px solid var(--line); border-radius:10px; padding:12px; background:var(--bg); }
   .address-group label{ display:block; margin-bottom:4px; }
 </style>
@@ -175,6 +178,20 @@
       <button class="submit" type="submit">إنشاء حساب</button>
     </form>
 
+    <div class="check-email-box" id="check-email-box">
+      <div style="font-size:44px; margin-bottom:8px;">📧</div>
+      <h2 style="font-family:'Tajawal'; font-weight:900; font-size:18px; color:var(--leaf-deep);">تم إنشاء حسابك بنجاح!</h2>
+      <p style="margin-top:10px; color:#5b543f; font-size:14px; line-height:1.9;">
+        خطوة أخيرة بس عشان تقدر تسجّل دخول:<br>
+        افتح بريدك الإلكتروني <b id="check-email-address" style="color:var(--leaf-deep);"></b><br>
+        ودوس على <b>لينك تفعيل الحساب</b> اللي بعتناهولك.
+      </p>
+      <p style="margin-top:14px; font-size:12px; color:#8a7f63;">
+        لو مش لاقي الإيميل، شوف في مجلد "الرسائل غير المرغوب فيها" (Spam).
+      </p>
+      <p class="back-link" id="back-to-login-from-check" style="margin-top:18px;">العودة لتسجيل الدخول</p>
+    </div>
+
     <div class="msg" id="msg"></div>
   </div>
 
@@ -213,6 +230,7 @@
   function hideAllForms(){
     [formLogin, formSignup, formForgot].forEach(f => f.classList.remove('active'));
     [tabLogin, tabSignup].forEach(t => t.classList.remove('active'));
+    document.getElementById('check-email-box').classList.remove('active');
   }
   function showLogin(){
     hideAllForms();
@@ -236,6 +254,7 @@
   tabSignup.addEventListener('click', showSignup);
   document.getElementById('forgot-link').addEventListener('click', showForgot);
   document.getElementById('back-to-login').addEventListener('click', showLogin);
+  document.getElementById('back-to-login-from-check').addEventListener('click', showLogin);
   if(window.location.hash === '#signup'){ showSignup(); }
 
   document.querySelectorAll('.pw-toggle').forEach(toggle => {
@@ -310,11 +329,9 @@
       }
       return;
     }
-    showMsg('تم إنشاء الحساب بنجاح! جاري تحويلك لتفعيل بريدك الإلكتروني...', 'success');
-    sessionStorage.setItem('agronex-pending-email', email);
-    setTimeout(() => {
-      window.location.href = 'verify-email.html?email=' + encodeURIComponent(email);
-    }, 1200);
+    document.getElementById('form-signup').classList.remove('active');
+    document.getElementById('check-email-address').textContent = email;
+    document.getElementById('check-email-box').classList.add('active');
   });
 </script>
 </body>
