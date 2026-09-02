@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="site-assets/egypt-locations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   :root{
@@ -57,15 +58,12 @@
   .form-row.triple{ grid-template-columns:1fr 1fr 1fr; }
   .field label{ font-size:12px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:5px; }
   .field input, .field select{ width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:#fff; font-size:13px; font-family:inherit; }
-  .field select:disabled, .field input:disabled{ background:#eee7d3; color:#8a7f63; }
   .form-actions{ display:flex; gap:8px; margin-top:10px; }
   .form-actions button{ padding:10px 20px; border:none; border-radius:8px; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
   .btn-save{ background:var(--leaf); color:#fff; }
   .btn-cancel{ background:var(--paper); border:1px solid var(--line); color:var(--ink); }
-  .remaining-preview{ background:var(--paper); border:1px dashed var(--line); border-radius:9px; padding:10px 14px; font-size:13px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
-  .remaining-preview b{ font-family:'Tajawal'; font-size:15px; }
-  .remaining-preview b.debt{ color:var(--danger); }
-  .remaining-preview b.clear{ color:var(--up); }
+  .calc-preview{ background:var(--paper); border:1px dashed var(--line); border-radius:9px; padding:10px 14px; font-size:13px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .calc-preview b{ font-family:'Tajawal'; font-size:15px; }
 
   .client-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; }
   .client-card .c-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; }
@@ -83,16 +81,34 @@
   .client-card .c-details .d-label{ color:#8a7f63; font-size:10.5px; }
   .client-card .c-details .d-value{ font-weight:700; margin-top:2px; }
   .c-remaining.has-debt{ color:var(--danger); }
+  .c-remaining.clear{ color:var(--up); }
   .c-actions{ display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
   .c-actions button{ font-size:11.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:inherit; }
-  .c-actions .promote-btn{ background:#E8F5E9; border-color:#b7cdae; color:var(--leaf-deep); }
+  .c-actions .pay-btn{ background:#E8F5E9; border-color:#b7cdae; color:var(--leaf-deep); }
+  .c-actions .discount-btn{ background:#FFF6E0; border-color:#e8d190; color:#8a6a1f; }
+  .c-actions .promote-btn{ background:#E3F2FD; border-color:#a8cef0; color:#1a5a8a; }
   .c-actions .delete-btn{ background:#fbe9e9; border-color:#e3b8b8; color:#a83232; }
+  .c-actions .log-toggle-btn{ background:var(--bg); }
+
+  .client-log{ display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); }
+  .client-log.open{ display:block; }
+  .log-entry{ display:flex; justify-content:space-between; align-items:center; font-size:11.5px; padding:6px 0; border-bottom:1px solid var(--bg); }
+  .log-entry:last-child{ border-bottom:none; }
+  .log-entry .log-del{ border:none; background:none; color:var(--danger); cursor:pointer; font-size:12px; }
 
   .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
   .chart-wrap{ height:280px; }
   .tier-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; margin-top:10px; }
   .tier-legend span{ display:flex; align-items:center; gap:5px; }
   .tier-legend .dot{ width:10px; height:10px; border-radius:50%; }
+
+  /* نافذة إضافة دفعة/خصم */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:16px; z-index:100; }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{ background:var(--paper); border-radius:16px; max-width:380px; width:100%; padding:22px; }
+  .modal-box h3{ font-family:'Tajawal'; font-weight:800; font-size:15px; margin-bottom:14px; color:var(--leaf-deep); }
+  .radio-row{ display:flex; gap:12px; margin-bottom:10px; font-size:13px; }
+  .radio-row label{ display:flex; align-items:center; gap:5px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -102,7 +118,7 @@
     <h1>👥 عملائي</h1>
     <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
   </header>
-  <p class="subtitle">إدارة عملائك، متابعة المتحصلات، وتحليل نشاطهم — كله في مكان واحد</p>
+  <p class="subtitle">إدارة عملائك، سجل دفعاتهم وخصوماتهم، وتحليل نشاطهم — كله في مكان واحد</p>
 
   <div class="card">
     <h3>🎯 تخصصك (تقدر تختار أكتر من واحد)</h3>
@@ -166,8 +182,10 @@
         <div class="field"><label>اكتب الصنف يدويًا</label><input type="text" id="f-variety-other" placeholder="اكتب الصنف هنا"></div>
       </div>
 
-      <div class="form-row full">
-        <div class="field"><label>العنوان</label><input type="text" id="f-address" placeholder="المحافظة - المركز - القرية"></div>
+      <div class="form-row triple">
+        <div class="field"><label>المحافظة</label><select id="f-governorate"></select></div>
+        <div class="field"><label>المركز / الحي</label><select id="f-center"></select></div>
+        <div class="field"><label>العزبة / القرية</label><input type="text" id="f-village" placeholder="اختياري"></div>
       </div>
 
       <div class="form-row triple">
@@ -184,18 +202,15 @@
       </div>
 
       <div class="form-row">
-        <div class="field"><label>الإجمالي المطلوب (ج.م)</label><input type="number" id="f-total" step="0.01" placeholder="القيمة الكلية للصفقة"></div>
-        <div class="field"><label>المبلغ المدفوع (ج.م)</label><input type="number" id="f-paid" step="0.01"></div>
-      </div>
-
-      <div class="remaining-preview">
-        <span>المتبقي المحسوب تلقائيًا:</span>
-        <b id="remaining-preview-value">0 ج.م</b>
-      </div>
-
-      <div class="form-row">
+        <div class="field"><label>سعر الوحدة (ج.م)</label><input type="number" id="f-unit-price" step="0.01"></div>
         <div class="field"><label>التاريخ</label><input type="date" id="f-date"></div>
       </div>
+
+      <div class="calc-preview">
+        <span>الإجمالي المحسوب تلقائيًا (عدد الوحدات × سعر الوحدة):</span>
+        <b id="total-preview-value">0 ج.م</b>
+      </div>
+
       <div class="form-actions">
         <button class="btn-save" id="save-client-btn">حفظ</button>
         <button class="btn-cancel" id="cancel-client-btn">إلغاء</button>
@@ -203,6 +218,47 @@
     </div>
 
     <div id="clients-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<!-- نافذة إضافة دفعة -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="modal-box">
+    <h3>💰 إضافة دفعة</h3>
+    <input type="hidden" id="pay-client-id">
+    <div class="field" style="margin-bottom:10px;"><label>المبلغ (ج.م)</label><input type="number" id="pay-amount" step="0.01"></div>
+    <div class="field" style="margin-bottom:10px;"><label>التاريخ</label><input type="date" id="pay-date"></div>
+    <div class="field" style="margin-bottom:14px;"><label>ملاحظة (اختياري)</label><input type="text" id="pay-note"></div>
+    <div class="form-actions">
+      <button class="btn-save" id="pay-save-btn">حفظ الدفعة</button>
+      <button class="btn-cancel" id="pay-cancel-btn">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة إضافة خصم -->
+<div class="modal-overlay" id="discount-modal">
+  <div class="modal-box">
+    <h3>🏷️ إضافة خصم</h3>
+    <input type="hidden" id="disc-client-id">
+    <div class="field" style="margin-bottom:10px;"><label>نسبة الخصم (%)</label><input type="number" id="disc-percent" step="0.1" placeholder="مثال: 10"></div>
+    <div class="radio-row">
+      <label><input type="radio" name="disc-base" value="total" checked> على الإجمالي الكلي</label>
+      <label><input type="radio" name="disc-base" value="custom"> على مبلغ محدد</label>
+    </div>
+    <div class="field" id="disc-custom-wrap" style="display:none; margin-bottom:10px;">
+      <label>المبلغ اللي هيتطبق عليه الخصم (ج.م)</label>
+      <input type="number" id="disc-custom-amount" step="0.01">
+    </div>
+    <div class="field" style="margin-bottom:14px;"><label>ملاحظة (اختياري)</label><input type="text" id="disc-note"></div>
+    <div class="calc-preview">
+      <span>قيمة الخصم المحسوبة:</span>
+      <b id="disc-preview-value">0 ج.م</b>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" id="disc-save-btn">حفظ الخصم</button>
+      <button class="btn-cancel" id="disc-cancel-btn">إلغاء</button>
+    </div>
   </div>
 </div>
 
@@ -229,6 +285,7 @@
   let allClients = [];
   let currentTab = 'current';
   let topClientsChart = null;
+  let openLogClientId = null; // العميل اللي سجله مفتوح حاليًا (لو موجود)
 
   const VARIETY_OPTIONS = {
     'بذور': ['طماطم', 'خيار', 'فلفل', 'باذنجان', 'بطاطس', 'ذرة', 'قمح', 'أرز', 'فول الصويا', 'بصل', 'أخرى'],
@@ -240,7 +297,15 @@
   const ALL_TYPES = Object.keys(VARIETY_OPTIONS);
 
   document.getElementById('f-date').valueAsDate = new Date();
+  document.getElementById('pay-date').valueAsDate = new Date();
 
+  // قائمة المحافظات/المراكز المنسدلة (نفس النظام المستخدم في التسجيل)
+  AgroNexLocations.buildPicker({
+    govSelectId: 'f-governorate',
+    centerSelectId: 'f-center',
+  });
+
+  // ===== التخصص =====
   document.querySelectorAll('.spec-chip').forEach(chip => {
     chip.addEventListener('click', async () => {
       const spec = chip.getAttribute('data-spec');
@@ -279,17 +344,16 @@
   document.getElementById('f-type').addEventListener('change', populateVarietyDropdown);
   document.getElementById('f-variety').addEventListener('change', toggleVarietyOther);
 
-  function updateRemainingPreview(){
-    const total = parseFloat(document.getElementById('f-total').value) || 0;
-    const paid = parseFloat(document.getElementById('f-paid').value) || 0;
-    const remaining = Math.max(total - paid, 0);
-    const el = document.getElementById('remaining-preview-value');
-    el.textContent = remaining.toLocaleString() + ' ج.م';
-    el.className = remaining > 0 ? 'debt' : 'clear';
+  // ===== الإجمالي المحسوب لحظيًا (وحدات × سعر الوحدة) =====
+  function updateTotalPreview(){
+    const units = parseFloat(document.getElementById('f-units').value) || 0;
+    const price = parseFloat(document.getElementById('f-unit-price').value) || 0;
+    document.getElementById('total-preview-value').textContent = (units * price).toLocaleString() + ' ج.م';
   }
-  document.getElementById('f-total').addEventListener('input', updateRemainingPreview);
-  document.getElementById('f-paid').addEventListener('input', updateRemainingPreview);
+  document.getElementById('f-units').addEventListener('input', updateTotalPreview);
+  document.getElementById('f-unit-price').addEventListener('input', updateTotalPreview);
 
+  // ===== التبويبات =====
   document.querySelectorAll('.c-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.c-tab').forEach(t => t.classList.remove('active'));
@@ -302,15 +366,16 @@
   document.getElementById('search-input').addEventListener('input', renderClientsList);
   document.getElementById('sort-select').addEventListener('change', renderClientsList);
 
+  // ===== فورم إضافة/تعديل عميل =====
   document.getElementById('add-client-btn').addEventListener('click', () => {
     document.getElementById('form-title').textContent = '➕ عميل جديد';
     document.getElementById('edit-client-id').value = '';
-    ['f-name','f-variety-other','f-address','f-area','f-units','f-total','f-paid'].forEach(id => document.getElementById(id).value = '');
+    ['f-name','f-variety-other','f-village','f-area','f-units','f-unit-price'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('f-status').value = currentTab;
     document.getElementById('f-unit-type').value = 'أكياس';
     document.getElementById('f-date').valueAsDate = new Date();
     populateVarietyDropdown();
-    updateRemainingPreview();
+    updateTotalPreview();
     document.getElementById('client-form').classList.add('open');
   });
 
@@ -325,9 +390,17 @@
     const varietyValue = document.getElementById('f-variety').value;
     const finalVariety = varietyValue === 'أخرى' ? (document.getElementById('f-variety-other').value.trim() || 'أخرى') : varietyValue;
 
-    const total = parseFloat(document.getElementById('f-total').value) || 0;
-    const paid = parseFloat(document.getElementById('f-paid').value) || 0;
-    const remaining = Math.max(total - paid, 0);
+    const gov = document.getElementById('f-governorate').value;
+    const center = document.getElementById('f-center').value;
+    const village = document.getElementById('f-village').value.trim();
+    const address = [gov, center, village].filter(Boolean).join(' - ') || null;
+
+    const units = parseFloat(document.getElementById('f-units').value) || 0;
+    const unitPrice = parseFloat(document.getElementById('f-unit-price').value) || 0;
+    const totalAmount = units * unitPrice;
+
+    const editId = document.getElementById('edit-client-id').value;
+    const existing = editId ? allClients.find(c => c.id === editId) : null;
 
     const payload = {
       owner_id: currentUserId,
@@ -335,35 +408,151 @@
       client_type: document.getElementById('f-type').value,
       variety: finalVariety,
       status: document.getElementById('f-status').value,
-      address: document.getElementById('f-address').value.trim() || null,
+      address,
       area_size: parseFloat(document.getElementById('f-area').value) || null,
-      units_count: parseFloat(document.getElementById('f-units').value) || null,
+      units_count: units,
       unit_type: document.getElementById('f-unit-type').value,
-      total_amount: total,
-      amount_paid: paid,
-      amount_remaining: remaining,
+      unit_price: unitPrice,
+      total_amount: totalAmount,
       transaction_date: document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
     };
 
-    const editId = document.getElementById('edit-client-id').value;
     const btn = document.getElementById('save-client-btn');
     btn.disabled = true; btn.textContent = 'جاري الحفظ...';
 
-    let error;
+    let error, clientId = editId;
     if(editId){
       ({ error } = await db.from('clients').update(payload).eq('id', editId));
     } else {
-      ({ error } = await db.from('clients').insert(payload));
+      const { data, error: insErr } = await db.from('clients').insert({ ...payload, amount_paid: 0, amount_remaining: totalAmount, total_discount: 0 }).select().single();
+      error = insErr;
+      if(data) clientId = data.id;
     }
 
     btn.disabled = false; btn.textContent = 'حفظ';
 
     if(error){ alert('حصل خطأ: ' + error.message); return; }
 
+    // لو الإجمالي اتغيّر وقت التعديل، لازم نعيد حساب المتبقي بناءً على المدفوع والخصومات الحالية
+    if(editId) await recalcClientTotals(clientId);
+
     document.getElementById('client-form').classList.remove('open');
     await loadClients();
   });
 
+  // ===== إعادة حساب المتبقي لعميل معيّن (بعد أي تعديل/دفعة/خصم) =====
+  async function recalcClientTotals(clientId){
+    const { data: client } = await db.from('clients').select('total_amount').eq('id', clientId).single();
+    const { data: payments } = await db.from('client_payments').select('amount').eq('client_id', clientId);
+    const { data: discounts } = await db.from('client_discounts').select('computed_value').eq('client_id', clientId);
+
+    const totalPaid = (payments || []).reduce((s,p) => s + Number(p.amount||0), 0);
+    const totalDiscount = (discounts || []).reduce((s,d) => s + Number(d.computed_value||0), 0);
+    const remaining = Math.max((Number(client.total_amount||0) - totalDiscount) - totalPaid, 0);
+
+    await db.from('clients').update({
+      amount_paid: totalPaid, total_discount: totalDiscount, amount_remaining: remaining,
+    }).eq('id', clientId);
+  }
+
+  // ===== نافذة إضافة دفعة =====
+  document.querySelectorAll('[data-pay-open]').forEach(() => {}); // placeholder، الأزرار بتتربط بعد كل رندر
+  function openPaymentModal(clientId){
+    document.getElementById('pay-client-id').value = clientId;
+    document.getElementById('pay-amount').value = '';
+    document.getElementById('pay-note').value = '';
+    document.getElementById('pay-date').valueAsDate = new Date();
+    document.getElementById('payment-modal').classList.add('open');
+  }
+  document.getElementById('pay-cancel-btn').addEventListener('click', () => document.getElementById('payment-modal').classList.remove('open'));
+  document.getElementById('pay-save-btn').addEventListener('click', async () => {
+    const clientId = document.getElementById('pay-client-id').value;
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+    if(!amount || amount <= 0){ alert('اكتب مبلغ صحيح'); return; }
+
+    const btn = document.getElementById('pay-save-btn');
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+
+    const { error } = await db.from('client_payments').insert({
+      client_id: clientId, owner_id: currentUserId, amount,
+      payment_date: document.getElementById('pay-date').value || new Date().toISOString().slice(0,10),
+      note: document.getElementById('pay-note').value.trim() || null,
+    });
+
+    btn.disabled = false; btn.textContent = 'حفظ الدفعة';
+    if(error){ alert('حصل خطأ: ' + error.message); return; }
+
+    await recalcClientTotals(clientId);
+    document.getElementById('payment-modal').classList.remove('open');
+    await loadClients();
+  });
+
+  // ===== نافذة إضافة خصم =====
+  function openDiscountModal(clientId){
+    document.getElementById('disc-client-id').value = clientId;
+    document.getElementById('disc-percent').value = '';
+    document.getElementById('disc-custom-amount').value = '';
+    document.getElementById('disc-note').value = '';
+    document.querySelector('input[name="disc-base"][value="total"]').checked = true;
+    document.getElementById('disc-custom-wrap').style.display = 'none';
+    updateDiscountPreview();
+    document.getElementById('discount-modal').classList.add('open');
+  }
+  document.getElementById('disc-cancel-btn').addEventListener('click', () => document.getElementById('discount-modal').classList.remove('open'));
+
+  document.querySelectorAll('input[name="disc-base"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.getElementById('disc-custom-wrap').style.display = radio.value === 'custom' && radio.checked ? 'block' : 'none';
+      updateDiscountPreview();
+    });
+  });
+  document.getElementById('disc-percent').addEventListener('input', updateDiscountPreview);
+  document.getElementById('disc-custom-amount').addEventListener('input', updateDiscountPreview);
+
+  function updateDiscountPreview(){
+    const percent = parseFloat(document.getElementById('disc-percent').value) || 0;
+    const baseType = document.querySelector('input[name="disc-base"]:checked').value;
+    const clientId = document.getElementById('disc-client-id').value;
+    const client = allClients.find(c => c.id === clientId);
+
+    let baseAmount = 0;
+    if(baseType === 'total'){
+      baseAmount = client ? Number(client.total_amount || 0) : 0;
+    } else {
+      baseAmount = parseFloat(document.getElementById('disc-custom-amount').value) || 0;
+    }
+    const value = baseAmount * (percent / 100);
+    document.getElementById('disc-preview-value').textContent = value.toLocaleString() + ' ج.م';
+  }
+
+  document.getElementById('disc-save-btn').addEventListener('click', async () => {
+    const clientId = document.getElementById('disc-client-id').value;
+    const percent = parseFloat(document.getElementById('disc-percent').value);
+    if(!percent || percent <= 0){ alert('اكتب نسبة خصم صحيحة'); return; }
+
+    const baseType = document.querySelector('input[name="disc-base"]:checked').value;
+    const client = allClients.find(c => c.id === clientId);
+    let baseAmount = baseType === 'total' ? Number(client.total_amount || 0) : (parseFloat(document.getElementById('disc-custom-amount').value) || 0);
+    const computedValue = baseAmount * (percent / 100);
+
+    const btn = document.getElementById('disc-save-btn');
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+
+    const { error } = await db.from('client_discounts').insert({
+      client_id: clientId, owner_id: currentUserId, discount_percent: percent,
+      base_type: baseType, base_amount: baseType === 'custom' ? baseAmount : null,
+      computed_value: computedValue, note: document.getElementById('disc-note').value.trim() || null,
+    });
+
+    btn.disabled = false; btn.textContent = 'حفظ الخصم';
+    if(error){ alert('حصل خطأ: ' + error.message); return; }
+
+    await recalcClientTotals(clientId);
+    document.getElementById('discount-modal').classList.remove('open');
+    await loadClients();
+  });
+
+  // ===== تحميل وعرض العملاء =====
   async function loadClients(){
     const { data } = await db.from('clients').select('*').eq('owner_id', currentUserId).order('created_at', { ascending: false });
     allClients = data || [];
@@ -386,9 +575,9 @@
     `;
   }
 
-  function paymentProgress(paid, total){
-    if(!total || total <= 0) return null;
-    const pct = Math.min(Math.round((paid / total) * 100), 100);
+  function paymentProgress(paid, totalAfterDiscount){
+    if(!totalAfterDiscount || totalAfterDiscount <= 0) return null;
+    const pct = Math.min(Math.round((paid / totalAfterDiscount) * 100), 100);
     const isGood = pct >= 75;
     return { pct, isGood };
   }
@@ -411,13 +600,16 @@
     const current = allClients.filter(c => c.status === 'current');
     const sorted = [...current].sort((a,b) => Number(b.amount_paid||0) - Number(a.amount_paid||0)).slice(0, 8);
 
+    const chartContainer = document.getElementById('top-clients-chart');
+    if(!chartContainer) return;
+
     if(!sorted.length){
-      document.getElementById('top-clients-chart').parentElement.innerHTML = '<div class="empty">مفيش عملاء حاليين كفاية لعرض الرسم البياني</div>';
+      chartContainer.parentElement.innerHTML = '<div class="empty">مفيش عملاء حاليين كفاية لعرض الرسم البياني</div>';
       return;
     }
 
     if(topClientsChart) topClientsChart.destroy();
-    topClientsChart = new Chart(document.getElementById('top-clients-chart'), {
+    topClientsChart = new Chart(chartContainer, {
       type: 'bar',
       data: {
         labels: sorted.map(c => c.full_name),
@@ -427,7 +619,7 @@
     });
   }
 
-  function renderClientsList(){
+  async function renderClientsList(){
     const tiers = computeTiers();
     const search = document.getElementById('search-input').value.trim().toLowerCase();
     const sortBy = document.getElementById('sort-select').value;
@@ -446,9 +638,10 @@
     const tierLabels = { gold: '🥇 ذهبي', silver: '🥈 فضي', bronze: '🥉 برونزي' };
 
     container.innerHTML = filtered.map(c => {
-      const progress = paymentProgress(c.amount_paid, c.total_amount);
+      const totalAfterDiscount = Number(c.total_amount||0) - Number(c.total_discount||0);
+      const progress = paymentProgress(c.amount_paid, totalAfterDiscount);
       return `
-      <div class="client-card">
+      <div class="client-card" data-client-card="${c.id}">
         <div class="c-top">
           <div>
             <div class="c-name">
@@ -462,36 +655,92 @@
         <div class="c-details">
           ${c.address ? `<div><div class="d-label">العنوان</div><div class="d-value">${c.address}</div></div>` : ''}
           ${c.area_size ? `<div><div class="d-label">المساحة</div><div class="d-value">${c.area_size} فدان</div></div>` : ''}
-          ${c.units_count ? `<div><div class="d-label">عدد الوحدات</div><div class="d-value">${c.units_count} ${c.unit_type || ''}</div></div>` : ''}
+          ${c.units_count ? `<div><div class="d-label">الكمية</div><div class="d-value">${c.units_count} ${c.unit_type || ''} × ${Number(c.unit_price||0)} ج.م</div></div>` : ''}
           <div><div class="d-label">الإجمالي</div><div class="d-value">${Number(c.total_amount||0).toLocaleString()} ج.م</div></div>
+          ${Number(c.total_discount||0) > 0 ? `<div><div class="d-label">إجمالي الخصم</div><div class="d-value" style="color:#8a6a1f;">-${Number(c.total_discount).toLocaleString()} ج.م</div></div>` : ''}
           <div><div class="d-label">المدفوع</div><div class="d-value">${Number(c.amount_paid||0).toLocaleString()} ج.م</div></div>
-          <div><div class="d-label">المتبقي</div><div class="d-value ${Number(c.amount_remaining||0) > 0 ? 'c-remaining has-debt' : ''}">${Number(c.amount_remaining||0).toLocaleString()} ج.م</div></div>
+          <div><div class="d-label">المتبقي</div><div class="d-value c-remaining ${Number(c.amount_remaining||0) > 0 ? 'has-debt' : 'clear'}">${Number(c.amount_remaining||0).toLocaleString()} ج.م</div></div>
           <div><div class="d-label">التاريخ</div><div class="d-value">${c.transaction_date}</div></div>
         </div>
         <div class="c-actions">
-          <button data-edit-id="${c.id}">✏️ تعديل</button>
+          <button class="pay-btn" data-pay-id="${c.id}">💰 إضافة دفعة</button>
+          <button class="discount-btn" data-discount-id="${c.id}">🏷️ إضافة خصم</button>
+          <button class="log-toggle-btn" data-log-id="${c.id}">📜 السجل</button>
+          <button data-edit-id="${c.id}">✏️ تعديل بيانات</button>
           ${c.status === 'potential' ? `<button class="promote-btn" data-promote-id="${c.id}">⬆️ حوّله لعميل حالي</button>` : ''}
           <button class="delete-btn" data-delete-id="${c.id}">🗑️ حذف</button>
         </div>
+        <div class="client-log" id="log-${c.id}"><div class="empty" style="padding:10px 0;">جاري التحميل...</div></div>
       </div>`;
     }).join('');
 
-    document.querySelectorAll('[data-edit-id]').forEach(btn => {
-      btn.addEventListener('click', () => openEditForm(btn.getAttribute('data-edit-id')));
-    });
+    document.querySelectorAll('[data-edit-id]').forEach(btn => btn.addEventListener('click', () => openEditForm(btn.getAttribute('data-edit-id'))));
+    document.querySelectorAll('[data-pay-id]').forEach(btn => btn.addEventListener('click', () => openPaymentModal(btn.getAttribute('data-pay-id'))));
+    document.querySelectorAll('[data-discount-id]').forEach(btn => btn.addEventListener('click', () => openDiscountModal(btn.getAttribute('data-discount-id'))));
+    document.querySelectorAll('[data-log-id]').forEach(btn => btn.addEventListener('click', () => toggleClientLog(btn.getAttribute('data-log-id'))));
     document.querySelectorAll('[data-promote-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-promote-id');
-        await db.from('clients').update({ status: 'current' }).eq('id', id);
+        await db.from('clients').update({ status: 'current' }).eq('id', btn.getAttribute('data-promote-id'));
         loadClients();
       });
     });
     document.querySelectorAll('[data-delete-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if(!confirm('متأكد إنك عايز تمسح العميل ده؟')) return;
-        const id = btn.getAttribute('data-delete-id');
-        await db.from('clients').delete().eq('id', id);
+        if(!confirm('متأكد إنك عايز تمسح العميل ده؟ هيتمسح معاه كل سجل الدفعات والخصومات.')) return;
+        await db.from('clients').delete().eq('id', btn.getAttribute('data-delete-id'));
         loadClients();
+      });
+    });
+  }
+
+  // ===== عرض/إخفاء سجل الدفعات والخصومات لعميل معيّن =====
+  async function toggleClientLog(clientId){
+    const logEl = document.getElementById(`log-${clientId}`);
+    const isOpen = logEl.classList.contains('open');
+    if(isOpen){ logEl.classList.remove('open'); return; }
+
+    logEl.classList.add('open');
+    logEl.innerHTML = '<div class="empty" style="padding:10px 0;">جاري التحميل...</div>';
+
+    const { data: payments } = await db.from('client_payments').select('*').eq('client_id', clientId).order('payment_date', { ascending: false });
+    const { data: discounts } = await db.from('client_discounts').select('*').eq('client_id', clientId).order('created_at', { ascending: false });
+
+    if(!(payments||[]).length && !(discounts||[]).length){
+      logEl.innerHTML = '<div class="empty" style="padding:10px 0;">مفيش دفعات أو خصومات مسجّلة لسه</div>';
+      return;
+    }
+
+    let html = '';
+    (payments||[]).forEach(p => {
+      html += `<div class="log-entry">
+        <span>💰 دفعة ${Number(p.amount).toLocaleString()} ج.م — ${p.payment_date}${p.note ? ' (' + p.note + ')' : ''}</span>
+        <button class="log-del" data-del-payment="${p.id}" data-del-client="${clientId}">🗑️</button>
+      </div>`;
+    });
+    (discounts||[]).forEach(d => {
+      const baseLabel = d.base_type === 'total' ? 'على الإجمالي' : `على مبلغ ${Number(d.base_amount).toLocaleString()} ج.م`;
+      html += `<div class="log-entry">
+        <span>🏷️ خصم ${d.discount_percent}% (${baseLabel}) = -${Number(d.computed_value).toLocaleString()} ج.م${d.note ? ' (' + d.note + ')' : ''}</span>
+        <button class="log-del" data-del-discount="${d.id}" data-del-client="${clientId}">🗑️</button>
+      </div>`;
+    });
+
+    logEl.innerHTML = html;
+
+    logEl.querySelectorAll('[data-del-payment]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await db.from('client_payments').delete().eq('id', btn.getAttribute('data-del-payment'));
+        await recalcClientTotals(btn.getAttribute('data-del-client'));
+        await loadClients();
+        toggleClientLog(clientId); // إعادة فتحه بعد التحديث
+      });
+    });
+    logEl.querySelectorAll('[data-del-discount]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await db.from('client_discounts').delete().eq('id', btn.getAttribute('data-del-discount'));
+        await recalcClientTotals(btn.getAttribute('data-del-client'));
+        await loadClients();
+        toggleClientLog(clientId);
       });
     });
   }
@@ -515,14 +764,21 @@
     toggleVarietyOther();
 
     document.getElementById('f-status').value = c.status;
-    document.getElementById('f-address').value = c.address || '';
+
+    // فك العنوان لمحافظة/مركز/قرية لو ممكن (النظام القديم كان بيخزن نص عادي، فده استرجاع بسيط)
+    if(c.address){
+      const parts = c.address.split(' - ');
+      document.getElementById('f-village').value = parts[2] || parts.slice(2).join(' - ') || '';
+    } else {
+      document.getElementById('f-village').value = '';
+    }
+
     document.getElementById('f-area').value = c.area_size || '';
     document.getElementById('f-units').value = c.units_count || '';
     document.getElementById('f-unit-type').value = c.unit_type || 'أكياس';
-    document.getElementById('f-total').value = c.total_amount || '';
-    document.getElementById('f-paid').value = c.amount_paid || '';
+    document.getElementById('f-unit-price').value = c.unit_price || '';
     document.getElementById('f-date').value = c.transaction_date;
-    updateRemainingPreview();
+    updateTotalPreview();
     document.getElementById('client-form').classList.add('open');
     window.scrollTo({ top: document.getElementById('client-form').offsetTop - 20, behavior: 'smooth' });
   }
