@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تفعيل الحساب — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F1E4; --ink: #1E2A1B; --leaf: #3B5B37; --leaf-deep: #24391F;
+    --rust: #A85D28; --line: #CDBF9C; --paper: #FCFAF3; --error:#B23A2E;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .card{
+    max-width:420px; width:100%;
+    background:var(--paper); border:1px solid var(--line); border-radius:18px;
+    padding:36px 32px; text-align:center;
+  }
+  h1{ font-family:'Tajawal', sans-serif; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .icon{ font-size:40px; margin-bottom:6px; }
+  p.desc{ margin-top:10px; color:#5b543f; font-size:13.5px; line-height:1.8; }
+  p.desc b{ color:var(--leaf-deep); }
+
+  .otp-row{ display:flex; gap:8px; justify-content:center; margin-top:24px; direction:ltr; }
+  .otp-box{
+    width:46px; height:56px; text-align:center; font-size:24px; font-weight:800;
+    border:2px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
+  }
+  .otp-box:focus{ outline:none; border-color:var(--leaf); }
+
+  button.submit{
+    margin-top:24px; width:100%; padding:13px; border:none; border-radius:9px;
+    background:var(--leaf); color:var(--paper); font-family:'Tajawal'; font-weight:700;
+    font-size:15.5px; cursor:pointer;
+  }
+  button.submit:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .resend-row{ margin-top:16px; font-size:13px; color:#5b543f; }
+  .resend-row span{ color:var(--rust); cursor:pointer; text-decoration:underline; font-weight:700; }
+  .resend-row span.disabled{ color:#a89f83; cursor:not-allowed; text-decoration:none; }
+
+  .link-fallback{ margin-top:18px; font-size:12px; color:#8a7f63; line-height:1.7; }
+
+  .msg{ margin-top:16px; font-size:13.5px; text-align:center; display:none; padding:10px; border-radius:8px; }
+  .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--error); }
+  .msg.success{ display:block; background:rgba(59,91,55,0.1); color:var(--leaf-deep); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📧</div>
+    <h1>تأكيد البريد الإلكتروني</h1>
+    <p class="desc">بعتنالك كود مكوّن من 6 أرقام على <b id="email-display">بريدك الإلكتروني</b> — افتح الإيميل وحط الكود هنا</p>
+
+    <div class="otp-row" id="otp-row">
+      <input type="text" class="otp-box" maxlength="1" inputmode="numeric" data-index="0">
+      <input type="text" class="otp-box" maxlength="1" inputmode="numeric" data-index="1">
+      <input type="text" class="otp-box" maxlength="1" inputmode="numeric" data-index="2">
+      <input type="text" class="otp-box" maxlength="1" inputmode="numeric" data-index="3">
+      <input type="text" class="otp-box" maxlength="1" inputmode="numeric" data-index="4">
+      <input type="text" class="otp-box" maxlength="1" inputmode="numeric" data-index="5">
+    </div>
+
+    <button class="submit" id="confirm-btn">تأكيد الإيميل</button>
+
+    <div class="resend-row">
+      محصلتش الكود؟ <span id="resend-link">ابعته تاني</span>
+    </div>
+
+    <p class="link-fallback">لو الكود مش شغال، تقدر برضو تستخدم لينك التفعيل اللي وصلك في نفس الإيميل.</p>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const email = params.get('email') || sessionStorage.getItem('agronex-pending-email');
+
+  const msg = document.getElementById('msg');
+  function showMsg(text, type){ msg.textContent = text; msg.className = 'msg ' + type; }
+
+  if(!email){
+    showMsg('مفيش بريد إلكتروني محدد — ارجع لصفحة التسجيل وحاول تاني.', 'error');
+  } else {
+    document.getElementById('email-display').textContent = email;
+  }
+
+  // التنقل التلقائي بين مربعات الكود
+  const boxes = Array.from(document.querySelectorAll('.otp-box'));
+  boxes.forEach((box, i) => {
+    box.addEventListener('input', () => {
+      box.value = box.value.replace(/[^0-9]/g, '');
+      if(box.value && i < boxes.length - 1){ boxes[i+1].focus(); }
+    });
+    box.addEventListener('keydown', (e) => {
+      if(e.key === 'Backspace' && !box.value && i > 0){ boxes[i-1].focus(); }
+    });
+    box.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 6);
+      pasted.split('').forEach((digit, idx) => { if(boxes[idx]) boxes[idx].value = digit; });
+      if(pasted.length === 6){ boxes[5].focus(); }
+    });
+  });
+  boxes[0].focus();
+
+  document.getElementById('confirm-btn').addEventListener('click', async () => {
+    const code = boxes.map(b => b.value).join('');
+    if(code.length !== 6){ showMsg('اكتب الكود المكوّن من 6 أرقام كامل.', 'error'); return; }
+    if(!email){ showMsg('مفيش بريد إلكتروني محدد.', 'error'); return; }
+
+    const btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري التأكيد...';
+
+    const { data, error } = await db.auth.verifyOtp({ email, token: code, type: 'signup' });
+
+    btn.disabled = false;
+    btn.textContent = 'تأكيد الإيميل';
+
+    if(error){
+      showMsg('الكود غلط أو منتهي الصلاحية، حاول تاني أو استخدم اللينك في الإيميل.', 'error');
+      return;
+    }
+
+    sessionStorage.removeItem('agronex-pending-email');
+    showMsg('✅ تم تفعيل حسابك بنجاح! هيتم تحويلك دلوقتي...', 'success');
+    setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
+  });
+
+  let resendCooldown = false;
+  document.getElementById('resend-link').addEventListener('click', async (e) => {
+    if(resendCooldown || !email) return;
+    resendCooldown = true;
+    e.target.classList.add('disabled');
+    e.target.textContent = 'جاري الإرسال...';
+
+    const { error } = await db.auth.resend({ type: 'signup', email });
+
+    if(error){
+      showMsg('حصل خطأ في إعادة الإرسال: ' + error.message, 'error');
+    } else {
+      showMsg('✅ تم إرسال كود جديد على بريدك.', 'success');
+    }
+
+    setTimeout(() => {
+      resendCooldown = false;
+      e.target.classList.remove('disabled');
+      e.target.textContent = 'ابعته تاني';
+    }, 30000); // منع الإرسال المتكرر لمدة 30 ثانية
+  });
+</script>
+</body>
+</html>
