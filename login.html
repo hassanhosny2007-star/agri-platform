@@ -74,7 +74,6 @@
   .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--error); }
   .msg.success{ display:block; background:rgba(59,91,55,0.1); color:var(--leaf-deep); }
 
-  /* اختيار العنوان */
   .address-group{ border:1px solid var(--line); border-radius:10px; padding:12px; background:var(--bg); }
   .address-group label{ display:block; margin-bottom:4px; }
 </style>
@@ -180,7 +179,6 @@
   </div>
 
 <script>
-  // إعدادات الاتصال بـ Supabase
   const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
   const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
   const { createClient } = supabase;
@@ -198,7 +196,6 @@
   };
   const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
 
-  // بناء قائمة المحافظات والمراكز
   AgroNexLocations.buildPicker({
     govSelectId: 'signup-governorate',
     centerSelectId: 'signup-center',
@@ -287,7 +284,6 @@
     const phone = document.getElementById('signup-phone').value;
     const nationalId = document.getElementById('signup-national-id').value;
 
-    // تجميع العنوان من المحافظة + المركز + العزبة/القرية
     const { governorate, center } = AgroNexLocations.getPickerValues({
       govSelectId: 'signup-governorate',
       centerSelectId: 'signup-center',
@@ -314,8 +310,11 @@
       }
       return;
     }
-    showMsg('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.', 'success');
-    showLogin();
+    showMsg('تم إنشاء الحساب بنجاح! جاري تحويلك لتفعيل بريدك الإلكتروني...', 'success');
+    sessionStorage.setItem('agronex-pending-email', email);
+    setTimeout(() => {
+      window.location.href = 'verify-email.html?email=' + encodeURIComponent(email);
+    }, 1200);
   });
 </script>
 </body>
