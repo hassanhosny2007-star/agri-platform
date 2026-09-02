@@ -63,6 +63,14 @@
   }
   button.toggle.deactivate{ background:#fbe9e9; border-color:#e3b8b8; color:#a83232; }
   button.toggle.activate{ background:#e8f0e5; border-color:#b7cdae; color:var(--leaf-deep); }
+  .email-badge{ font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
+  .email-badge.confirmed{ background:#e8f5e9; color:#2E7D32; }
+  .email-badge.unconfirmed{ background:#fff6e0; color:#a87a1f; }
+  button.confirm-email-btn{
+    font-size:12px; padding:6px 10px; border-radius:8px; cursor:pointer;
+    font-family:'IBM Plex Sans Arabic'; border:1px solid #b7cdae; background:#e8f0e5; color:var(--leaf-deep);
+  }
+  button.confirm-email-btn:disabled{ opacity:.6; cursor:not-allowed; }
   .empty, .loading, .denied{ max-width:760px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
 </style>
 </head>
@@ -98,7 +106,9 @@
 
   const params = new URLSearchParams(window.location.search);
   const role = params.get('role');
+  let emailConfirmMap = {}; // { user_id: true/false }
 
+  // بيرجع نص "نشط الآن" أو "نشط منذ..." حسب آخر نبضة حياة مسجّلة للمستخدم
   function presenceInfo(lastActiveAt){
     if(!lastActiveAt) return { isOnline: false, text: 'لسه ما دخلش المنصة' };
 
@@ -123,6 +133,7 @@
       const farmsCount = (u.farms && u.farms[0] && u.farms[0].count) || 0;
       const isActive = u.is_active !== false;
       const presence = presenceInfo(u.last_active_at);
+      const emailConfirmed = emailConfirmMap[u.id] !== false; // لو مش موجود في الماب، نفترض مفعّل عشان مايظهرش زرار غلط
       return `
         <div class="user-row" data-id="${u.id}">
           <a href="admin-user.html?id=${u.id}" style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
@@ -135,6 +146,7 @@
                 ${u.full_name || '—'}
                 ${!isActive ? '<span class="badge">معطّل</span>' : ''}
                 <span class="presence-text ${presence.isOnline ? 'online' : 'offline'}">${presence.text}</span>
+                <span class="email-badge ${emailConfirmed ? 'confirmed' : 'unconfirmed'}">${emailConfirmed ? '✓ إيميل مفعّل' : '⚠ إيميل مش مفعّل'}</span>
               </div>
               <div class="email">${u.email}</div>
               ${u.specialization ? `<div class="meta">${u.specialization}</div>` : ''}
@@ -142,6 +154,7 @@
           </a>
           <div class="actions">
             <span class="farms-count">${farmsCount} مزرعة</span>
+            ${!emailConfirmed ? `<button class="confirm-email-btn" data-confirm-email-id="${u.id}">✅ تفعيل الإيميل</button>` : ''}
             ${u.id !== currentAdminId ? `
               <button class="toggle ${isActive ? 'deactivate' : 'activate'}" data-toggle-id="${u.id}" data-current="${isActive}">
                 ${isActive ? 'تعطيل' : 'تفعيل'}
@@ -151,6 +164,28 @@
         </div>`;
     }).join('');
     document.getElementById('content').innerHTML = `<div class="list">${rows}</div>`;
+
+    document.querySelectorAll('[data-confirm-email-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-confirm-email-id');
+        if(!confirm('متأكد إنك عايز تفعّل إيميل المستخدم ده يدويًا؟')) return;
+        btn.disabled = true;
+        btn.textContent = 'جاري التفعيل...';
+        const { error } = await db.rpc('admin_confirm_user_email', { target_user_id: id });
+        if(error){
+          alert('حصل خطأ: ' + error.message);
+          btn.disabled = false;
+          btn.textContent = '✅ تفعيل الإيميل';
+          return;
+        }
+        emailConfirmMap[id] = true;
+        const row = document.querySelector(`.user-row[data-id="${id}"]`);
+        const emailBadge = row.querySelector('.email-badge');
+        emailBadge.className = 'email-badge confirmed';
+        emailBadge.textContent = '✓ إيميل مفعّل';
+        btn.remove();
+      });
+    });
 
     document.querySelectorAll('[data-toggle-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -193,6 +228,10 @@
       return;
     }
 
+    const { data: confirmStatus } = await db.rpc('admin_get_email_confirmation_status');
+    emailConfirmMap = {};
+    (confirmStatus || []).forEach(row => { emailConfirmMap[row.user_id] = row.is_confirmed; });
+
     allUsers = users || [];
     renderUsers(allUsers, currentAdminId);
   }
@@ -215,6 +254,7 @@
 
     await loadAndRender();
 
+    // تحديث حالة "متصل الآن" و"نشط منذ" تلقائيًا كل 30 ثانية من غير Refresh للصفحة كلها
     setInterval(loadAndRender, 30000);
   })();
 </script>
