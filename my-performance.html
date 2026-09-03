@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أدائي — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --gold:#C9A227; --danger:#C62828; --up:#2E7D32;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --gold:#E0B84D; --danger:#EF5350; --up:#66BB6A;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:900px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:18px; }
+
+  .period-tabs{ display:flex; gap:8px; margin-bottom:18px; }
+  .p-tab{ flex:1; text-align:center; padding:11px; border-radius:9px; border:1px solid var(--line); background:var(--paper); cursor:pointer; font-family:'Tajawal'; font-weight:700; font-size:13.5px; }
+  .p-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+
+  .score-card{ background:linear-gradient(135deg, var(--leaf-deep), var(--leaf)); border-radius:18px; padding:26px; margin-bottom:18px; color:#fff; text-align:center; }
+  .score-card .score-num{ font-family:'Tajawal'; font-weight:900; font-size:48px; }
+  .score-card .score-label{ font-family:'Tajawal'; font-weight:800; font-size:16px; margin-top:4px; }
+  .score-card .score-desc{ font-size:12.5px; opacity:.85; margin-top:8px; line-height:1.7; }
+  .score-bar{ background:rgba(255,255,255,.25); height:8px; border-radius:4px; margin-top:14px; overflow:hidden; }
+  .score-bar .fill{ height:100%; background:#fff; border-radius:4px; transition:width .4s; }
+
+  .summary-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .summary-box{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; text-align:center; position:relative; }
+  .summary-box .s-num{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  .summary-box .s-label{ font-size:11px; color:#8a7f63; margin-top:4px; }
+  .summary-box.warn .s-num{ color:var(--danger); }
+  .trend-badge{ font-size:10px; font-weight:800; padding:2px 8px; border-radius:20px; margin-top:6px; display:inline-block; }
+  .trend-badge.up{ background:rgba(46,125,50,.12); color:var(--up); }
+  .trend-badge.down{ background:rgba(198,40,40,.12); color:var(--danger); }
+  .trend-badge.flat{ background:rgba(0,0,0,.06); color:#777; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:14px; color:var(--leaf-deep); }
+  .chart-wrap{ height:260px; }
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📈 أدائي</h1>
+    <a class="back" href="my-clients.html">رجوع لعملائي</a>
+  </header>
+  <p class="subtitle">تقييم ذاتي تلقائي لأدائك — أسبوعي، شهري، ومجمع من كل بياناتك الفعلية</p>
+
+  <div class="period-tabs">
+    <div class="p-tab active" data-period="week">هذا الأسبوع</div>
+    <div class="p-tab" data-period="month">هذا الشهر</div>
+    <div class="p-tab" data-period="all">مجمّع (كل الوقت)</div>
+  </div>
+
+  <div class="score-card">
+    <div class="score-num" id="score-num">—</div>
+    <div class="score-label" id="score-label">جاري الحساب...</div>
+    <div class="score-bar"><div class="fill" id="score-fill" style="width:0%;"></div></div>
+    <div class="score-desc" id="score-desc"></div>
+  </div>
+
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <div class="card">
+    <h3 id="chart-title">📊 اتجاه الأداء (آخر 8 أسابيع)</h3>
+    <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>💳 حالة المديونية الحالية (لحظيًا)</h3>
+    <div id="debt-summary"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUserId = null;
+  let allClients = [];
+  let allPayments = [];
+  let currentPeriod = 'week';
+  let trendChart = null;
+
+  function getWeekStart(d){
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    date.setDate(date.getDate() - diff);
+    date.setHours(0,0,0,0);
+    return date;
+  }
+  function getMonthStart(d){
+    const date = new Date(d);
+    date.setDate(1); date.setHours(0,0,0,0);
+    return date;
+  }
+  function addDays(d, n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+  function addMonths(d, n){ const r = new Date(d); r.setMonth(r.getMonth()+n); return r; }
+
+  function computePeriodStats(startDate, endDate){
+    const inRange = (dateStr) => {
+      const d = new Date(dateStr);
+      return d >= startDate && d < endDate;
+    };
+    const newClients = allClients.filter(c => inRange(c.created_at));
+    const periodPayments = allPayments.filter(p => inRange(p.created_at));
+
+    return {
+      dealsCount: newClients.length,
+      salesValue: newClients.reduce((s,c) => s + Number(c.total_amount||0), 0),
+      collected: periodPayments.reduce((s,p) => s + Number(p.amount||0), 0),
+      newClientsCount: newClients.length,
+    };
+  }
+
+  function trendBadge(current, previous){
+    if(previous === 0 && current === 0) return { text: '—', cls: 'flat' };
+    if(previous === 0) return { text: '▲ جديد', cls: 'up' };
+    const change = Math.round(((current - previous) / previous) * 100);
+    if(change > 5) return { text: `▲ ${change}%`, cls: 'up' };
+    if(change < -5) return { text: `▼ ${Math.abs(change)}%`, cls: 'down' };
+    return { text: 'مستقر', cls: 'flat' };
+  }
+
+  function renderPeriod(){
+    const now = new Date();
+    let currentStart, currentEnd, prevStart, prevEnd, chartLabel;
+
+    if(currentPeriod === 'week'){
+      currentStart = getWeekStart(now);
+      currentEnd = addDays(currentStart, 7);
+      prevStart = addDays(currentStart, -7);
+      prevEnd = currentStart;
+      chartLabel = '📊 اتجاه الأداء (آخر 8 أسابيع)';
+    } else if(currentPeriod === 'month'){
+      currentStart = getMonthStart(now);
+      currentEnd = addMonths(currentStart, 1);
+      prevStart = addMonths(currentStart, -1);
+      prevEnd = currentStart;
+      chartLabel = '📊 اتجاه الأداء (آخر 6 شهور)';
+    } else {
+      currentStart = new Date(2000,0,1);
+      currentEnd = addDays(now, 1);
+      prevStart = null; prevEnd = null;
+      chartLabel = '📊 اتجاه الأداء (آخر 8 أسابيع)';
+    }
+
+    const current = computePeriodStats(currentStart, currentEnd);
+    const previous = (prevStart && prevEnd) ? computePeriodStats(prevStart, prevEnd) : null;
+
+    document.getElementById('chart-title').textContent = chartLabel;
+    renderSummary(current, previous);
+    renderScore(current, previous);
+    renderTrendChart();
+    renderDebtSummary();
+  }
+
+  function renderSummary(current, previous){
+    const salesTrend = previous ? trendBadge(current.salesValue, previous.salesValue) : null;
+    const collectTrend = previous ? trendBadge(current.collected, previous.collected) : null;
+    const clientsTrend = previous ? trendBadge(current.newClientsCount, previous.newClientsCount) : null;
+
+    document.getElementById('summary-grid').innerHTML = `
+      <div class="summary-box">
+        <div class="s-num">${current.dealsCount}</div>
+        <div class="s-label">صفقة جديدة</div>
+        ${clientsTrend ? `<div class="trend-badge ${clientsTrend.cls}">${clientsTrend.text}</div>` : ''}
+      </div>
+      <div class="summary-box">
+        <div class="s-num">${current.newClientsCount}</div>
+        <div class="s-label">عميل جديد</div>
+      </div>
+      <div class="summary-box">
+        <div class="s-num">${current.salesValue.toLocaleString()}</div>
+        <div class="s-label">قيمة المبيعات (ج.م)</div>
+        ${salesTrend ? `<div class="trend-badge ${salesTrend.cls}">${salesTrend.text}</div>` : ''}
+      </div>
+      <div class="summary-box">
+        <div class="s-num">${current.collected.toLocaleString()}</div>
+        <div class="s-label">إجمالي محصّل (ج.م)</div>
+        ${collectTrend ? `<div class="trend-badge ${collectTrend.cls}">${collectTrend.text}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderScore(current, previous){
+    const currentClients = allClients.filter(c => c.status === 'current');
+    const totalOwed = currentClients.reduce((s,c) => s + Number(c.total_amount||0) - Number(c.total_discount||0), 0);
+    const totalCollected = currentClients.reduce((s,c) => s + Number(c.amount_paid||0), 0);
+    const collectionRate = totalOwed > 0 ? (totalCollected / totalOwed) * 100 : 100;
+
+    let salesScore = 50, clientsScore = 50;
+    if(previous){
+      if(previous.salesValue > 0){
+        const change = ((current.salesValue - previous.salesValue) / previous.salesValue) * 100;
+        salesScore = Math.max(0, Math.min(100, 50 + change));
+      } else if(current.salesValue > 0){ salesScore = 80; }
+
+      if(previous.newClientsCount > 0){
+        const change = ((current.newClientsCount - previous.newClientsCount) / previous.newClientsCount) * 100;
+        clientsScore = Math.max(0, Math.min(100, 50 + change));
+      } else if(current.newClientsCount > 0){ clientsScore = 80; }
+    }
+
+    const overallScore = Math.round((salesScore * 0.4) + (clientsScore * 0.3) + (collectionRate * 0.3));
+    const finalScore = Math.max(0, Math.min(100, overallScore));
+
+    let label, desc;
+    if(finalScore >= 80){ label = '🌟 أداء ممتاز'; desc = 'استمر كده! أدائك في تقدم واضح مقارنة بالفترة اللي فاتت.'; }
+    else if(finalScore >= 60){ label = '👍 أداء جيد'; desc = 'أدائك مستقر ومقبول، ومحتاج دفعة بسيطة عشان يبقى ممتاز.'; }
+    else if(finalScore >= 40){ label = '⚠️ أداء متوسط'; desc = 'فيه تباطؤ ملحوظ — ركّز على متابعة العملاء المحتملين والتحصيل.'; }
+    else { label = '📉 محتاج تحسين'; desc = 'الأداء متأخر عن المعدل — راجع خطتك وحاول تزوّد نشاطك مع العملاء.'; }
+
+    document.getElementById('score-num').textContent = finalScore;
+    document.getElementById('score-label').textContent = label;
+    document.getElementById('score-desc').textContent = desc;
+    document.getElementById('score-fill').style.width = finalScore + '%';
+  }
+
+  function renderTrendChart(){
+    const now = new Date();
+    const labels = [];
+    const salesData = [];
+    const collectData = [];
+
+    const buckets = currentPeriod === 'month' ? 6 : 8;
+    for(let i = buckets - 1; i >= 0; i--){
+      let start, end, label;
+      if(currentPeriod === 'month'){
+        start = addMonths(getMonthStart(now), -i);
+        end = addMonths(start, 1);
+        label = start.toLocaleDateString('ar-EG', { month: 'short' });
+      } else {
+        start = addDays(getWeekStart(now), -i*7);
+        end = addDays(start, 7);
+        label = `أسبوع ${start.getDate()}/${start.getMonth()+1}`;
+      }
+      const stats = computePeriodStats(start, end);
+      labels.push(label);
+      salesData.push(stats.salesValue);
+      collectData.push(stats.collected);
+    }
+
+    if(trendChart) trendChart.destroy();
+    trendChart = new Chart(document.getElementById('trend-chart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'قيمة المبيعات', data: salesData, backgroundColor: '#3B5B37' },
+          { label: 'المحصّل', data: collectData, backgroundColor: '#C9A227' },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+    });
+  }
+
+  function renderDebtSummary(){
+    const current = allClients.filter(c => c.status === 'current');
+    const totalOwed = current.reduce((s,c) => s + (Number(c.total_amount||0) - Number(c.total_discount||0)), 0);
+    const totalCollected = current.reduce((s,c) => s + Number(c.amount_paid||0), 0);
+    const totalRemaining = current.reduce((s,c) => s + Number(c.amount_remaining||0), 0);
+    const clientsWithDebt = current.filter(c => Number(c.amount_remaining||0) > 0).length;
+
+    document.getElementById('debt-summary').innerHTML = `
+      <div class="summary-grid" style="margin-bottom:0;">
+        <div class="summary-box"><div class="s-num">${totalOwed.toLocaleString()}</div><div class="s-label">إجمالي المطلوب (ج.م)</div></div>
+        <div class="summary-box"><div class="s-num">${totalCollected.toLocaleString()}</div><div class="s-label">إجمالي المحصّل (ج.م)</div></div>
+        <div class="summary-box warn"><div class="s-num">${totalRemaining.toLocaleString()}</div><div class="s-label">إجمالي المتبقي (ج.م)</div></div>
+        <div class="summary-box warn"><div class="s-num">${clientsWithDebt}</div><div class="s-label">عميل عليه مديونية</div></div>
+      </div>
+    `;
+  }
+
+  document.querySelectorAll('.p-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.p-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentPeriod = tab.getAttribute('data-period');
+      renderPeriod();
+    });
+  });
+
+  async function loadData(){
+    const { data: clients } = await db.from('clients').select('*').eq('owner_id', currentUserId);
+    allClients = clients || [];
+
+    const clientIds = allClients.map(c => c.id);
+    if(clientIds.length){
+      const { data: payments } = await db.from('client_payments').select('*').eq('owner_id', currentUserId);
+      allPayments = payments || [];
+    } else {
+      allPayments = [];
+    }
+
+    renderPeriod();
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    loadData();
+  })();
+</script>
+</body>
+</html>
