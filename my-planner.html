@@ -1,0 +1,513 @@
+cat > /home/claude/farm-platform-html/my-planner.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مخططي — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+    --gold:#C9A227; --danger:#C62828; --up:#2E7D32;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+    --gold:#E0B84D; --danger:#EF5350; --up:#66BB6A;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:800px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:18px; }
+
+  .main-tabs{ display:flex; gap:8px; margin-bottom:18px; }
+  .m-tab{ flex:1; text-align:center; padding:12px; border-radius:10px; border:2px solid var(--line); background:var(--paper); cursor:pointer; font-family:'Tajawal'; font-weight:800; font-size:14px; }
+  .m-tab.active{ background:var(--leaf); color:#fff; border-color:var(--leaf); }
+  .m-panel{ display:none; }
+  .m-panel.active{ display:block; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; }
+  .card h3{ font-family:'Tajawal'; font-weight:700; font-size:14.5px; margin-bottom:14px; color:var(--leaf-deep); }
+
+  .toolbar{ display:flex; justify-content:flex-end; margin-bottom:14px; }
+  button.add-btn{ padding:10px 18px; border:none; border-radius:9px; background:var(--rust); color:#fff; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
+
+  .item-form{ display:none; background:var(--bg); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .item-form.open{ display:block; }
+  .form-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+  .form-row.full{ grid-template-columns:1fr; }
+  .field label{ font-size:12px; font-weight:600; color:var(--leaf-deep); display:block; margin-bottom:5px; }
+  .field input, .field select, .field textarea{ width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:#fff; font-size:13px; font-family:inherit; }
+  .form-actions{ display:flex; gap:8px; margin-top:10px; }
+  .form-actions button{ padding:10px 20px; border:none; border-radius:8px; font-family:'Tajawal'; font-weight:700; font-size:13px; cursor:pointer; }
+  .btn-save{ background:var(--leaf); color:#fff; }
+  .btn-cancel{ background:var(--paper); border:1px solid var(--line); color:var(--ink); }
+  .link-toggle{ display:flex; gap:8px; margin-bottom:10px; }
+  .link-toggle label{ flex:1; text-align:center; padding:9px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:12.5px; font-weight:700; }
+  .link-toggle input{ display:none; }
+  .link-toggle input:checked + span{ color:var(--leaf-deep); font-weight:900; }
+
+  /* كارت الهدف */
+  .goal-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:10px; border-inline-start:4px solid var(--line); }
+  .goal-card.achieved{ border-inline-start-color:var(--up); opacity:.85; }
+  .goal-card.pending{ border-inline-start-color:var(--gold); }
+  .goal-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .goal-title{ font-family:'Tajawal'; font-weight:800; font-size:14.5px; }
+  .goal-title.done{ text-decoration:line-through; color:#8a7f63; }
+  .goal-badge{ font-size:10px; font-weight:800; padding:2px 10px; border-radius:20px; white-space:nowrap; }
+  .goal-badge.achieved{ background:rgba(46,125,50,.12); color:var(--up); }
+  .goal-badge.pending{ background:rgba(201,162,39,.15); color:#8a6a1f; }
+  .goal-desc{ font-size:12px; color:#5b543f; margin-top:4px; }
+  .goal-meta{ font-size:11px; color:#8a7f63; margin-top:8px; }
+  .goal-progress{ background:var(--bg); border-radius:4px; height:6px; margin-top:8px; overflow:hidden; }
+  .goal-progress .fill{ height:100%; background:var(--leaf); }
+  .goal-actions{ display:flex; gap:6px; margin-top:10px; }
+  .goal-actions button{ font-size:11.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--bg); cursor:pointer; font-family:inherit; }
+  .goal-actions .achieve-btn{ background:#E8F5E9; border-color:#b7cdae; color:var(--leaf-deep); }
+  .goal-actions .delete-btn{ background:#fbe9e9; border-color:#e3b8b8; color:#a83232; }
+
+  /* كارت الميعاد */
+  .appt-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; display:flex; align-items:center; gap:14px; }
+  .appt-card.done{ opacity:.6; }
+  .appt-time{ font-family:'Tajawal'; font-weight:900; font-size:18px; color:var(--leaf-deep); min-width:70px; text-align:center; }
+  .appt-time small{ display:block; font-size:10px; font-weight:400; color:#8a7f63; }
+  .appt-info{ flex:1; min-width:0; }
+  .appt-title{ font-family:'Tajawal'; font-weight:700; font-size:14px; }
+  .appt-title.done{ text-decoration:line-through; color:#8a7f63; }
+  .appt-notes{ font-size:11.5px; color:#8a7f63; margin-top:2px; }
+  .appt-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .appt-actions button{ font-size:11px; padding:6px 10px; border-radius:7px; border:1px solid var(--line); background:var(--bg); cursor:pointer; }
+  .appt-actions .complete-btn{ background:#E8F5E9; border-color:#b7cdae; color:var(--leaf-deep); }
+  .appt-actions .delete-btn{ background:#fbe9e9; border-color:#e3b8b8; color:#a83232; }
+
+  .day-group-title{ font-family:'Tajawal'; font-weight:800; font-size:13px; color:var(--leaf-deep); margin:16px 0 8px; }
+  .day-group-title:first-child{ margin-top:0; }
+
+  .empty{ text-align:center; color:#5b543f; padding:30px 0; font-size:13.5px; }
+  .notif-permission-banner{ background:#FFF6E0; border:1px solid #E8D190; border-radius:10px; padding:10px 14px; font-size:12px; color:#6b5a24; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .notif-permission-banner button{ padding:6px 14px; border:none; border-radius:7px; background:var(--rust); color:#fff; font-size:11.5px; cursor:pointer; white-space:nowrap; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🗂️ مخططي</h1>
+    <a class="back" href="my-clients.html">رجوع لعملائي</a>
+  </header>
+  <p class="subtitle">بنك أهدافك، وجدول مواعيدك — كله منظّم في مكان واحد</p>
+
+  <div class="notif-permission-banner" id="notif-banner" style="display:none;">
+    <span>⚠️ فعّل إشعارات المتصفح عشان التذكير بالمواعيد يشتغل (لازم الصفحة تفضل مفتوحة)</span>
+    <button id="enable-notif-btn">تفعيل</button>
+  </div>
+
+  <div class="main-tabs">
+    <div class="m-tab active" data-tab="goals">🎯 أهدافي</div>
+    <div class="m-tab" data-tab="appointments">📅 مواعيدي</div>
+  </div>
+
+  <!-- ===== تبويب الأهداف ===== -->
+  <div class="m-panel active" id="panel-goals">
+    <div class="toolbar"><button class="add-btn" id="add-goal-btn">+ هدف جديد</button></div>
+
+    <div class="item-form" id="goal-form">
+      <h3 style="margin-bottom:14px;">🎯 هدف جديد</h3>
+      <div class="link-toggle">
+        <label><input type="radio" name="goal-link" value="manual" checked><span>هدف شخصي (أعلّمه بنفسي)</span></label>
+        <label><input type="radio" name="goal-link" value="system"><span>هدف مربوط بالنظام (يتحقق تلقائي)</span></label>
+      </div>
+
+      <div class="form-row full">
+        <div class="field"><label>عنوان الهدف</label><input type="text" id="g-title" placeholder="مثال: الوصول لـ10 عملاء جدد الشهر ده"></div>
+      </div>
+      <div class="form-row full">
+        <div class="field"><label>وصف / تفاصيل (اختياري)</label><textarea id="g-description" rows="2"></textarea></div>
+      </div>
+
+      <div class="form-row" id="system-metric-wrap" style="display:none;">
+        <div class="field"><label>المؤشر</label>
+          <select id="g-metric-type">
+            <option value="new_clients">عدد عملاء جدد</option>
+            <option value="sales_value">قيمة مبيعات (ج.م)</option>
+            <option value="collected_amount">مبلغ محصّل (ج.م)</option>
+          </select>
+        </div>
+        <div class="field"><label>القيمة المستهدفة</label><input type="number" id="g-target-value" step="0.01"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>تاريخ البداية</label><input type="date" id="g-start-date"></div>
+        <div class="field"><label>تاريخ الاستحقاق (اختياري)</label><input type="date" id="g-end-date"></div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-save" id="save-goal-btn">حفظ الهدف</button>
+        <button class="btn-cancel" id="cancel-goal-btn">إلغاء</button>
+      </div>
+    </div>
+
+    <div id="goals-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+
+  <!-- ===== تبويب المواعيد ===== -->
+  <div class="m-panel" id="panel-appointments">
+    <div class="toolbar"><button class="add-btn" id="add-appt-btn">+ ميعاد جديد</button></div>
+
+    <div class="item-form" id="appt-form">
+      <h3 style="margin-bottom:14px;">📅 ميعاد جديد</h3>
+      <div class="form-row full">
+        <div class="field"><label>عنوان الميعاد</label><input type="text" id="a-title" placeholder="مثال: زيارة مزرعة الأستاذ محمد"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>التاريخ</label><input type="date" id="a-date"></div>
+        <div class="field"><label>الوقت</label><input type="time" id="a-time"></div>
+      </div>
+      <div class="form-row full">
+        <div class="field"><label>ملاحظات (اختياري)</label><textarea id="a-notes" rows="2"></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-save" id="save-appt-btn">حفظ الميعاد</button>
+        <button class="btn-cancel" id="cancel-appt-btn">إلغاء</button>
+      </div>
+    </div>
+
+    <div id="appointments-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  let currentUserId = null;
+  let allGoals = [];
+  let allAppointments = [];
+
+  document.getElementById('g-start-date').valueAsDate = new Date();
+  document.getElementById('a-date').valueAsDate = new Date();
+
+  // ===== التبديل بين التبويبين =====
+  document.querySelectorAll('.m-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.m-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.getAttribute('data-tab')).classList.add('active');
+    });
+  });
+
+  // ===== إشعارات المتصفح =====
+  function checkNotifPermission(){
+    if('Notification' in window && Notification.permission !== 'granted'){
+      document.getElementById('notif-banner').style.display = 'flex';
+    }
+  }
+  document.getElementById('enable-notif-btn').addEventListener('click', async () => {
+    const perm = await Notification.requestPermission();
+    if(perm === 'granted') document.getElementById('notif-banner').style.display = 'none';
+  });
+
+  // =========================================================
+  // ===== قسم الأهداف =====
+  // =========================================================
+  document.querySelectorAll('input[name="goal-link"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.getElementById('system-metric-wrap').style.display = radio.value === 'system' && radio.checked ? 'grid' : 'none';
+    });
+  });
+
+  document.getElementById('add-goal-btn').addEventListener('click', () => {
+    document.getElementById('g-title').value = '';
+    document.getElementById('g-description').value = '';
+    document.getElementById('g-target-value').value = '';
+    document.getElementById('g-start-date').valueAsDate = new Date();
+    document.getElementById('g-end-date').value = '';
+    document.querySelector('input[name="goal-link"][value="manual"]').checked = true;
+    document.getElementById('system-metric-wrap').style.display = 'none';
+    document.getElementById('goal-form').classList.add('open');
+  });
+  document.getElementById('cancel-goal-btn').addEventListener('click', () => document.getElementById('goal-form').classList.remove('open'));
+
+  document.getElementById('save-goal-btn').addEventListener('click', async () => {
+    const title = document.getElementById('g-title').value.trim();
+    if(!title){ alert('اكتب عنوان الهدف الأول'); return; }
+
+    const isSystem = document.querySelector('input[name="goal-link"]:checked').value === 'system';
+
+    const payload = {
+      owner_id: currentUserId,
+      title,
+      description: document.getElementById('g-description').value.trim() || null,
+      is_system_linked: isSystem,
+      metric_type: isSystem ? document.getElementById('g-metric-type').value : null,
+      target_value: isSystem ? (parseFloat(document.getElementById('g-target-value').value) || null) : null,
+      start_date: document.getElementById('g-start-date').value || new Date().toISOString().slice(0,10),
+      end_date: document.getElementById('g-end-date').value || null,
+    };
+
+    const btn = document.getElementById('save-goal-btn');
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+    const { error } = await db.from('engineer_goals').insert(payload);
+    btn.disabled = false; btn.textContent = 'حفظ الهدف';
+
+    if(error){ alert('حصل خطأ: ' + error.message); return; }
+
+    document.getElementById('goal-form').classList.remove('open');
+    await loadGoals();
+  });
+
+  // بيحسب القيمة الفعلية لمؤشر معيّن خلال فترة (لنفس منطق صفحة الأداء)
+  async function computeMetricValue(metricType, startDate, endDate){
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date('2100-01-01');
+    end.setHours(23,59,59,999);
+
+    if(metricType === 'new_clients' || metricType === 'sales_value'){
+      const { data: clients } = await db.from('clients').select('total_amount, created_at').eq('owner_id', currentUserId);
+      const inRange = (clients||[]).filter(c => { const d = new Date(c.created_at); return d >= start && d <= end; });
+      return metricType === 'new_clients' ? inRange.length : inRange.reduce((s,c) => s + Number(c.total_amount||0), 0);
+    }
+    if(metricType === 'collected_amount'){
+      const { data: payments } = await db.from('client_payments').select('amount, created_at').eq('owner_id', currentUserId);
+      const inRange = (payments||[]).filter(p => { const d = new Date(p.created_at); return d >= start && d <= end; });
+      return inRange.reduce((s,p) => s + Number(p.amount||0), 0);
+    }
+    return 0;
+  }
+
+  // بيفحص كل الأهداف المربوطة بالنظام واللي لسه مش محققة، ويعلّمها تلقائي لو وصلت للهدف
+  async function autoCheckSystemGoals(){
+    const pending = allGoals.filter(g => g.is_system_linked && !g.is_achieved);
+    for(const goal of pending){
+      const actual = await computeMetricValue(goal.metric_type, goal.start_date, goal.end_date);
+      if(actual >= Number(goal.target_value || Infinity)){
+        await db.from('engineer_goals').update({
+          is_achieved: true, achieved_date: new Date().toISOString().slice(0,10),
+        }).eq('id', goal.id);
+        goal.is_achieved = true;
+        goal.achieved_date = new Date().toISOString().slice(0,10);
+      } else {
+        goal._currentProgress = actual; // نخزّنها مؤقتًا للعرض بس
+      }
+    }
+  }
+
+  const METRIC_LABELS = { new_clients: 'عميل جديد', sales_value: 'ج.م مبيعات', collected_amount: 'ج.م تحصيل' };
+
+  function renderGoals(){
+    const container = document.getElementById('goals-list');
+    if(!allGoals.length){ container.innerHTML = '<div class="empty">لسه معملتش أي هدف</div>'; return; }
+
+    const sorted = [...allGoals].sort((a,b) => {
+      if(a.is_achieved !== b.is_achieved) return a.is_achieved ? 1 : -1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    container.innerHTML = sorted.map(g => {
+      let progressHtml = '';
+      if(g.is_system_linked && !g.is_achieved && g.target_value){
+        const actual = g._currentProgress || 0;
+        const pct = Math.min(Math.round((actual / g.target_value) * 100), 100);
+        progressHtml = `
+          <div class="goal-progress"><div class="fill" style="width:${pct}%;"></div></div>
+          <div class="goal-meta">${actual.toLocaleString()} / ${Number(g.target_value).toLocaleString()} ${METRIC_LABELS[g.metric_type]} (${pct}%)</div>
+        `;
+      }
+      return `
+      <div class="goal-card ${g.is_achieved ? 'achieved' : 'pending'}">
+        <div class="goal-top">
+          <div>
+            <div class="goal-title ${g.is_achieved ? 'done' : ''}">${g.title}</div>
+            ${g.description ? `<div class="goal-desc">${g.description}</div>` : ''}
+          </div>
+          <span class="goal-badge ${g.is_achieved ? 'achieved' : 'pending'}">${g.is_achieved ? '✅ تحقق' : (g.is_system_linked ? '🔗 مربوط بالنظام' : '📝 يدوي')}</span>
+        </div>
+        ${progressHtml}
+        <div class="goal-meta">
+          ${g.is_achieved ? `تحقق في: ${g.achieved_date}` : `من ${g.start_date}${g.end_date ? ' لحد ' + g.end_date : ''}`}
+          ${g.notes ? ` — ${g.notes}` : ''}
+        </div>
+        <div class="goal-actions">
+          ${!g.is_achieved && !g.is_system_linked ? `<button class="achieve-btn" data-achieve-id="${g.id}">✅ علّمه كمتحقق</button>` : ''}
+          <button class="delete-btn" data-delete-goal="${g.id}">🗑️ حذف</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    container.querySelectorAll('[data-achieve-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const notes = prompt('ملاحظات عن تحقيق الهدف (اختياري):') || null;
+        await db.from('engineer_goals').update({
+          is_achieved: true, achieved_date: new Date().toISOString().slice(0,10), notes,
+        }).eq('id', btn.getAttribute('data-achieve-id'));
+        loadGoals();
+      });
+    });
+    container.querySelectorAll('[data-delete-goal]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('متأكد إنك عايز تمسح الهدف ده؟')) return;
+        await db.from('engineer_goals').delete().eq('id', btn.getAttribute('data-delete-goal'));
+        loadGoals();
+      });
+    });
+  }
+
+  async function loadGoals(){
+    const { data } = await db.from('engineer_goals').select('*').eq('owner_id', currentUserId).order('created_at', { ascending: false });
+    allGoals = data || [];
+    await autoCheckSystemGoals();
+    renderGoals();
+  }
+
+  // =========================================================
+  // ===== قسم المواعيد =====
+  // =========================================================
+  document.getElementById('add-appt-btn').addEventListener('click', () => {
+    document.getElementById('a-title').value = '';
+    document.getElementById('a-notes').value = '';
+    document.getElementById('a-date').valueAsDate = new Date();
+    document.getElementById('a-time').value = '';
+    document.getElementById('appt-form').classList.add('open');
+  });
+  document.getElementById('cancel-appt-btn').addEventListener('click', () => document.getElementById('appt-form').classList.remove('open'));
+
+  document.getElementById('save-appt-btn').addEventListener('click', async () => {
+    const title = document.getElementById('a-title').value.trim();
+    const date = document.getElementById('a-date').value;
+    const time = document.getElementById('a-time').value;
+    if(!title || !date || !time){ alert('أكمل العنوان والتاريخ والوقت'); return; }
+
+    const btn = document.getElementById('save-appt-btn');
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+
+    const { error } = await db.from('engineer_appointments').insert({
+      owner_id: currentUserId, title,
+      appointment_date: date, appointment_time: time,
+      notes: document.getElementById('a-notes').value.trim() || null,
+    });
+
+    btn.disabled = false; btn.textContent = 'حفظ الميعاد';
+    if(error){ alert('حصل خطأ: ' + error.message); return; }
+
+    document.getElementById('appt-form').classList.remove('open');
+    await loadAppointments();
+  });
+
+  function renderAppointments(){
+    const container = document.getElementById('appointments-list');
+    if(!allAppointments.length){ container.innerHTML = '<div class="empty">لسه معملتش أي ميعاد</div>'; return; }
+
+    const upcoming = allAppointments.filter(a => !a.is_completed).sort((a,b) => new Date(`${a.appointment_date}T${a.appointment_time}`) - new Date(`${b.appointment_date}T${b.appointment_time}`));
+    const completed = allAppointments.filter(a => a.is_completed).sort((a,b) => new Date(`${b.appointment_date}T${b.appointment_time}`) - new Date(`${a.appointment_date}T${a.appointment_time}`));
+
+    let html = '';
+    if(upcoming.length){
+      html += `<div class="day-group-title">📌 القادمة</div>`;
+      html += upcoming.map(renderApptCard).join('');
+    }
+    if(completed.length){
+      html += `<div class="day-group-title">✅ اللي راحت</div>`;
+      html += completed.map(renderApptCard).join('');
+    }
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-complete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await db.from('engineer_appointments').update({ is_completed: true, completed_at: new Date().toISOString() }).eq('id', btn.getAttribute('data-complete-id'));
+        loadAppointments();
+      });
+    });
+    container.querySelectorAll('[data-delete-appt]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('متأكد إنك عايز تمسح الميعاد ده؟')) return;
+        await db.from('engineer_appointments').delete().eq('id', btn.getAttribute('data-delete-appt'));
+        loadAppointments();
+      });
+    });
+  }
+
+  function renderApptCard(a){
+    const timeParts = a.appointment_time.split(':');
+    const dateObj = new Date(a.appointment_date);
+    const dateLabel = dateObj.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+    return `
+      <div class="appt-card ${a.is_completed ? 'done' : ''}">
+        <div class="appt-time">${timeParts[0]}:${timeParts[1]}<small>${dateLabel}</small></div>
+        <div class="appt-info">
+          <div class="appt-title ${a.is_completed ? 'done' : ''}">${a.title}</div>
+          ${a.notes ? `<div class="appt-notes">${a.notes}</div>` : ''}
+        </div>
+        <div class="appt-actions">
+          ${!a.is_completed ? `<button class="complete-btn" data-complete-id="${a.id}">✅ راحت</button>` : ''}
+          <button class="delete-btn" data-delete-appt="${a.id}">🗑️</button>
+        </div>
+      </div>`;
+  }
+
+  async function loadAppointments(){
+    const { data } = await db.from('engineer_appointments').select('*').eq('owner_id', currentUserId).order('appointment_date').order('appointment_time');
+    allAppointments = data || [];
+    renderAppointments();
+  }
+
+  // ===== فحص دوري للتذكير بالمواعيد قبلها بـ15 دقيقة (يشتغل والصفحة مفتوحة بس) =====
+  function checkUpcomingReminders(){
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    const now = new Date();
+
+    allAppointments.forEach(async (a) => {
+      if(a.is_completed || a.reminder_sent) return;
+      const apptTime = new Date(`${a.appointment_date}T${a.appointment_time}`);
+      const diffMin = (apptTime - now) / 60000;
+
+      if(diffMin > 0 && diffMin <= 15){
+        new Notification('⏰ تذكير بميعاد قريب', {
+          body: `${a.title} — بعد ${Math.round(diffMin)} دقيقة`,
+          icon: 'site-assets/logo.png',
+        });
+        a.reminder_sent = true;
+        await db.from('engineer_appointments').update({ reminder_sent: true }).eq('id', a.id);
+      }
+    });
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+
+    checkNotifPermission();
+    await loadGoals();
+    await loadAppointments();
+
+    checkUpcomingReminders();
+    setInterval(checkUpcomingReminders, 60000); // يفحص كل دقيقة طول ما الصفحة مفتوحة
+  })();
+</script>
+</body>
+</html>
+HTMLEOF
+echo "done"
