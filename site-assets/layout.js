@@ -171,7 +171,7 @@ const AgroNexLayout = (() => {
     async function loadNotifBadge(){
       const badge = document.getElementById('notif-badge');
       if(!badge) return;
-      const { count } = await db.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_read', false);
+      const { count } = await db.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_read', false).eq('hidden_for_user', false);
       if(count && count > 0){
         badge.textContent = count > 9 ? '9+' : count;
         badge.style.display = 'flex';
@@ -196,7 +196,7 @@ const AgroNexLayout = (() => {
       panel.classList.add('open');
       panel.innerHTML = '<div class="notif-empty">جاري التحميل...</div>';
 
-      const { data: notifs } = await db.from('notifications').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(15);
+      const { data: notifs } = await db.from('notifications').select('*').eq('user_id', profile.id).eq('hidden_for_user', false).order('created_at', { ascending: false }).limit(15);
 
       if(!notifs || !notifs.length){
         panel.innerHTML = '<div class="notif-empty">مفيش إشعارات لسه</div>';
@@ -245,7 +245,8 @@ const AgroNexLayout = (() => {
         e.stopPropagation();
         if(!confirm('متأكد إنك عايز تمسح كل الإشعارات؟')) return;
         // بيمسح كل إشعارات المستخدم فعليًا من قاعدة البيانات، مش بس اللي ظاهرة قدامك دلوقتي
-        await db.from('notifications').delete().eq('user_id', profile.id);
+        // إخفاء ناعم بس (مش حذف حقيقي) — عشان الأدمن يفضل شايف سجل الإشعارات كامل
+        await db.from('notifications').update({ hidden_for_user: true }).eq('user_id', profile.id);
         panel.innerHTML = `
           <div class="notif-panel-header"><span>الإشعارات</span></div>
           <div class="notif-empty">مفيش إشعارات لسه</div>
@@ -257,7 +258,7 @@ const AgroNexLayout = (() => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
           const id = btn.getAttribute('data-id');
-          await db.from('notifications').delete().eq('id', id);
+          await db.from('notifications').update({ hidden_for_user: true }).eq('id', id);
           btn.closest('.notif-item').remove();
           loadNotifBadge();
           if(!document.getElementById('notif-items-list')?.children.length){
