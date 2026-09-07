@@ -192,6 +192,7 @@
     `);
   }
 
+  // شريط "متصل الآن" — بيحسب أي حساب بعت نبضة حياة خلال آخر دقيقتين
   async function loadOnlineBanner(){
     const banner = document.getElementById('online-banner');
     const { data: profiles } = await db.from('profiles').select('last_active_at');
@@ -216,6 +217,7 @@
     document.getElementById('welcome-title').innerHTML =
       welcomeText + ' في <span class="brand-word"><span class="b-agro">Agro</span><span class="b-nex">Nex</span></span>';
 
+    // إخفاء الكروت اللي المستخدم مالوش صلاحية عليها (الأدمن يشوف كل حاجة دايمًا)
     if(!ctx.isAdmin){
       const perms = ctx.profile?.permissions || {};
       document.querySelectorAll('[data-perm]').forEach(tile => {
@@ -224,6 +226,7 @@
       });
     }
 
+    // كارت "منتجاتي" يظهر لو معاه صلاحية بيع صريحة في أي فئة، أو دوره تاجر/شركة/أدمن بشكل افتراضي
     const sellPerms = ctx.profile?.permissions || {};
     const defaultSeller = ['trader', 'company', 'admin'].includes(ctx.profile?.role);
     const canSellAny = ['fertilizer', 'seeds', 'pesticides'].some(cat => {
@@ -325,6 +328,7 @@
     const btn = document.getElementById('notif-toggle-btn');
     const status = document.getElementById('notif-status');
 
+    // حفظ موقع المستخدم دايمًا (لازم للتنبيهات لاحقًا)
     if(lat && lng){
       await db.from('profiles').update({ latitude: lat, longitude: lng }).eq('id', userId);
     }
@@ -334,10 +338,23 @@
       return;
     }
 
-    const { data: profile } = await db.from('profiles').select('notifications_enabled').eq('id', userId).single();
-    if(profile && profile.notifications_enabled){
+    // نتحقق من الاشتراك الفعلي الحقيقي في المتصفح نفسه، مش بس من العلم المخزّن في قاعدة البيانات
+    // (العلم ممكن يكون true من محاولة قديمة من غير ما يكتمل الاشتراك فعليًا)
+    let hasRealSubscription = false;
+    try{
+      const existingReg = await navigator.serviceWorker.getRegistration();
+      if(existingReg){
+        const existingSub = await existingReg.pushManager.getSubscription();
+        hasRealSubscription = !!existingSub;
+      }
+    }catch(e){}
+
+    if(hasRealSubscription){
       btn.textContent = '🔔 التنبيهات مفعّلة';
       btn.classList.add('active');
+    } else {
+      btn.textContent = '🔔 تفعيل تنبيهات الطقس الخطيرة';
+      btn.classList.remove('active');
     }
 
     btn.addEventListener('click', async () => {
