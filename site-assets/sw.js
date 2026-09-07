@@ -2,7 +2,6 @@
 self.addEventListener('push', (event) => {
   let data = {};
   try{ data = event.data.json(); }catch(e){ data = { title: 'AgroNex', body: 'تنبيه جديد' }; }
-
   const options = {
     body: data.body || '',
     icon: 'site-assets/logo.png',
@@ -11,12 +10,22 @@ self.addEventListener('push', (event) => {
     lang: 'ar',
     data: { url: data.url || 'dashboard.html' },
   };
-
   event.waitUntil(
-    self.registration.showNotification(data.title || 'AgroNex', options)
+    (async () => {
+      await self.registration.showNotification(data.title || 'AgroNex', options);
+      // نحطّ عدد الإشعارات الغير مقروءة الحقيقي على أيقونة التطبيق (مدعومة على iOS 16.4+ كتطبيق مثبّت)
+      if('setAppBadge' in navigator){
+        try{
+          if(data.unreadCount && data.unreadCount > 0){
+            await navigator.setAppBadge(data.unreadCount);
+          } else {
+            await navigator.clearAppBadge();
+          }
+        }catch(e){}
+      }
+    })()
   );
 });
-
 // لما المستخدم يدوس على الإشعار، يفتحله الداشبورد
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
