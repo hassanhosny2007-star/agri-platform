@@ -221,9 +221,8 @@ const AgroNexLayout = (() => {
 
       document.getElementById('notif-mark-all-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
-        const unreadIds = notifs.filter(n => !n.is_read).map(n => n.id);
-        if(!unreadIds.length) return;
-        await db.from('notifications').update({ is_read: true }).in('id', unreadIds);
+        // بيشتغل على كل الإشعارات غير المقروءة الفعلية في قاعدة البيانات، مش بس اللي ظاهرة قدامك دلوقتي
+        await db.from('notifications').update({ is_read: true }).eq('user_id', profile.id).eq('is_read', false);
         panel.querySelectorAll('.notif-item.unread').forEach(item => {
           item.classList.remove('unread');
           item.querySelector('.n-read-badge').textContent = 'مقروءة';
@@ -236,8 +235,8 @@ const AgroNexLayout = (() => {
       document.getElementById('notif-delete-all-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
         if(!confirm('متأكد إنك عايز تمسح كل الإشعارات؟')) return;
-        const allIds = notifs.map(n => n.id);
-        await db.from('notifications').delete().in('id', allIds);
+        // بيمسح كل إشعارات المستخدم فعليًا من قاعدة البيانات، مش بس اللي ظاهرة قدامك دلوقتي
+        await db.from('notifications').delete().eq('user_id', profile.id);
         panel.innerHTML = `
           <div class="notif-panel-header"><span>الإشعارات</span></div>
           <div class="notif-empty">مفيش إشعارات لسه</div>
