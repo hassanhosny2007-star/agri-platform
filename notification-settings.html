@@ -1,0 +1,226 @@
+cat > /home/claude/farm-platform-html/notification-settings.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إعدادات الإشعارات — AgroNex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3; --up:#2E7D32; --danger:#C62828;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327; --up:#66BB6A; --danger:#EF5350;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+  .subtitle{ color:#5b543f; font-size:13px; margin-bottom:20px; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px; }
+  .status-row{ display:flex; justify-content:space-between; align-items:center; }
+  .status-info .s-title{ font-family:'Tajawal'; font-weight:800; font-size:16px; }
+  .status-info .s-desc{ font-size:12.5px; color:#5b543f; margin-top:4px; line-height:1.7; }
+
+  .u-switch{ position:relative; width:52px; height:29px; border-radius:20px; border:none; cursor:pointer; background:#cfc7ab; flex-shrink:0; transition:background .2s; }
+  .u-switch.on{ background:var(--up); }
+  .u-switch .dot{ position:absolute; top:2px; right:2px; width:25px; height:25px; background:#fff; border-radius:50%; transition:right .2s; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+  .u-switch.on .dot{ right:25px; }
+  .u-switch:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .status-badge{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 12px; border-radius:20px; margin-top:12px; }
+  .status-badge.on{ background:rgba(46,125,50,.12); color:var(--up); }
+  .status-badge.off{ background:rgba(198,40,40,.1); color:var(--danger); }
+  .status-badge.unsupported{ background:rgba(0,0,0,.06); color:#777; }
+
+  .info-list{ margin-top:14px; }
+  .info-item{ display:flex; gap:8px; font-size:12.5px; color:#5b543f; padding:8px 0; border-bottom:1px solid var(--bg); line-height:1.7; }
+  .info-item:last-child{ border-bottom:none; }
+  .info-item .icon{ flex-shrink:0; }
+
+  .msg{ margin-top:14px; font-size:13px; text-align:center; display:none; padding:10px; border-radius:8px; }
+  .msg.error{ display:block; background:rgba(178,58,46,0.1); color:var(--danger); }
+  .msg.success{ display:block; background:rgba(59,91,55,0.1); color:var(--up); }
+
+  .devices-list{ margin-top:10px; font-size:12px; color:#8a7f63; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>🔔 إعدادات الإشعارات</h1>
+    <a class="back" href="dashboard.html">رجوع للوحة التحكم</a>
+  </header>
+  <p class="subtitle">تحكّم في وصول إشعارات المنصة لجهازك، حتى لو الموقع مقفول</p>
+
+  <div class="card">
+    <div class="status-row">
+      <div class="status-info">
+        <div class="s-title">إشعارات هذا الجهاز</div>
+        <div class="s-desc">لما تكون مفعّلة، هتوصلك إشعارات المنصة (تنبيهات طقس، ردود، تحليل مخاطر، مواعيد...) على جهازك حتى لو الموقع مقفول تمامًا.</div>
+      </div>
+      <button class="u-switch" id="notif-switch"><span class="dot"></span></button>
+    </div>
+    <div id="status-badge-wrap"></div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-family:'Tajawal'; font-weight:700; font-size:14px; margin-bottom:6px; color:var(--leaf-deep);">ملاحظات مهمة</h3>
+    <div class="info-list">
+      <div class="info-item"><span class="icon">📶</span><span>محتاج اتصال إنترنت أو داتا شغالة عشان الإشعار يوصل، حتى لو الموقع مقفول.</span></div>
+      <div class="info-item"><span class="icon">📱</span><span>على آيفون/آيباد (iOS)، لازم "تضيف الموقع للشاشة الرئيسية" الأول من Safari عشان الإشعارات تشتغل — قيد من Apple نفسها.</span></div>
+      <div class="info-item"><span class="icon">🖥️</span><span>التفعيل ده خاص بالجهاز والمتصفح اللي إنت فاتح بيهم دلوقتي — لو استخدمت جهاز تاني أو متصفح تاني، هتحتاج تفعّل تاني منه.</span></div>
+      <div class="info-item"><span class="icon">🔕</span><span>لو مسحت إذن الإشعارات من إعدادات المتصفح نفسه، هيتوقف الاستقبال حتى لو المفتاح هنا شغال — رجّع الإذن من إعدادات المتصفح لو حصل كده.</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const customStorage = {
+    getItem: (key) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      return remember ? localStorage.getItem(key) : sessionStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      const remember = localStorage.getItem('agronex-remember') !== 'false';
+      if(remember){ localStorage.setItem(key, value); sessionStorage.removeItem(key); }
+      else { sessionStorage.setItem(key, value); localStorage.removeItem(key); }
+    },
+    removeItem: (key) => { localStorage.removeItem(key); sessionStorage.removeItem(key); }
+  };
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: customStorage } });
+
+  const VAPID_PUBLIC_KEY = "BCcZ1YTiD0HtWx2kwFsFSuZ07MfvvN-GUULT7b26dQiyaX3Thyo60XEwVECdX8lBMf2wCJjSjEO9SPbhIrlBeV0";
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  }
+
+  let currentUserId = null;
+  const switchBtn = document.getElementById('notif-switch');
+  const msg = document.getElementById('msg');
+  function showMsg(text, type){ msg.textContent = text; msg.className = 'msg ' + type; }
+
+  function renderBadge(state){
+    const wrap = document.getElementById('status-badge-wrap');
+    if(state === 'unsupported'){
+      wrap.innerHTML = '<span class="status-badge unsupported">⚠️ المتصفح ده مش بيدعم الإشعارات</span>';
+    } else if(state === 'on'){
+      wrap.innerHTML = '<span class="status-badge on">🟢 مفعّلة على الجهاز ده</span>';
+    } else {
+      wrap.innerHTML = '<span class="status-badge off">🔴 غير مفعّلة على الجهاز ده</span>';
+    }
+  }
+
+  async function checkCurrentState(){
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      switchBtn.disabled = true;
+      renderBadge('unsupported');
+      return;
+    }
+    try{
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(sub){
+        switchBtn.classList.add('on');
+        renderBadge('on');
+      } else {
+        switchBtn.classList.remove('on');
+        renderBadge('off');
+      }
+    }catch(e){
+      switchBtn.classList.remove('on');
+      renderBadge('off');
+    }
+  }
+
+  async function enableNotifications(){
+    switchBtn.disabled = true;
+    showMsg('جاري التفعيل...', 'success');
+
+    try{
+      const permission = await Notification.requestPermission();
+      if(permission !== 'granted'){
+        showMsg('⚠️ محتاجين إذن الإشعارات من المتصفح عشان الميزة دي تشتغل', 'error');
+        switchBtn.disabled = false;
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.ready;
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
+      const subJson = subscription.toJSON();
+      await db.from('push_subscriptions').upsert({
+        user_id: currentUserId,
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh,
+        auth: subJson.keys.auth,
+      }, { onConflict: 'endpoint' });
+
+      await db.from('profiles').update({ notifications_enabled: true }).eq('id', currentUserId);
+
+      switchBtn.classList.add('on');
+      renderBadge('on');
+      showMsg('✅ تم التفعيل — هتوصلك إشعارات المنصة على الجهاز ده', 'success');
+    }catch(err){
+      console.error(err);
+      showMsg('⚠️ حصل خطأ أثناء التفعيل، حاول تاني', 'error');
+    }
+    switchBtn.disabled = false;
+  }
+
+  async function disableNotifications(){
+    switchBtn.disabled = true;
+    try{
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(sub){
+        await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+      switchBtn.classList.remove('on');
+      renderBadge('off');
+      showMsg('تم إيقاف الإشعارات على الجهاز ده', 'success');
+    }catch(err){
+      console.error(err);
+      showMsg('حصل خطأ أثناء الإيقاف', 'error');
+    }
+    switchBtn.disabled = false;
+  }
+
+  switchBtn.addEventListener('click', () => {
+    if(switchBtn.classList.contains('on')) disableNotifications();
+    else enableNotifications();
+  });
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    currentUserId = session.user.id;
+    checkCurrentState();
+  })();
+</script>
+</body>
+</html>
