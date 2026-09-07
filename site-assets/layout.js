@@ -178,6 +178,14 @@ const AgroNexLayout = (() => {
       } else {
         badge.style.display = 'none';
       }
+
+      // نحدّث نفس الرقم على أيقونة التطبيق (App Badge) كل مرة تفتح المنصة أو تقرا/تمسح إشعار
+      if('setAppBadge' in navigator){
+        try{
+          if(count && count > 0) await navigator.setAppBadge(count);
+          else await navigator.clearAppBadge();
+        }catch(e){}
+      }
     }
 
     async function openNotifPanel(){
