@@ -1,4 +1,13 @@
 // sw.js — لازم يكون في جذر الموقع (مش جوا مجلد) عشان يتحكم في الموقع كله
+
+// نفرض إن أي نسخة جديدة من الملف ده تتفعّل فورًا، من غير ما تستنى إغلاق كل نسخ التطبيق المفتوحة
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', (event) => {
   let data = {};
   try{ data = event.data.json(); }catch(e){ data = { title: 'AgroNex', body: 'تنبيه جديد' }; }
