@@ -356,6 +356,17 @@ const AgroNexLayout = (() => {
       }
     });
 
+    // قفل القائمة الجانبية تلقائيًا لو المستخدم دوس في أي مكان فاضي برّاها (على الموبايل بس)
+    document.addEventListener('click', (e) => {
+      if(window.innerWidth > 860) return; // على الكمبيوتر القائمة ثابتة، مفيش داعي نقفلها
+      if(!sidebarEl.classList.contains('open')) return;
+      const clickedInsideSidebar = sidebarEl.contains(e.target);
+      const clickedToggleBtn = toggleBtn.contains(e.target);
+      if(!clickedInsideSidebar && !clickedToggleBtn){
+        sidebarEl.classList.remove('open');
+      }
+    });
+
     // ===== نبضة الحياة: تحديث "آخر نشاط" كل دقيقة طول ما الصفحة مفتوحة =====
     async function sendHeartbeat(){
       await db.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('id', profile.id);
