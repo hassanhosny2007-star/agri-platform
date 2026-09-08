@@ -19,8 +19,9 @@
 }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
-  .top{ max-width:640px; margin:0 auto 8px; }
+  .top{ max-width:640px; margin:0 auto 8px; display:flex; justify-content:space-between; align-items:center; }
   a.back{ color:var(--leaf-deep); font-size:14px; text-decoration:none; }
+  a.log-link{ color:var(--leaf-deep); font-size:13px; text-decoration:none; border:1px solid var(--line); padding:6px 12px; border-radius:8px; background:var(--paper); }
   h1{ max-width:640px; margin:8px auto 20px; font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
 
   .card{ max-width:640px; margin:0 auto 16px; background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:22px; }
@@ -55,11 +56,18 @@
   .recent-item .r-meta{ font-size:11.5px; color:#8a7f63; margin-top:3px; }
   .denied{ max-width:640px; margin:60px auto; text-align:center; color:#5b543f; font-family:'Tajawal'; }
   .list-wrap{ max-width:640px; margin:0 auto; }
+  .list-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .list-header h3{ font-family:'Tajawal'; font-weight:700; font-size:14px; color:var(--leaf-deep); }
+  .list-header a{ font-size:12px; color:var(--rust); text-decoration:none; }
+  .empty-note{ text-align:center; color:#5b543f; font-size:13px; padding:20px 0; }
 </style>
 </head>
 <body>
 <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
-  <div class="top"><a class="back" href="admin.html">← رجوع للوحة التحكم</a></div>
+  <div class="top">
+    <a class="back" href="admin.html">← رجوع للوحة التحكم</a>
+    <a class="log-link" href="admin-notification-log.html">📋 السجل الكامل</a>
+  </div>
   <h1>📢 إرسال إشعار للمستخدمين</h1>
 
   <div id="access-gate">
@@ -115,7 +123,11 @@
     </div>
 
     <div class="list-wrap">
-      <h3 style="font-family:'Tajawal'; font-weight:700; font-size:14px; color:var(--leaf-deep); margin-bottom:10px;">آخر الإشعارات المُرسلة</h3>
+      <div class="list-header">
+        <h3>آخر الإشعارات المُرسلة</h3>
+        <a href="admin-notification-log.html">عرض السجل الكامل ←</a>
+      </div>
+      <p class="empty-note" style="padding:0 0 10px; font-size:11.5px;">السجل ده خاص بيك كأدمن، ومش بيتأثر لو أي مستخدم مسح إشعاره من عنده.</p>
       <div id="recent-list"><div class="denied">جاري التحميل...</div></div>
     </div>
   </div>
@@ -140,6 +152,7 @@
 
   const ROLE_LABELS = { farmer:'مزارع', engineer:'مهندس زراعي', trader:'تاجر', company:'شركة' };
   let currentTarget = 'all';
+  let currentAdminId = null;
 
   document.querySelectorAll('.t-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -171,24 +184,17 @@
       (users || []).map(u => `<option value="${u.id}">${u.full_name || u.email} (${ROLE_LABELS[u.role] || u.role})</option>`).join('');
   }
 
+  // دلوقتي بيقرا من سجل الأدمن المستقل، مش من جدول إشعارات المستخدمين نفسه
+  // (عشان مسح المستخدم لإشعاره من عنده ميأثرش على السجل ده خالص)
   async function loadRecentNotifications(){
-    // بنعرض آخر الإشعارات المتشابهة (نفس العنوان مبعوت لأكتر من مستخدم في وقت متقارب) كملخص
-    const { data: recent } = await db.from('notifications').select('title, body, created_at').order('created_at', { ascending: false }).limit(50);
+    const { data: logs } = await db.from('admin_notification_log').select('*').order('created_at', { ascending: false }).limit(8);
     const list = document.getElementById('recent-list');
-    if(!recent || !recent.length){ list.innerHTML = '<div class="denied">مفيش إشعارات اتبعتت لسه</div>'; return; }
+    if(!logs || !logs.length){ list.innerHTML = '<div class="denied">مفيش إشعارات اتبعتت لسه</div>'; return; }
 
-    // تجميع الإشعارات المتطابقة (نفس العنوان والنص في نفس الدقيقة تقريبًا) كإرسال واحد
-    const grouped = {};
-    recent.forEach(n => {
-      const key = n.title + '|' + n.body + '|' + n.created_at.slice(0,16);
-      if(!grouped[key]){ grouped[key] = { ...n, count: 0 }; }
-      grouped[key].count++;
-    });
-
-    list.innerHTML = Object.values(grouped).slice(0, 15).map(n => `
+    list.innerHTML = logs.map(l => `
       <div class="recent-item">
-        <div class="r-title">${n.title}</div>
-        <div class="r-meta">${n.body || ''} · اتبعت لـ ${n.count} مستخدم · ${new Date(n.created_at).toLocaleString('ar-EG')}</div>
+        <div class="r-title">${l.title}</div>
+        <div class="r-meta">${l.body || ''} · ${l.target_label} (${l.recipient_count} مستلم) · ${new Date(l.created_at).toLocaleString('ar-EG')}</div>
       </div>
     `).join('');
   }
@@ -202,18 +208,23 @@
     if(!title){ msg.style.color = 'var(--rust)'; msg.textContent = 'العنوان مطلوب'; return; }
 
     let targetUserIds = [];
+    let targetLabel = '';
 
     if(currentTarget === 'all'){
       const { data: users } = await db.from('profiles').select('id');
       targetUserIds = (users || []).map(u => u.id);
+      targetLabel = 'كل المستخدمين';
     } else if(currentTarget === 'role'){
       const role = document.getElementById('role-select').value;
       const { data: users } = await db.from('profiles').select('id').eq('role', role);
       targetUserIds = (users || []).map(u => u.id);
+      targetLabel = ROLE_LABELS[role] || role;
     } else if(currentTarget === 'user'){
-      const userId = document.getElementById('user-select').value;
+      const userSelect = document.getElementById('user-select');
+      const userId = userSelect.value;
       if(!userId){ msg.style.color = 'var(--rust)'; msg.textContent = 'اختار مستخدم الأول'; return; }
       targetUserIds = [userId];
+      targetLabel = userSelect.options[userSelect.selectedIndex].text;
     }
 
     if(!targetUserIds.length){
@@ -228,6 +239,14 @@
 
     const rows = targetUserIds.map(uid => ({ user_id: uid, title, body, url }));
     const { error } = await db.from('notifications').insert(rows);
+
+    if(!error){
+      // تسجيل في سجل الأدمن المستقل (مش هيتأثر بمسح المستخدمين لإشعاراتهم)
+      await db.from('admin_notification_log').insert({
+        sent_by: currentAdminId, target_type: currentTarget, target_label: targetLabel,
+        title, body, url, recipient_count: targetUserIds.length,
+      });
+    }
 
     btn.disabled = false;
     btn.textContent = '📤 إرسال الإشعار';
@@ -255,6 +274,7 @@
       document.getElementById('access-gate').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
       return;
     }
+    currentAdminId = session.user.id;
     loadUsersDropdown();
     loadRecentNotifications();
   })();
