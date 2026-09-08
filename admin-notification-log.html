@@ -1,0 +1,94 @@
+cat > /home/claude/farm-platform-html/admin-notification-log.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="site-assets/logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سجل الإشعارات المرسلة — لوحة الأدمن</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F1E4; --ink:#1E2A1B; --leaf:#3B5B37; --leaf-deep:#24391F;
+    --rust:#A85D28; --line:#CDBF9C; --paper:#FCFAF3;
+  }
+[data-theme="dark"]{
+    --bg: #12181B; --ink: #EDEFEC; --leaf: #6FA568; --leaf-deep: #8FC286;
+    --rust: #D48A52; --line: #2B3438; --paper: #1B2327;
+}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif; padding:24px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  header h1{ font-family:'Tajawal'; font-weight:900; font-size:20px; color:var(--leaf-deep); }
+  a.back{ font-size:13.5px; color:var(--leaf-deep); text-decoration:none; border:1px solid var(--line); padding:8px 14px; border-radius:8px; background:var(--paper); }
+
+  .log-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:12px; }
+  .log-title{ font-family:'Tajawal'; font-weight:800; font-size:14.5px; }
+  .log-meta{ font-size:11.5px; color:#8a7f63; margin-top:4px; }
+  .log-body{ font-size:13px; color:#5b543f; margin-top:8px; line-height:1.7; }
+  .log-target{ display:inline-block; font-size:11px; font-weight:700; padding:2px 10px; border-radius:20px; background:var(--bg); color:var(--leaf-deep); margin-top:8px; }
+  .log-actions{ margin-top:10px; }
+  .delete-btn{ font-size:11.5px; padding:6px 12px; border-radius:7px; border:1px solid #e3b8b8; background:#fbe9e9; color:#a83232; cursor:pointer; font-family:inherit; }
+
+  .empty, .denied{ text-align:center; color:#5b543f; padding:40px 0; font-size:14px; font-family:'Tajawal'; }
+</style>
+</head>
+<body>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("agronex-theme") || "light");</script>
+<div class="wrap">
+  <header>
+    <h1>📋 سجل الإشعارات المرسلة</h1>
+    <a class="back" href="admin.html">رجوع للوحة التحكم</a>
+  </header>
+
+  <div id="content"><div class="empty">جاري التحميل...</div></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://tzpoytzacshvmpzfclfv.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_nRVb27QsyVgsiRB-vBFqgw_rNyhkDQs";
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function loadLog(){
+    const { data: logs } = await db.from('admin_notification_log').select('*').order('created_at', { ascending: false });
+    const container = document.getElementById('content');
+    if(!logs || !logs.length){ container.innerHTML = '<div class="empty">لسه مافيش إشعارات مُرسلة مسجّلة</div>'; return; }
+
+    container.innerHTML = logs.map(l => `
+      <div class="log-card" data-id="${l.id}">
+        <div class="log-title">${l.title}</div>
+        ${l.body ? `<div class="log-body">${l.body}</div>` : ''}
+        <div class="log-target">📤 ${l.target_label} (${l.recipient_count} مستلم)</div>
+        <div class="log-meta">${new Date(l.created_at).toLocaleString('ar-EG')}</div>
+        <div class="log-actions">
+          <button class="delete-btn" data-delete-id="${l.id}">🗑️ حذف من السجل</button>
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('حذف السجل ده مش هيأثر على المستخدمين اللي استلموه، بس هيختفي من سجلك انت. تكمل؟')) return;
+        await db.from('admin_notification_log').delete().eq('id', btn.getAttribute('data-delete-id'));
+        loadLog();
+      });
+    });
+  }
+
+  (async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if(!session){ window.location.href = 'login.html'; return; }
+    const { data: myProfile } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+    if(!myProfile || myProfile.role !== 'admin'){
+      document.getElementById('content').innerHTML = '<div class="denied">🚫 الصفحة دي للأدمن بس</div>';
+      return;
+    }
+    loadLog();
+  })();
+</script>
+</body>
+</html>
